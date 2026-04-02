@@ -18,13 +18,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install and run ruff
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install ruff
-
-      - name: Lint with ruff
-        run: python -m ruff check .
+          python -m venv .venv-lint
+          .venv-lint/bin/pip install ruff
+          .venv-lint/bin/ruff check .
 
   test:
     name: Test
@@ -40,12 +38,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install poetry
-          poetry install --no-interaction
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install poetry
+          .venv/bin/poetry config virtualenvs.create false
+          .venv/bin/poetry install --no-interaction
 
       - name: Run tests
-        run: poetry run pytest -v
+        run: .venv/bin/pytest -v
 
   build:
     name: Build Docker Image
