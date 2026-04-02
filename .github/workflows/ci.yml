@@ -37,16 +37,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        working-directory: backend
         run: |
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install poetry
-          cd backend
-          ../.venv/bin/poetry config virtualenvs.create false
-          ../.venv/bin/poetry install --no-interaction
+          .venv/bin/poetry config virtualenvs.create false
+          .venv/bin/poetry install --no-interaction
 
       - name: Run tests
-        run: cd backend && ../.venv/bin/pytest -v
+        working-directory: backend
+        run: .venv/bin/pytest -v
 
   build:
     name: Build Docker Image
