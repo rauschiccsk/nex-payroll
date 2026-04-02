@@ -22,7 +22,7 @@ jobs:
         run: |
           python -m venv .venv-lint
           .venv-lint/bin/pip install ruff
-          .venv-lint/bin/ruff check .
+          .venv-lint/bin/ruff check backend/
 
   test:
     name: Test
@@ -41,11 +41,12 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install poetry
-          .venv/bin/poetry config virtualenvs.create false
-          .venv/bin/poetry install --no-interaction
+          cd backend
+          ../.venv/bin/poetry config virtualenvs.create false
+          ../.venv/bin/poetry install --no-interaction
 
       - name: Run tests
-        run: .venv/bin/pytest -v
+        run: cd backend && ../.venv/bin/pytest -v
 
   build:
     name: Build Docker Image
@@ -54,11 +55,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
+      - name: Build backend Docker image
         run: |
-          docker build -t nex-payroll:${{ github.sha }} .
-          docker tag nex-payroll:${{ github.sha }} nex-payroll:latest
+          docker build -t nex-payroll-backend:${{ github.sha }} ./backend
+          docker tag nex-payroll-backend:${{ github.sha }} nex-payroll-backend:latest
 
-      - name: Test Docker image
+      - name: Test backend Docker image
         run: |
-          docker run --rm nex-payroll:latest python --version
+          docker run --rm nex-payroll-backend:latest python --version
