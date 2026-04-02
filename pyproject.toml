@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "nex-payroll"
+version = "0.1.0"
+description = "NEX Automatized Payroll"
+authors = ["ICC s.r.o."]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.115.0"
+uvicorn = "^0.32.0"
+pg8000 = "^1.31.2"
+pydantic = "^2.10.0"
+pydantic-settings = "^2.6.0"
+sqlalchemy = "^2.0.36"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+ruff = "^0.8.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
