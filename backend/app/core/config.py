@@ -1,21 +1,24 @@
-"""Application configuration loaded from environment variables."""
+"""NEX Payroll — Configuration module."""
 
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """NEX Payroll application settings.
+    """Application settings loaded from environment variables."""
 
-    All values are loaded from environment variables.
-    Defaults are provided for local development only.
-    """
+    # Database
+    DATABASE_URL: str
 
-    DATABASE_URL: str = "postgresql+pg8000://payroll:payroll@localhost:5432/payroll"
-    PAYROLL_ENCRYPTION_KEY: str = ""
-    PAYROLL_JWT_SECRET: str = "dev-secret-change-me"
-    OLLAMA_URL: str = "http://localhost:11434"
+    # Security
+    PAYROLL_ENCRYPTION_KEY: str  # Fernet 32-byte hex key for salary encryption
+    PAYROLL_JWT_SECRET: str  # JWT token signing key
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    # External services
+    OLLAMA_URL: str = "http://andros:9132"  # NEX Brain RAG endpoint
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
 
 
 settings = Settings()

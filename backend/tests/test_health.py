@@ -1,4 +1,4 @@
-"""Tests for the /health endpoint."""
+"""NEX Payroll — Health endpoint tests."""
 
 from fastapi.testclient import TestClient
 
@@ -7,13 +7,8 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_health_returns_200():
-    """GET /health should return 200 with status ok."""
+def test_health_endpoint():
+    """Test that /health endpoint returns healthy status."""
     response = client.get("/health")
     assert response.status_code == 200
-
-
-def test_health_response_body():
-    """GET /health should return JSON with status 'ok'."""
-    response = client.get("/health")
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "healthy"}
