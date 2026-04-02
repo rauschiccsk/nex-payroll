@@ -1,93 +1,52 @@
 # NEX Payroll
 
-Automated payroll management system with AI-assisted features. Built with FastAPI (backend), React/TypeScript (frontend), and PostgreSQL.
-
-## Architecture
-
-| Service  | Technology            | Port |
-|----------|-----------------------|------|
-| Backend  | FastAPI / Python 3.12 | 9172 |
-| Frontend | React / Nginx         | 9173 |
-| Database | PostgreSQL 16         | 9174 |
-
-## Prerequisites
-
-- Docker & Docker Compose
-- (Optional) Python 3.12+ with Poetry, Node.js 20+ for local development
+**ICC Automated Accounting** — Payroll management system s AI-powered functionalities.
 
 ## Quick Start
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/rauschiccsk/nex-payroll.git && cd nex-payroll
-
-# 2. Create environment file
+# 1. Configure environment
 cp .env.example .env
-# Edit .env — set PAYROLL_ENCRYPTION_KEY and PAYROLL_JWT_SECRET
+# Edit .env — set DATABASE_URL, PAYROLL_ENCRYPTION_KEY, PAYROLL_JWT_SECRET
 
-# 3. Start all services
+# 2. Start services
 docker compose up -d
 
-# 4. Verify
-curl http://localhost:9172/health   # backend
-curl http://localhost:9173          # frontend
+# 3. Access
+Backend API: http://localhost:9172/docs
+Frontend: http://localhost:9173
+Database: localhost:9174
 ```
 
-## Environment Variables
-
-| Variable                 | Description                          | Example                                          |
-|--------------------------|--------------------------------------|--------------------------------------------------|
-| `DATABASE_URL`           | PostgreSQL connection string         | `postgresql://payroll:secret@db:5432/payroll`    |
-| `PAYROLL_ENCRYPTION_KEY` | Fernet key for sensitive data        | *(generate with Python cryptography)*            |
-| `PAYROLL_JWT_SECRET`     | Secret for JWT token signing         | *(random 64-char string)*                        |
-| `OLLAMA_URL`             | Ollama API endpoint for AI features  | `http://host.docker.internal:11434`              |
+## Port Assignment (ICC Port Registry)
+- **9172** — Backend API (FastAPI)
+- **9173** — Frontend (Nginx)
+- **9174** — PostgreSQL 16
 
 ## Development
 
 ### Backend
-
 ```bash
 cd backend
-poetry install
-poetry run uvicorn app.main:app --reload --port 9172
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 9172
 ```
 
 ### Frontend
-
 ```bash
 cd frontend
 npm install
-npm run dev -- --port 9173
+npm run dev  # Vite dev server on 9173
 ```
 
-### Running Tests
+## Environment Variables
+See `.env.example` for required configuration.
 
-```bash
-# Backend
-cd backend && poetry run pytest -v
-
-# Frontend
-cd frontend && npm test
-```
-
-## Project Structure
-
-```
-nex-payroll/
-├── backend/              # FastAPI application
-│   ├── app/              # Application package
-│   ├── tests/            # Backend tests
-│   ├── Dockerfile
-│   └── pyproject.toml
-├── frontend/             # React/TypeScript application
-│   ├── src/              # Source code
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
+## CI/CD
+GitHub Actions self-hosted runner on ANDROS Ubuntu.
+Pipeline: Lint → Test → Build Docker Image
 
 ## License
-
 Proprietary — ICC s.r.o.
