@@ -28,6 +28,11 @@ jobs:
     name: Test
     runs-on: self-hosted
     needs: lint
+    env:
+      DATABASE_URL: postgresql+pg8000://payroll:payroll@localhost:9174/payroll_db
+      TEST_DATABASE_URL: postgresql+pg8000://payroll:payroll@localhost:9174/payroll_test
+      PAYROLL_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      PAYROLL_JWT_SECRET: ci-test-secret
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +40,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Ensure test database exists
+        run: |
+          docker exec nex-payroll-db psql -U payroll -d payroll_db -tc \
+            "SELECT 1 FROM pg_database WHERE datname = 'payroll_test'" \
+            | grep -q 1 \
+            || docker exec nex-payroll-db psql -U payroll -d payroll_db \
+              -c "CREATE DATABASE payroll_test OWNER payroll;"
 
       - name: Install dependencies
         working-directory: backend
