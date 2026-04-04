@@ -6,6 +6,16 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  COMPOSE_PROJECT: nex-payroll
+  DB_CONTAINER: nex-payroll-db
+  BACKEND_CONTAINER: nex-payroll-backend
+  POSTGRES_USER: nex_payroll
+  POSTGRES_DB: nex_payroll
+  POSTGRES_TEST_DB: nex_payroll_test
+  DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll
+  TEST_DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll_test
+
 jobs:
   lint:
     name: Lint
@@ -19,9 +29,13 @@ jobs:
           pip install poetry
           poetry install --no-interaction
 
-      - name: Run ruff
+      - name: Run ruff check
         working-directory: backend
         run: poetry run ruff check .
+
+      - name: Run ruff format check
+        working-directory: backend
+        run: poetry run ruff format --check .
 
   test:
     name: Test
@@ -41,15 +55,21 @@ jobs:
 
       - name: Ensure test database exists
         run: |
-          docker exec nex-payroll-db psql -U nex_payroll -d nex_payroll -tc \
-            "SELECT 1 FROM pg_database WHERE datname = 'nex_payroll_test'" \
+          docker exec ${{ env.DB_CONTAINER }} psql -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -tc \
+            "SELECT 1 FROM pg_database WHERE datname = '${{ env.POSTGRES_TEST_DB }}'" \
             | grep -q 1 \
-            || docker exec nex-payroll-db psql -U nex_payroll -d nex_payroll \
-              -c "CREATE DATABASE nex_payroll_test OWNER nex_payroll;"
+            || docker exec ${{ env.DB_CONTAINER }} psql -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} \
+              -c "CREATE DATABASE ${{ env.POSTGRES_TEST_DB }} OWNER ${{ env.POSTGRES_USER }};"
 
-      - name: Run tests
+      - name: Run Alembic migrations on test DB
         working-directory: backend
-        run: poetry run pytest -v
+        env:
+          DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll_test
+        run: poetry run alembic upgrade head
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: poetry run pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=90
 
   build:
     name: Build Docker Image
@@ -64,4 +84,41 @@ jobs:
           docker tag nex-payroll-backend:${{ github.sha }} nex-payroll-backend:latest
 
       - name: Verify backend Docker image
-        run: docker run --rm nex-payroll-backend:latest python --version
+        run: docker run --rm nex-payroll-backend:latest python -c "import app; print('OK')"
+
+  deploy:
+    name: Deploy
+    runs-on: self-hosted
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Alembic migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll
+        run: |
+          pip install poetry
+          poetry install --no-interaction
+          poetry run alembic upgrade head
+
+      - name: Deploy with Docker Compose
+        run: |
+          cd ${{ github.workspace }}
+          docker compose -p ${{ env.COMPOSE_PROJECT }} up -d --build --remove-orphans
+
+      - name: Wait for backend health
+        run: |
+          echo "Waiting for backend to become healthy..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9172/health > /dev/null 2>&1; then
+              echo "Backend is healthy!"
+              exit 0
+            fi
+            echo "Attempt $i/30 - waiting 5s..."
+            sleep 5
+          done
+          echo "Backend failed to become healthy"
+          docker compose -p ${{ env.COMPOSE_PROJECT }} logs backend --tail=50
+          exit 1

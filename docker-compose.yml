@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    container_name: nex-payroll-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-nex_payroll}
@@ -22,6 +23,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: nex-payroll-backend
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+pg8000://${POSTGRES_USER:-nex_payroll}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-nex_payroll}
