@@ -26,16 +26,21 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: |
-          pip install poetry
+          export PATH="$HOME/.local/bin:$PATH"
+          pip install --break-system-packages poetry
           poetry install --no-interaction
 
       - name: Run ruff check
         working-directory: backend
-        run: poetry run ruff check .
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run ruff check .
 
       - name: Run ruff format check
         working-directory: backend
-        run: poetry run ruff format --check .
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run ruff format --check .
 
   test:
     name: Test
@@ -50,7 +55,8 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: |
-          pip install poetry
+          export PATH="$HOME/.local/bin:$PATH"
+          pip install --break-system-packages poetry
           poetry install --no-interaction
 
       - name: Ensure test database exists
@@ -65,11 +71,15 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll_test
-        run: poetry run alembic upgrade head
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run alembic upgrade head
 
       - name: Run tests with coverage
         working-directory: backend
-        run: poetry run pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=90
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=90
 
   build:
     name: Build Docker Image
@@ -99,7 +109,8 @@ jobs:
         env:
           DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll
         run: |
-          pip install poetry
+          export PATH="$HOME/.local/bin:$PATH"
+          pip install --break-system-packages poetry
           poetry install --no-interaction
           poetry run alembic upgrade head
 
