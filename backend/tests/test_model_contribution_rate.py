@@ -3,8 +3,10 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import TIMESTAMP, Date, Numeric, String, inspect
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from app.models.contribution_rate import ContributionRate
 
@@ -101,11 +103,33 @@ class TestContributionRateIndex:
 
     def test_rate_type_valid_from_index_columns(self):
         indexes = ContributionRate.__table__.indexes
-        target = next(
-            idx for idx in indexes if idx.name == "ix_contribution_rates_rate_type_valid_from"
-        )
+        target = next(idx for idx in indexes if idx.name == "ix_contribution_rates_rate_type_valid_from")
         col_names = [col.name for col in target.columns]
         assert col_names == ["rate_type", "valid_from"]
+
+
+class TestContributionRateConstraints:
+    """Verify CHECK constraints on ContributionRate model."""
+
+    def test_payer_check_constraint_exists(self):
+        """Check constraint ck_contribution_rates_payer must exist in table metadata."""
+        constraints = ContributionRate.__table__.constraints
+        check_names = {c.name for c in constraints if hasattr(c, "sqltext")}
+        assert "ck_contribution_rates_payer" in check_names
+
+    def test_payer_check_constraint_rejects_invalid_value(self, db_session):
+        """DB must reject payer values outside ('employee', 'employer')."""
+        rate = ContributionRate(
+            rate_type="sp_test",
+            rate_percent=Decimal("1.0000"),
+            payer="invalid_payer",
+            fund="test_fund",
+            valid_from=date(2025, 1, 1),
+        )
+        db_session.add(rate)
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.flush()
+        db_session.rollback()
 
 
 class TestContributionRateRepr:

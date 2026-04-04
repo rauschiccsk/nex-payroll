@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import TIMESTAMP, Date, Index, Numeric, String, text
+from sqlalchemy import TIMESTAMP, CheckConstraint, Date, Index, Numeric, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -26,6 +26,10 @@ class ContributionRate(Base):
     __tablename__ = "contribution_rates"
     __table_args__ = (
         Index("ix_contribution_rates_rate_type_valid_from", "rate_type", "valid_from"),
+        CheckConstraint(
+            "payer IN ('employee', 'employer')",
+            name="ck_contribution_rates_payer",
+        ),
         {"schema": "shared"},
     )
 
@@ -55,7 +59,7 @@ class ContributionRate(Base):
     payer: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        comment="CHECK IN (employee, employer)",
+        comment="employee or employer",
     )
 
     fund: Mapped[str] = mapped_column(
