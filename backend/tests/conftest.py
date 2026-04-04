@@ -86,6 +86,9 @@ def _setup_database():
     """
     try:
         engine = _get_engine()
+        with engine.connect() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS shared"))
+            conn.commit()
         Base.metadata.create_all(bind=engine)
     except Exception:
         # DB not available — non-DB tests will still pass;
