@@ -4,19 +4,17 @@ Schema: shared
 Stores SP/ZP contribution rates with validity periods.
 """
 
-import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import TIMESTAMP, CheckConstraint, Date, Index, Numeric, String, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import TIMESTAMP, CheckConstraint, Date, Index, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
-from app.models.base import Base
+from app.models.base import Base, UUIDMixin
 
 
-class ContributionRate(Base):
+class ContributionRate(UUIDMixin, Base):
     """Versioned contribution rates for social/health insurance funds.
 
     Lives in the 'shared' schema — shared across all tenants.
@@ -31,13 +29,6 @@ class ContributionRate(Base):
             name="ck_contribution_rates_payer",
         ),
         {"schema": "shared"},
-    )
-
-    # PK — UUIDMixin inline (shared schema model)
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        server_default=text("gen_random_uuid()"),
     )
 
     rate_type: Mapped[str] = mapped_column(
