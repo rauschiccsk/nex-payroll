@@ -68,6 +68,4 @@ def test_alembic_env_render_as_batch():
     env_path = os.path.join(backend_dir, "alembic", "env.py")
     with open(env_path) as f:
         content = f.read()
-    assert "render_as_batch=True" in content, (
-        "render_as_batch=True not found in env.py"
-    )
+    assert "render_as_batch=True" in content, "render_as_batch=True not found in env.py"

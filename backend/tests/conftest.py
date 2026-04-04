@@ -1,12 +1,20 @@
 """Test configuration and fixtures.
 
 Uses TEST_DATABASE_URL — NEVER the production DATABASE_URL.
-Implements transaction-based test isolation per DESIGN.md.
+Implements transaction-based test isolation per DESIGN.md §Test DB Isolation.
+
+Key pattern:
+  - connection.begin() starts outer transaction
+  - Session(join_transaction_mode="create_savepoint") makes session.commit()
+    flush but NOT commit the outer transaction
+  - transaction.rollback() at teardown undoes everything
 """
 
 import os
+from collections.abc import Generator
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
@@ -25,8 +33,7 @@ TEST_DATABASE_URL = os.environ.get(
 _PROD_DATABASE_URL = os.environ.get("DATABASE_URL", "")
 if _PROD_DATABASE_URL and TEST_DATABASE_URL == _PROD_DATABASE_URL:
     raise RuntimeError(
-        "TEST_DATABASE_URL must differ from DATABASE_URL. "
-        "Refusing to run tests against production database."
+        "TEST_DATABASE_URL must differ from DATABASE_URL. Refusing to run tests against production database."
     )
 
 
@@ -67,6 +74,9 @@ def _get_engine():
     return _engine
 
 
+# ---------------------------------------------------------------------------
+# Session-scoped: create/drop all tables
+# ---------------------------------------------------------------------------
 @pytest.fixture(scope="session", autouse=True)
 def _setup_database():
     """Create all tables before tests, drop after all tests complete.
@@ -88,8 +98,11 @@ def _setup_database():
     Base.metadata.drop_all(bind=engine)
 
 
+# ---------------------------------------------------------------------------
+# Per-test: transactional session with SAVEPOINT isolation
+# ---------------------------------------------------------------------------
 @pytest.fixture()
-def db_session():
+def db_session() -> Generator[Session, None, None]:
     """Yield a transactional DB session that rolls back after each test.
 
     Uses join_transaction_mode='create_savepoint' so that session.commit()
@@ -110,3 +123,27 @@ def db_session():
     session.close()
     transaction.rollback()
     connection.close()
+
+
+# ---------------------------------------------------------------------------
+# FastAPI TestClient with DB override
+# ---------------------------------------------------------------------------
+@pytest.fixture()
+def client(db_session: Session) -> Generator[TestClient, None, None]:
+    """FastAPI TestClient with get_db overridden to use test session.
+
+    Ensures all API tests use the same transactional session
+    (and thus get automatic rollback isolation).
+    """
+    from app.core.database import get_db
+    from app.main import app
+
+    def _override_get_db() -> Generator[Session, None, None]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
