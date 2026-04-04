@@ -52,3 +52,22 @@ def test_alembic_env_imports_base():
     assert Base.metadata is not None
     # At minimum, Base should be importable with metadata
     assert hasattr(Base.metadata, "tables")
+
+
+def test_alembic_ini_has_ruff_post_write_hook():
+    """Verify alembic.ini configures ruff as post-write hook."""
+    config = _get_alembic_config()
+    hooks = config.get_section("post_write_hooks")
+    assert hooks is not None, "post_write_hooks section missing from alembic.ini"
+    assert hooks.get("hooks") == "ruff", "ruff hook not configured"
+
+
+def test_alembic_env_render_as_batch():
+    """Verify env.py source contains render_as_batch=True."""
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env_path = os.path.join(backend_dir, "alembic", "env.py")
+    with open(env_path) as f:
+        content = f.read()
+    assert "render_as_batch=True" in content, (
+        "render_as_batch=True not found in env.py"
+    )
