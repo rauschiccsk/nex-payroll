@@ -34,6 +34,7 @@ from app.models.employee_child import EmployeeChild  # noqa: F401
 from app.models.health_insurer import HealthInsurer  # noqa: F401
 from app.models.leave_entitlement import LeaveEntitlement  # noqa: F401
 from app.models.monthly_report import MonthlyReport  # noqa: F401
+from app.models.payment_order import PaymentOrder  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 from app.models.tax_bracket import TaxBracket  # noqa: F401
 from app.models.tenant import Tenant  # noqa: F401

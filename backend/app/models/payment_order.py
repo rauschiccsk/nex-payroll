@@ -151,7 +151,7 @@ class PaymentOrder(UUIDMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
-        server_default="'pending'",
+        server_default="pending",
         comment="Order status: pending, exported, paid",
     )
 
