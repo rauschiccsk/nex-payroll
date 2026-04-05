@@ -35,6 +35,7 @@ from app.models.leave import Leave  # noqa: E402, F401
 from app.models.leave_entitlement import LeaveEntitlement  # noqa: E402, F401
 from app.models.monthly_report import MonthlyReport  # noqa: E402, F401
 from app.models.notification import Notification  # noqa: E402, F401
+from app.models.pay_slip import PaySlip  # noqa: E402, F401
 from app.models.payment_order import PaymentOrder  # noqa: E402, F401
 from app.models.payroll import Payroll  # noqa: E402, F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: E402, F401
