@@ -31,6 +31,7 @@ from app.models.contribution_rate import ContributionRate  # noqa: E402, F401
 from app.models.employee import Employee  # noqa: E402, F401
 from app.models.employee_child import EmployeeChild  # noqa: E402, F401
 from app.models.health_insurer import HealthInsurer  # noqa: E402, F401
+from app.models.leave import Leave  # noqa: E402, F401
 from app.models.leave_entitlement import LeaveEntitlement  # noqa: E402, F401
 from app.models.monthly_report import MonthlyReport  # noqa: E402, F401
 from app.models.payment_order import PaymentOrder  # noqa: E402, F401
