@@ -340,6 +340,23 @@ class TestNotificationConstraints:
             db_session.flush()
         db_session.rollback()
 
+    def test_fk_tenant_restrict_delete(self, db_session, tenant, user):
+        """Deleting a tenant with notifications must be rejected.
+
+        Uses raw SQL per FK RESTRICT Test Pattern — ORM session.delete()
+        sets FK to NULL first (NOT NULL failure before FK check).
+        """
+        notif = _make_notification(tenant, user)
+        db_session.add(notif)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM public.tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+        db_session.rollback()
+
     def test_fk_user_restrict_delete(self, db_session, tenant, user):
         """Deleting a user with notifications must be rejected (RESTRICT).
 

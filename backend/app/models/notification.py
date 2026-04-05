@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     String,
     Text,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -54,7 +55,7 @@ class Notification(UUIDMixin, TimestampMixin, Base):
         Index(
             "ix_notifications_tenant_created_at",
             "tenant_id",
-            "created_at",
+            text("created_at DESC"),
         ),
     )
 
