@@ -6,5 +6,6 @@ Import all models here so Alembic autogenerate can detect them.
 from app.models.base import Base
 from app.models.contribution_rate import ContributionRate
 from app.models.health_insurer import HealthInsurer
+from app.models.statutory_deadline import StatutoryDeadline
 
-__all__ = ["Base", "ContributionRate", "HealthInsurer"]
+__all__ = ["Base", "ContributionRate", "HealthInsurer", "StatutoryDeadline"]
