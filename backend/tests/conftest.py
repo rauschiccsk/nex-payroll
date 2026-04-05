@@ -38,6 +38,7 @@ from app.models.payment_order import PaymentOrder  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 from app.models.tax_bracket import TaxBracket  # noqa: F401
 from app.models.tenant import Tenant  # noqa: F401
+from app.models.user import User  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Database URL resolution

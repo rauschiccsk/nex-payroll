@@ -48,9 +48,11 @@ class User(UUIDMixin, TimestampMixin, Base):
             "email",
             name="uq_users_tenant_email",
         ),
-        UniqueConstraint(
+        Index(
+            "uq_users_employee_id",
             "employee_id",
-            name="uq_users_employee_id",
+            unique=True,
+            postgresql_where="employee_id IS NOT NULL",
         ),
         CheckConstraint(
             "role IN ('director', 'accountant', 'employee')",
