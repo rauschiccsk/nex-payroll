@@ -9,6 +9,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    TIMESTAMP,
     CheckConstraint,
     Date,
     ForeignKey,
@@ -126,6 +127,7 @@ class MonthlyReport(UUIDMixin, TimestampMixin, Base):
     )
 
     submitted_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True),
         nullable=True,
         comment="Timestamp when the report was submitted",
     )

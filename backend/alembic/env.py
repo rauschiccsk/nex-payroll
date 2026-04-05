@@ -32,6 +32,7 @@ from app.models.employee import Employee  # noqa: E402, F401
 from app.models.employee_child import EmployeeChild  # noqa: E402, F401
 from app.models.health_insurer import HealthInsurer  # noqa: E402, F401
 from app.models.leave_entitlement import LeaveEntitlement  # noqa: E402, F401
+from app.models.monthly_report import MonthlyReport  # noqa: E402, F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: E402, F401
 from app.models.tax_bracket import TaxBracket  # noqa: E402, F401
 from app.models.tenant import Tenant  # noqa: E402, F401
