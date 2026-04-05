@@ -16,6 +16,7 @@ from app.models.payment_order import PaymentOrder
 from app.models.statutory_deadline import StatutoryDeadline
 from app.models.tax_bracket import TaxBracket
 from app.models.tenant import Tenant
+from app.models.user import User
 
 __all__ = [
     "AuditLog",
@@ -31,4 +32,5 @@ __all__ = [
     "StatutoryDeadline",
     "TaxBracket",
     "Tenant",
+    "User",
 ]
