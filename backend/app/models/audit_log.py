@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import TIMESTAMP, CheckConstraint, Index, String
+from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -48,6 +48,7 @@ class AuditLog(UUIDMixin, Base):
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("public.tenants.id"),
         nullable=False,
         comment="Reference to tenant (public.tenants.id)",
     )
