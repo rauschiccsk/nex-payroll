@@ -25,7 +25,23 @@ if database_url:
 
 # Import all models so autogenerate can detect them
 from app.models import Base  # noqa: E402
+from app.models.audit_log import AuditLog  # noqa: E402, F401
+from app.models.contract import Contract  # noqa: E402, F401
 from app.models.contribution_rate import ContributionRate  # noqa: E402, F401
+from app.models.employee import Employee  # noqa: E402, F401
+from app.models.employee_child import EmployeeChild  # noqa: E402, F401
+from app.models.health_insurer import HealthInsurer  # noqa: E402, F401
+from app.models.leave import Leave  # noqa: E402, F401
+from app.models.leave_entitlement import LeaveEntitlement  # noqa: E402, F401
+from app.models.monthly_report import MonthlyReport  # noqa: E402, F401
+from app.models.notification import Notification  # noqa: E402, F401
+from app.models.pay_slip import PaySlip  # noqa: E402, F401
+from app.models.payment_order import PaymentOrder  # noqa: E402, F401
+from app.models.payroll import Payroll  # noqa: E402, F401
+from app.models.statutory_deadline import StatutoryDeadline  # noqa: E402, F401
+from app.models.tax_bracket import TaxBracket  # noqa: E402, F401
+from app.models.tenant import Tenant  # noqa: E402, F401
+from app.models.user import User  # noqa: E402, F401
 
 target_metadata = Base.metadata
 
