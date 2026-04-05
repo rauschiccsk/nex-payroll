@@ -10,6 +10,7 @@ from app.models.contribution_rate import ContributionRate
 from app.models.employee import Employee
 from app.models.employee_child import EmployeeChild
 from app.models.health_insurer import HealthInsurer
+from app.models.leave import Leave
 from app.models.leave_entitlement import LeaveEntitlement
 from app.models.monthly_report import MonthlyReport
 from app.models.payment_order import PaymentOrder
@@ -26,6 +27,7 @@ __all__ = [
     "Employee",
     "EmployeeChild",
     "HealthInsurer",
+    "Leave",
     "LeaveEntitlement",
     "MonthlyReport",
     "PaymentOrder",
