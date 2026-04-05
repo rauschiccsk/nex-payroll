@@ -29,6 +29,7 @@ from app.models.contribution_rate import ContributionRate  # noqa: E402, F401
 from app.models.health_insurer import HealthInsurer  # noqa: E402, F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: E402, F401
 from app.models.tax_bracket import TaxBracket  # noqa: E402, F401
+from app.models.tenant import Tenant  # noqa: E402, F401
 
 target_metadata = Base.metadata
 
