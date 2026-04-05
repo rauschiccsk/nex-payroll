@@ -11,6 +11,7 @@ from app.models.employee import Employee
 from app.models.employee_child import EmployeeChild
 from app.models.health_insurer import HealthInsurer
 from app.models.leave_entitlement import LeaveEntitlement
+from app.models.monthly_report import MonthlyReport
 from app.models.statutory_deadline import StatutoryDeadline
 from app.models.tax_bracket import TaxBracket
 from app.models.tenant import Tenant
@@ -24,6 +25,7 @@ __all__ = [
     "EmployeeChild",
     "HealthInsurer",
     "LeaveEntitlement",
+    "MonthlyReport",
     "StatutoryDeadline",
     "TaxBracket",
     "Tenant",
