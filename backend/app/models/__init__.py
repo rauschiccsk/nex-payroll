@@ -7,5 +7,6 @@ from app.models.base import Base
 from app.models.contribution_rate import ContributionRate
 from app.models.health_insurer import HealthInsurer
 from app.models.statutory_deadline import StatutoryDeadline
+from app.models.tax_bracket import TaxBracket
 
-__all__ = ["Base", "ContributionRate", "HealthInsurer", "StatutoryDeadline"]
+__all__ = ["Base", "ContributionRate", "HealthInsurer", "StatutoryDeadline", "TaxBracket"]
