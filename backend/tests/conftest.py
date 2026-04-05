@@ -24,6 +24,7 @@ from app.models.contribution_rate import ContributionRate  # noqa: F401
 from app.models.health_insurer import HealthInsurer  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 from app.models.tax_bracket import TaxBracket  # noqa: F401
+from app.models.tenant import Tenant  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Database URL resolution
