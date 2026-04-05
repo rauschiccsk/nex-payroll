@@ -14,6 +14,7 @@ from sqlalchemy import (
     Date,
     ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
 )
@@ -77,11 +78,13 @@ class MonthlyReport(UUIDMixin, TimestampMixin, Base):
     # -- Period --
 
     period_year: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
         comment="Report period — calendar year",
     )
 
     period_month: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
         comment="Report period — calendar month (1-12)",
     )

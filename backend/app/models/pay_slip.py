@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import func
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
@@ -107,7 +108,7 @@ class PaySlip(UUIDMixin, TimestampMixin, Base):
     generated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         nullable=False,
-        server_default="now()",
+        server_default=func.now(),
         comment="Timestamp when the pay slip PDF was generated",
     )
 
