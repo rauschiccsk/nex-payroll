@@ -9,6 +9,7 @@ status workflow: draft → calculated → approved → paid.
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     TIMESTAMP,
@@ -109,41 +110,41 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Gross wage components --
 
-    base_wage: Mapped[float] = mapped_column(
+    base_wage: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Base wage from contract",
     )
 
-    overtime_hours: Mapped[float] = mapped_column(
+    overtime_hours: Mapped[Decimal] = mapped_column(
         Numeric(6, 2),
         nullable=False,
         server_default="0",
         comment="Number of overtime hours worked",
     )
 
-    overtime_amount: Mapped[float] = mapped_column(
+    overtime_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         server_default="0",
         comment="Overtime pay amount",
     )
 
-    bonus_amount: Mapped[float] = mapped_column(
+    bonus_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         server_default="0",
         comment="Bonus amount for the period",
     )
 
-    supplement_amount: Mapped[float] = mapped_column(
+    supplement_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         server_default="0",
         comment="Supplementary pay (night, weekend, holiday)",
     )
 
-    gross_wage: Mapped[float] = mapped_column(
+    gross_wage: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Total gross wage (base + overtime + bonus + supplement)",
@@ -151,37 +152,37 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Social insurance — employee contributions --
 
-    sp_assessment_base: Mapped[float] = mapped_column(
+    sp_assessment_base: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Social insurance assessment base",
     )
 
-    sp_nemocenske: Mapped[float] = mapped_column(
+    sp_nemocenske: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employee sickness insurance contribution",
     )
 
-    sp_starobne: Mapped[float] = mapped_column(
+    sp_starobne: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employee old-age pension contribution",
     )
 
-    sp_invalidne: Mapped[float] = mapped_column(
+    sp_invalidne: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employee disability insurance contribution",
     )
 
-    sp_nezamestnanost: Mapped[float] = mapped_column(
+    sp_nezamestnanost: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employee unemployment insurance contribution",
     )
 
-    sp_employee_total: Mapped[float] = mapped_column(
+    sp_employee_total: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Total employee social insurance contributions",
@@ -189,13 +190,13 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Health insurance — employee contribution --
 
-    zp_assessment_base: Mapped[float] = mapped_column(
+    zp_assessment_base: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Health insurance assessment base",
     )
 
-    zp_employee: Mapped[float] = mapped_column(
+    zp_employee: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employee health insurance contribution",
@@ -203,38 +204,38 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Tax calculation --
 
-    partial_tax_base: Mapped[float] = mapped_column(
+    partial_tax_base: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Partial tax base (gross - SP employee - ZP employee)",
     )
 
-    nczd_applied: Mapped[float] = mapped_column(
+    nczd_applied: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Non-taxable amount (NČZD) applied",
     )
 
-    tax_base: Mapped[float] = mapped_column(
+    tax_base: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Final tax base after NČZD deduction",
     )
 
-    tax_advance: Mapped[float] = mapped_column(
+    tax_advance: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Advance income tax amount",
     )
 
-    child_bonus: Mapped[float] = mapped_column(
+    child_bonus: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         server_default="0",
         comment="Child tax bonus (daňový bonus na deti)",
     )
 
-    tax_after_bonus: Mapped[float] = mapped_column(
+    tax_after_bonus: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Tax after child bonus deduction",
@@ -242,7 +243,7 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Net wage --
 
-    net_wage: Mapped[float] = mapped_column(
+    net_wage: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Net wage paid to employee",
@@ -250,67 +251,67 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Social insurance — employer contributions --
 
-    sp_employer_nemocenske: Mapped[float] = mapped_column(
+    sp_employer_nemocenske: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer sickness insurance contribution",
     )
 
-    sp_employer_starobne: Mapped[float] = mapped_column(
+    sp_employer_starobne: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer old-age pension contribution",
     )
 
-    sp_employer_invalidne: Mapped[float] = mapped_column(
+    sp_employer_invalidne: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer disability insurance contribution",
     )
 
-    sp_employer_nezamestnanost: Mapped[float] = mapped_column(
+    sp_employer_nezamestnanost: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer unemployment insurance contribution",
     )
 
-    sp_employer_garancne: Mapped[float] = mapped_column(
+    sp_employer_garancne: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer guarantee fund contribution",
     )
 
-    sp_employer_rezervny: Mapped[float] = mapped_column(
+    sp_employer_rezervny: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer reserve fund contribution",
     )
 
-    sp_employer_kurzarbeit: Mapped[float] = mapped_column(
+    sp_employer_kurzarbeit: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer short-time work (kurzarbeit) contribution",
     )
 
-    sp_employer_urazove: Mapped[float] = mapped_column(
+    sp_employer_urazove: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer accident insurance contribution",
     )
 
-    sp_employer_total: Mapped[float] = mapped_column(
+    sp_employer_total: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Total employer social insurance contributions",
     )
 
-    zp_employer: Mapped[float] = mapped_column(
+    zp_employer: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Employer health insurance contribution",
     )
 
-    total_employer_cost: Mapped[float] = mapped_column(
+    total_employer_cost: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         comment="Total employer cost (gross + SP employer + ZP employer)",
@@ -318,7 +319,7 @@ class Payroll(UUIDMixin, TimestampMixin, Base):
 
     # -- Pillar 2 --
 
-    pillar2_amount: Mapped[float] = mapped_column(
+    pillar2_amount: Mapped[Decimal] = mapped_column(
         Numeric(10, 2),
         nullable=False,
         server_default="0",
