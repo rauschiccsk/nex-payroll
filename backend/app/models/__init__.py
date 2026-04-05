@@ -14,6 +14,7 @@ from app.models.leave import Leave
 from app.models.leave_entitlement import LeaveEntitlement
 from app.models.monthly_report import MonthlyReport
 from app.models.notification import Notification
+from app.models.pay_slip import PaySlip
 from app.models.payment_order import PaymentOrder
 from app.models.payroll import Payroll
 from app.models.statutory_deadline import StatutoryDeadline
@@ -33,6 +34,7 @@ __all__ = [
     "LeaveEntitlement",
     "MonthlyReport",
     "Notification",
+    "PaySlip",
     "PaymentOrder",
     "Payroll",
     "StatutoryDeadline",
