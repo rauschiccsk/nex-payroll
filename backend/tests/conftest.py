@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 # Import Base and all models so metadata is fully populated
 from app.models import Base  # noqa: F401
 from app.models.contribution_rate import ContributionRate  # noqa: F401
+from app.models.health_insurer import HealthInsurer  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Database URL resolution

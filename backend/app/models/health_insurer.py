@@ -6,7 +6,7 @@ Reference/seed data for health insurers (VšZP, Dôvera, Union).
 
 from datetime import datetime
 
-from sqlalchemy import TIMESTAMP, Boolean, String
+from sqlalchemy import TIMESTAMP, Boolean, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -26,12 +26,14 @@ class HealthInsurer(UUIDMixin, Base):
     """
 
     __tablename__ = "health_insurers"
-    __table_args__ = {"schema": "shared"}
+    __table_args__ = (
+        UniqueConstraint("code", name="uq_health_insurers_code"),
+        {"schema": "shared"},
+    )
 
     code: Mapped[str] = mapped_column(
         String(4),
         nullable=False,
-        unique=True,
         comment="Insurer code (e.g. 24, 25, 27)",
     )
 

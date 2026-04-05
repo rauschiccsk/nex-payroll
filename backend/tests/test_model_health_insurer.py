@@ -40,7 +40,10 @@ class TestHealthInsurerColumns:
         assert isinstance(col.type, String)
         assert col.type.length == 4
         assert col.nullable is False
-        assert col.unique is True
+        # unique enforced via UniqueConstraint in __table_args__, not column-level
+        constraints = HealthInsurer.__table__.constraints
+        uq_names = [c.name for c in constraints if hasattr(c, "columns") and "code" in c.columns]
+        assert "uq_health_insurers_code" in uq_names
 
     def test_name_column(self):
         col = self.mapper.columns["name"]
