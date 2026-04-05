@@ -30,6 +30,7 @@ from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.contract import Contract  # noqa: F401
 from app.models.contribution_rate import ContributionRate  # noqa: F401
 from app.models.employee import Employee  # noqa: F401
+from app.models.employee_child import EmployeeChild  # noqa: F401
 from app.models.health_insurer import HealthInsurer  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 from app.models.tax_bracket import TaxBracket  # noqa: F401

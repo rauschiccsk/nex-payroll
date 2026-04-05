@@ -43,7 +43,7 @@ class EmployeeChild(UUIDMixin, TimestampMixin, Base):
 
     employee_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to parent employee",
     )
