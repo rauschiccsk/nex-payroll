@@ -11,19 +11,24 @@ from sqlalchemy import Text
 from sqlalchemy.types import TypeDecorator
 
 # Fernet key from environment — MUST be set in production.
+# DESIGN.md §2.2 specifies PAYROLL_ENCRYPTION_KEY; FERNET_KEY is accepted as fallback.
 # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-_FERNET_KEY = os.environ.get("FERNET_KEY", "")
 
 
 def _get_fernet() -> Fernet:
-    """Return a Fernet instance, raising if key is not configured."""
-    if not _FERNET_KEY:
+    """Return a Fernet instance, raising if key is not configured.
+
+    Key is resolved lazily (at first encrypt/decrypt call, not at import time)
+    so that the env var can be set after module import (e.g. in tests).
+    """
+    key = os.environ.get("PAYROLL_ENCRYPTION_KEY", "") or os.environ.get("FERNET_KEY", "")
+    if not key:
         raise RuntimeError(
-            "FERNET_KEY environment variable is not set. "
+            "PAYROLL_ENCRYPTION_KEY (or FERNET_KEY) environment variable is not set. "
             "Generate one with: python -c "
             '"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"'
         )
-    return Fernet(_FERNET_KEY.encode())
+    return Fernet(key.encode())
 
 
 class EncryptedString(TypeDecorator):

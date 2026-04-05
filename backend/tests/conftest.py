@@ -14,14 +14,21 @@ import os
 from collections.abc import Generator
 
 import pytest
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
+
+# Ensure encryption key is available for EncryptedString fields in tests.
+# Must be set before any model module that uses EncryptedString is loaded.
+if not os.environ.get("PAYROLL_ENCRYPTION_KEY") and not os.environ.get("FERNET_KEY"):
+    os.environ["PAYROLL_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
 # Import Base and all models so metadata is fully populated
 from app.models import Base  # noqa: F401
 from app.models.audit_log import AuditLog  # noqa: F401
 from app.models.contribution_rate import ContributionRate  # noqa: F401
+from app.models.employee import Employee  # noqa: F401
 from app.models.health_insurer import HealthInsurer  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 from app.models.tax_bracket import TaxBracket  # noqa: F401
