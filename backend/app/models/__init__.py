@@ -13,6 +13,7 @@ from app.models.health_insurer import HealthInsurer
 from app.models.leave import Leave
 from app.models.leave_entitlement import LeaveEntitlement
 from app.models.monthly_report import MonthlyReport
+from app.models.notification import Notification
 from app.models.payment_order import PaymentOrder
 from app.models.statutory_deadline import StatutoryDeadline
 from app.models.tax_bracket import TaxBracket
@@ -30,6 +31,7 @@ __all__ = [
     "Leave",
     "LeaveEntitlement",
     "MonthlyReport",
+    "Notification",
     "PaymentOrder",
     "StatutoryDeadline",
     "TaxBracket",
