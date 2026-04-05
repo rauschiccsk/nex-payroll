@@ -139,10 +139,7 @@ def upgrade() -> None:
 
     # DESC index requires raw SQL — batch_alter_table doesn't support
     # functional expressions in create_index
-    op.execute(
-        "CREATE INDEX ix_notifications_tenant_created_at "
-        "ON notifications (tenant_id, created_at DESC)"
-    )
+    op.execute("CREATE INDEX ix_notifications_tenant_created_at ON notifications (tenant_id, created_at DESC)")
 
 
 def downgrade() -> None:

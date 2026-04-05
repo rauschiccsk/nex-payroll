@@ -549,12 +549,8 @@ class TestPaymentOrderDB:
 
     def test_multiple_orders_same_period(self, db_session, tenant):
         """Multiple payment orders for same period (different types) — allowed."""
-        po1 = _make_payment_order(
-            tenant, payment_type="net_wage", recipient_name="Zamestnanec 1"
-        )
-        po2 = _make_payment_order(
-            tenant, payment_type="sp", recipient_name="Sociálna poisťovňa"
-        )
+        po1 = _make_payment_order(tenant, payment_type="net_wage", recipient_name="Zamestnanec 1")
+        po2 = _make_payment_order(tenant, payment_type="sp", recipient_name="Sociálna poisťovňa")
         db_session.add_all([po1, po2])
         db_session.flush()
         assert po1.id != po2.id

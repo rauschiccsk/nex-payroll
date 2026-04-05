@@ -110,8 +110,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "report_type IN ('sp_monthly', 'zp_vszp', 'zp_dovera', "
-            "'zp_union', 'tax_prehled')",
+            "report_type IN ('sp_monthly', 'zp_vszp', 'zp_dovera', 'zp_union', 'tax_prehled')",
             name="ck_monthly_reports_report_type",
         ),
         sa.CheckConstraint(

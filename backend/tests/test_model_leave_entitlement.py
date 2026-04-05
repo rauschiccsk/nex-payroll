@@ -164,11 +164,7 @@ class TestLeaveEntitlementColumns:
     def test_unique_constraint_tenant_employee_year(self):
         """UniqueConstraint with explicit name must exist."""
         table = LeaveEntitlement.__table__
-        uq_names = [
-            c.name
-            for c in table.constraints
-            if hasattr(c, "columns") and len(c.columns) > 1
-        ]
+        uq_names = [c.name for c in table.constraints if hasattr(c, "columns") and len(c.columns) > 1]
         assert "uq_leave_entitlements_tenant_employee_year" in uq_names
 
 

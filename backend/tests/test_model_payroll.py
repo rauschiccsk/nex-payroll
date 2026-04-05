@@ -637,51 +637,33 @@ class TestPayrollConstraints:
         db_session.flush()
         assert payroll.status == "paid"
 
-    def test_check_ledger_sync_status_invalid(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_check_ledger_sync_status_invalid(self, db_session, tenant, employee, contract):
         """Invalid ledger_sync_status must be rejected."""
-        payroll = _make_payroll(
-            tenant, employee, contract, ledger_sync_status="unknown"
-        )
+        payroll = _make_payroll(tenant, employee, contract, ledger_sync_status="unknown")
         db_session.add(payroll)
         with pytest.raises((IntegrityError, ProgrammingError)):
             db_session.flush()
         db_session.rollback()
 
-    def test_check_ledger_sync_status_pending(
-        self, db_session, tenant, employee, contract
-    ):
-        payroll = _make_payroll(
-            tenant, employee, contract, ledger_sync_status="pending"
-        )
+    def test_check_ledger_sync_status_pending(self, db_session, tenant, employee, contract):
+        payroll = _make_payroll(tenant, employee, contract, ledger_sync_status="pending")
         db_session.add(payroll)
         db_session.flush()
         assert payroll.ledger_sync_status == "pending"
 
-    def test_check_ledger_sync_status_synced(
-        self, db_session, tenant, employee, contract
-    ):
-        payroll = _make_payroll(
-            tenant, employee, contract, ledger_sync_status="synced"
-        )
+    def test_check_ledger_sync_status_synced(self, db_session, tenant, employee, contract):
+        payroll = _make_payroll(tenant, employee, contract, ledger_sync_status="synced")
         db_session.add(payroll)
         db_session.flush()
         assert payroll.ledger_sync_status == "synced"
 
-    def test_check_ledger_sync_status_error(
-        self, db_session, tenant, employee, contract
-    ):
-        payroll = _make_payroll(
-            tenant, employee, contract, ledger_sync_status="error"
-        )
+    def test_check_ledger_sync_status_error(self, db_session, tenant, employee, contract):
+        payroll = _make_payroll(tenant, employee, contract, ledger_sync_status="error")
         db_session.add(payroll)
         db_session.flush()
         assert payroll.ledger_sync_status == "error"
 
-    def test_unique_tenant_employee_period(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_unique_tenant_employee_period(self, db_session, tenant, employee, contract):
         """Duplicate (tenant, employee, period_year, period_month) must fail."""
         p1 = _make_payroll(tenant, employee, contract)
         db_session.add(p1)
@@ -735,9 +717,7 @@ class TestPayrollConstraints:
 
     # -- FK RESTRICT delete tests (raw SQL per checklist) --
 
-    def test_fk_tenant_restrict_delete(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_fk_tenant_restrict_delete(self, db_session, tenant, employee, contract):
         """Deleting a tenant with payrolls must be rejected.
 
         Uses raw SQL per FK RESTRICT Test Pattern — ORM session.delete()
@@ -754,9 +734,7 @@ class TestPayrollConstraints:
             )
         db_session.rollback()
 
-    def test_fk_employee_restrict_delete(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_fk_employee_restrict_delete(self, db_session, tenant, employee, contract):
         """Deleting an employee with payrolls must be rejected."""
         payroll = _make_payroll(tenant, employee, contract)
         db_session.add(payroll)
@@ -769,9 +747,7 @@ class TestPayrollConstraints:
             )
         db_session.rollback()
 
-    def test_fk_contract_restrict_delete(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_fk_contract_restrict_delete(self, db_session, tenant, employee, contract):
         """Deleting a contract with payrolls must be rejected."""
         payroll = _make_payroll(tenant, employee, contract)
         db_session.add(payroll)
@@ -784,13 +760,9 @@ class TestPayrollConstraints:
             )
         db_session.rollback()
 
-    def test_fk_user_restrict_delete(
-        self, db_session, tenant, employee, contract, user
-    ):
+    def test_fk_user_restrict_delete(self, db_session, tenant, employee, contract, user):
         """Deleting a user referenced as approved_by must be rejected."""
-        payroll = _make_payroll(
-            tenant, employee, contract, approved_by=user.id
-        )
+        payroll = _make_payroll(tenant, employee, contract, approved_by=user.id)
         db_session.add(payroll)
         db_session.flush()
 
@@ -892,23 +864,15 @@ class TestPayrollDB:
         db_session.flush()
         assert payroll.status == "paid"
 
-    def test_different_periods_same_employee(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_different_periods_same_employee(self, db_session, tenant, employee, contract):
         """Same employee can have payrolls for different periods."""
-        p1 = _make_payroll(
-            tenant, employee, contract, period_year=2025, period_month=1
-        )
-        p2 = _make_payroll(
-            tenant, employee, contract, period_year=2025, period_month=2
-        )
+        p1 = _make_payroll(tenant, employee, contract, period_year=2025, period_month=1)
+        p2 = _make_payroll(tenant, employee, contract, period_year=2025, period_month=2)
         db_session.add_all([p1, p2])
         db_session.flush()
         assert p1.id != p2.id
 
-    def test_ai_validation_result_json(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_ai_validation_result_json(self, db_session, tenant, employee, contract):
         """ai_validation_result accepts complex JSON."""
         data = {
             "confidence": 0.87,
@@ -918,9 +882,7 @@ class TestPayrollDB:
             ],
             "validated_at": "2025-01-15T10:30:00",
         }
-        payroll = _make_payroll(
-            tenant, employee, contract, ai_validation_result=data
-        )
+        payroll = _make_payroll(tenant, employee, contract, ai_validation_result=data)
         db_session.add(payroll)
         db_session.flush()
         assert payroll.ai_validation_result["confidence"] == 0.87
@@ -933,13 +895,9 @@ class TestPayrollDB:
         db_session.flush()
         assert payroll.approved_by is None
 
-    def test_approved_by_with_user(
-        self, db_session, tenant, employee, contract, user
-    ):
+    def test_approved_by_with_user(self, db_session, tenant, employee, contract, user):
         """approved_by can reference a valid user."""
-        payroll = _make_payroll(
-            tenant, employee, contract, approved_by=user.id
-        )
+        payroll = _make_payroll(tenant, employee, contract, approved_by=user.id)
         db_session.add(payroll)
         db_session.flush()
         assert payroll.approved_by == user.id

@@ -16,6 +16,7 @@ from app.models.tenant import Tenant
 # Helpers — reusable fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def tenant(db_session):
     """Create a Tenant required as FK parent for Employee."""
@@ -71,6 +72,7 @@ def _make_employee(tenant, health_insurer, **overrides):
 # ===================================================================
 # Schema / metadata tests (no DB required)
 # ===================================================================
+
 
 class TestEmployeeSchema:
     """Verify table metadata and schema."""
@@ -249,9 +251,7 @@ class TestEmployeeColumns:
         uq_names = [
             c.name
             for c in constraints
-            if hasattr(c, "columns")
-            and "tenant_id" in c.columns
-            and "employee_number" in c.columns
+            if hasattr(c, "columns") and "tenant_id" in c.columns and "employee_number" in c.columns
         ]
         assert "uq_employees_tenant_employee_number" in uq_names
 
@@ -259,6 +259,7 @@ class TestEmployeeColumns:
 # ===================================================================
 # Repr
 # ===================================================================
+
 
 class TestEmployeeRepr:
     """Verify __repr__ output."""
@@ -280,6 +281,7 @@ class TestEmployeeRepr:
 # ===================================================================
 # Constraint tests (DB required)
 # ===================================================================
+
 
 class TestEmployeeConstraints:
     """DB-level constraint enforcement."""
@@ -334,25 +336,19 @@ class TestEmployeeConstraints:
         db_session.rollback()
 
     def test_check_tax_declaration_type_standard(self, db_session, tenant, health_insurer):
-        emp = _make_employee(
-            tenant, health_insurer, tax_declaration_type="standard", employee_number="TD01"
-        )
+        emp = _make_employee(tenant, health_insurer, tax_declaration_type="standard", employee_number="TD01")
         db_session.add(emp)
         db_session.flush()
         assert emp.tax_declaration_type == "standard"
 
     def test_check_tax_declaration_type_secondary(self, db_session, tenant, health_insurer):
-        emp = _make_employee(
-            tenant, health_insurer, tax_declaration_type="secondary", employee_number="TD02"
-        )
+        emp = _make_employee(tenant, health_insurer, tax_declaration_type="secondary", employee_number="TD02")
         db_session.add(emp)
         db_session.flush()
         assert emp.tax_declaration_type == "secondary"
 
     def test_check_tax_declaration_type_none(self, db_session, tenant, health_insurer):
-        emp = _make_employee(
-            tenant, health_insurer, tax_declaration_type="none", employee_number="TD03"
-        )
+        emp = _make_employee(tenant, health_insurer, tax_declaration_type="none", employee_number="TD03")
         db_session.add(emp)
         db_session.flush()
         assert emp.tax_declaration_type == "none"
@@ -378,9 +374,7 @@ class TestEmployeeConstraints:
         assert emp.status == "inactive"
 
     def test_check_status_terminated(self, db_session, tenant, health_insurer):
-        emp = _make_employee(
-            tenant, health_insurer, status="terminated", employee_number="ST03"
-        )
+        emp = _make_employee(tenant, health_insurer, status="terminated", employee_number="ST03")
         db_session.add(emp)
         db_session.flush()
         assert emp.status == "terminated"
@@ -435,6 +429,7 @@ class TestEmployeeConstraints:
 # ===================================================================
 # Database integration tests
 # ===================================================================
+
 
 class TestEmployeeDB:
     """Integration tests with actual database."""

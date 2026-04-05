@@ -41,8 +41,7 @@ class Contract(UUIDMixin, TimestampMixin, Base):
             name="uq_contracts_tenant_contract_number",
         ),
         CheckConstraint(
-            "contract_type IN ('permanent', 'fixed_term', "
-            "'agreement_work', 'agreement_activity')",
+            "contract_type IN ('permanent', 'fixed_term', 'agreement_work', 'agreement_activity')",
             name="ck_contracts_contract_type",
         ),
         CheckConstraint(

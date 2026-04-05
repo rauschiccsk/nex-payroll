@@ -201,20 +201,14 @@ class TestUserColumns:
         uq_names = [
             c.name
             for c in constraints
-            if hasattr(c, "columns")
-            and "tenant_id" in c.columns
-            and "username" in c.columns
+            if hasattr(c, "columns") and "tenant_id" in c.columns and "username" in c.columns
         ]
         assert "uq_users_tenant_username" in uq_names
 
     def test_unique_constraint_tenant_email(self):
         constraints = User.__table__.constraints
         uq_names = [
-            c.name
-            for c in constraints
-            if hasattr(c, "columns")
-            and "tenant_id" in c.columns
-            and "email" in c.columns
+            c.name for c in constraints if hasattr(c, "columns") and "tenant_id" in c.columns and "email" in c.columns
         ]
         assert "uq_users_tenant_email" in uq_names
 

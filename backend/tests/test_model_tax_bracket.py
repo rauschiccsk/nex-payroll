@@ -122,11 +122,7 @@ class TestTaxBracketIndex:
 
     def test_valid_from_bracket_order_index_columns(self):
         indexes = TaxBracket.__table__.indexes
-        target = next(
-            idx
-            for idx in indexes
-            if idx.name == "ix_tax_brackets_valid_from_bracket_order"
-        )
+        target = next(idx for idx in indexes if idx.name == "ix_tax_brackets_valid_from_bracket_order")
         col_names = [col.name for col in target.columns]
         assert col_names == ["valid_from", "bracket_order"]
 

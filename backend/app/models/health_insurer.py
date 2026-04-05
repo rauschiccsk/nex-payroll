@@ -66,8 +66,4 @@ class HealthInsurer(UUIDMixin, Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<HealthInsurer(code={self.code!r}, "
-            f"name={self.name!r}, "
-            f"is_active={self.is_active})>"
-        )
+        return f"<HealthInsurer(code={self.code!r}, name={self.name!r}, is_active={self.is_active})>"

@@ -33,9 +33,7 @@ class PaymentOrder(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "payment_orders"
     __table_args__ = (
         CheckConstraint(
-            "payment_type IN ("
-            "'net_wage', 'sp', 'zp_vszp', 'zp_dovera', 'zp_union', "
-            "'tax', 'pillar2')",
+            "payment_type IN ('net_wage', 'sp', 'zp_vszp', 'zp_dovera', 'zp_union', 'tax', 'pillar2')",
             name="ck_payment_orders_payment_type",
         ),
         CheckConstraint(
@@ -156,8 +154,4 @@ class PaymentOrder(UUIDMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<PaymentOrder(type={self.payment_type!r}, "
-            f"amount={self.amount!r}, "
-            f"status={self.status!r})>"
-        )
+        return f"<PaymentOrder(type={self.payment_type!r}, amount={self.amount!r}, status={self.status!r})>"

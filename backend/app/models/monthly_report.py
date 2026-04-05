@@ -43,8 +43,7 @@ class MonthlyReport(UUIDMixin, TimestampMixin, Base):
             name="uq_monthly_reports_tenant_year_month_type",
         ),
         CheckConstraint(
-            "report_type IN ('sp_monthly', 'zp_vszp', 'zp_dovera', "
-            "'zp_union', 'tax_prehled')",
+            "report_type IN ('sp_monthly', 'zp_vszp', 'zp_dovera', 'zp_union', 'tax_prehled')",
             name="ck_monthly_reports_report_type",
         ),
         CheckConstraint(

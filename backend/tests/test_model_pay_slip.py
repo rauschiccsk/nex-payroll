@@ -410,9 +410,7 @@ class TestPaySlipConstraints:
 
     # -- FK RESTRICT delete tests (raw SQL per checklist) --
 
-    def test_fk_tenant_restrict_delete(
-        self, db_session, tenant, payroll, employee
-    ):
+    def test_fk_tenant_restrict_delete(self, db_session, tenant, payroll, employee):
         """Deleting a tenant with pay slips must be rejected.
 
         Uses raw SQL per FK RESTRICT Test Pattern — ORM session.delete()
@@ -429,9 +427,7 @@ class TestPaySlipConstraints:
             )
         db_session.rollback()
 
-    def test_fk_payroll_restrict_delete(
-        self, db_session, tenant, payroll, employee
-    ):
+    def test_fk_payroll_restrict_delete(self, db_session, tenant, payroll, employee):
         """Deleting a payroll with pay slips must be rejected."""
         pay_slip = _make_pay_slip(tenant, payroll, employee)
         db_session.add(pay_slip)
@@ -444,9 +440,7 @@ class TestPaySlipConstraints:
             )
         db_session.rollback()
 
-    def test_fk_employee_restrict_delete(
-        self, db_session, tenant, payroll, employee
-    ):
+    def test_fk_employee_restrict_delete(self, db_session, tenant, payroll, employee):
         """Deleting an employee with pay slips must be rejected."""
         pay_slip = _make_pay_slip(tenant, payroll, employee)
         db_session.add(pay_slip)
@@ -488,9 +482,7 @@ class TestPaySlipDB:
         assert pay_slip.employee_id == employee.id
         assert pay_slip.period_year == 2025
         assert pay_slip.period_month == 1
-        assert pay_slip.pdf_path == (
-            "/opt/nex-payroll-src/data/payslips/tenant_test/2025/01/EMP-PS-001.pdf"
-        )
+        assert pay_slip.pdf_path == ("/opt/nex-payroll-src/data/payslips/tenant_test/2025/01/EMP-PS-001.pdf")
         assert pay_slip.file_size_bytes == 123456
 
     def test_create_minimal_defaults(self, db_session, tenant, payroll, employee):
@@ -528,16 +520,10 @@ class TestPaySlipDB:
         db_session.flush()
         assert pay_slip.downloaded_at is None
 
-    def test_different_payrolls_same_tenant(
-        self, db_session, tenant, employee, contract
-    ):
+    def test_different_payrolls_same_tenant(self, db_session, tenant, employee, contract):
         """Same tenant can have pay slips for different payrolls."""
-        p1 = _make_payroll(
-            tenant, employee, contract, period_year=2025, period_month=1
-        )
-        p2 = _make_payroll(
-            tenant, employee, contract, period_year=2025, period_month=2
-        )
+        p1 = _make_payroll(tenant, employee, contract, period_year=2025, period_month=1)
+        p2 = _make_payroll(tenant, employee, contract, period_year=2025, period_month=2)
         db_session.add_all([p1, p2])
         db_session.flush()
 

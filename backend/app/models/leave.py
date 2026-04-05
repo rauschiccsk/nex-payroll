@@ -84,10 +84,7 @@ class Leave(UUIDMixin, TimestampMixin, Base):
     leave_type: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        comment=(
-            "Leave type: annual, sick_employer, sick_sp, ocr, "
-            "maternity, parental, unpaid, obstacle"
-        ),
+        comment=("Leave type: annual, sick_employer, sick_sp, ocr, maternity, parental, unpaid, obstacle"),
     )
 
     start_date: Mapped[date] = mapped_column(

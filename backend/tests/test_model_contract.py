@@ -214,9 +214,7 @@ class TestContractColumns:
         uq_names = [
             c.name
             for c in constraints
-            if hasattr(c, "columns")
-            and "tenant_id" in c.columns
-            and "contract_number" in c.columns
+            if hasattr(c, "columns") and "tenant_id" in c.columns and "contract_number" in c.columns
         ]
         assert "uq_contracts_tenant_contract_number" in uq_names
 
@@ -290,25 +288,19 @@ class TestContractConstraints:
         db_session.rollback()
 
     def test_check_contract_type_permanent(self, db_session, tenant, employee):
-        c = _make_contract(
-            tenant, employee, contract_type="permanent", contract_number="CT-PERM"
-        )
+        c = _make_contract(tenant, employee, contract_type="permanent", contract_number="CT-PERM")
         db_session.add(c)
         db_session.flush()
         assert c.contract_type == "permanent"
 
     def test_check_contract_type_fixed_term(self, db_session, tenant, employee):
-        c = _make_contract(
-            tenant, employee, contract_type="fixed_term", contract_number="CT-FT"
-        )
+        c = _make_contract(tenant, employee, contract_type="fixed_term", contract_number="CT-FT")
         db_session.add(c)
         db_session.flush()
         assert c.contract_type == "fixed_term"
 
     def test_check_contract_type_agreement_work(self, db_session, tenant, employee):
-        c = _make_contract(
-            tenant, employee, contract_type="agreement_work", contract_number="CT-AW"
-        )
+        c = _make_contract(tenant, employee, contract_type="agreement_work", contract_number="CT-AW")
         db_session.add(c)
         db_session.flush()
         assert c.contract_type == "agreement_work"
@@ -333,17 +325,13 @@ class TestContractConstraints:
         db_session.rollback()
 
     def test_check_wage_type_monthly(self, db_session, tenant, employee):
-        c = _make_contract(
-            tenant, employee, wage_type="monthly", contract_number="WT-MON"
-        )
+        c = _make_contract(tenant, employee, wage_type="monthly", contract_number="WT-MON")
         db_session.add(c)
         db_session.flush()
         assert c.wage_type == "monthly"
 
     def test_check_wage_type_hourly(self, db_session, tenant, employee):
-        c = _make_contract(
-            tenant, employee, wage_type="hourly", contract_number="WT-HR"
-        )
+        c = _make_contract(tenant, employee, wage_type="hourly", contract_number="WT-HR")
         db_session.add(c)
         db_session.flush()
         assert c.wage_type == "hourly"

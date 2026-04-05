@@ -51,10 +51,7 @@ def upgrade() -> None:
             "leave_type",
             sa.String(length=30),
             nullable=False,
-            comment=(
-                "Leave type: annual, sick_employer, sick_sp, ocr, "
-                "maternity, parental, unpaid, obstacle"
-            ),
+            comment=("Leave type: annual, sick_employer, sick_sp, ocr, maternity, parental, unpaid, obstacle"),
         ),
         sa.Column(
             "start_date",

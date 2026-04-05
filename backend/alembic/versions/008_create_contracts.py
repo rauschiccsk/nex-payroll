@@ -128,8 +128,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "contract_type IN ('permanent', 'fixed_term', "
-            "'agreement_work', 'agreement_activity')",
+            "contract_type IN ('permanent', 'fixed_term', 'agreement_work', 'agreement_activity')",
             name="ck_contracts_contract_type",
         ),
         sa.CheckConstraint(

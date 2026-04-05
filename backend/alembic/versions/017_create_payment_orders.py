@@ -140,9 +140,7 @@ def upgrade() -> None:
         ),
         # -- Constraints --
         sa.CheckConstraint(
-            "payment_type IN ("
-            "'net_wage', 'sp', 'zp_vszp', 'zp_dovera', 'zp_union', "
-            "'tax', 'pillar2')",
+            "payment_type IN ('net_wage', 'sp', 'zp_vszp', 'zp_dovera', 'zp_union', 'tax', 'pillar2')",
             name="ck_payment_orders_payment_type",
         ),
         sa.CheckConstraint(

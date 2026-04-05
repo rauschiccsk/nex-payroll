@@ -49,9 +49,7 @@ class TestTenantColumns:
 
     def test_ico_unique_constraint(self):
         constraints = Tenant.__table__.constraints
-        uq_names = [
-            c.name for c in constraints if hasattr(c, "columns") and "ico" in c.columns
-        ]
+        uq_names = [c.name for c in constraints if hasattr(c, "columns") and "ico" in c.columns]
         assert "uq_tenants_ico" in uq_names
 
     def test_dic_column(self):
@@ -111,11 +109,7 @@ class TestTenantColumns:
 
     def test_schema_name_unique_constraint(self):
         constraints = Tenant.__table__.constraints
-        uq_names = [
-            c.name
-            for c in constraints
-            if hasattr(c, "columns") and "schema_name" in c.columns
-        ]
+        uq_names = [c.name for c in constraints if hasattr(c, "columns") and "schema_name" in c.columns]
         assert "uq_tenants_schema_name" in uq_names
 
     def test_default_role_column(self):

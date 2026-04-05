@@ -159,11 +159,7 @@ class TestMonthlyReportColumns:
     def test_unique_constraint_tenant_period_type(self):
         """UniqueConstraint with explicit name must exist."""
         table = MonthlyReport.__table__
-        uq_names = [
-            c.name
-            for c in table.constraints
-            if hasattr(c, "columns") and len(c.columns) > 1
-        ]
+        uq_names = [c.name for c in table.constraints if hasattr(c, "columns") and len(c.columns) > 1]
         assert "uq_monthly_reports_tenant_year_month_type" in uq_names
 
     def test_check_constraint_report_type(self):

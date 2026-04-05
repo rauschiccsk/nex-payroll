@@ -129,8 +129,4 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<User(username={self.username!r}, "
-            f"role={self.role!r}, "
-            f"is_active={self.is_active!r})>"
-        )
+        return f"<User(username={self.username!r}, role={self.role!r}, is_active={self.is_active!r})>"
