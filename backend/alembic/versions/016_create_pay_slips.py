@@ -1,7 +1,7 @@
 """Create pay_slips table.
 
-Revision ID: 014
-Revises: 013
+Revision ID: 016
+Revises: 015
 Create Date: 2026-04-05 00:00:00.000000
 
 """
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "014"
-down_revision: str | Sequence[str] | None = "013"
+revision: str = "016"
+down_revision: str | Sequence[str] | None = "015"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
