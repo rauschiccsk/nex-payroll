@@ -33,6 +33,10 @@ htmlcov/
 # Docker
 docker-compose.override.yml
 
+# Frontend
+node_modules/
+frontend/dist/
+
 # OS
 .DS_Store
 Thumbs.db
