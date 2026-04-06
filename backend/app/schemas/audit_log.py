@@ -1,9 +1,10 @@
 """Pydantic v2 schemas for AuditLog entity.
 
-Used for API request validation (Create/Update) and response serialisation (Read).
-AuditLog entries are immutable — Update schema exists for consistency but all
-fields are optional (practical use is limited since audit records should not be
-modified).
+Used for internal create validation (AuditLogCreate) and response
+serialisation (AuditLogRead).
+
+Audit log entries are immutable — no Update schema exists.
+AuditLogCreate is used internally by the system, not exposed via API.
 """
 
 from datetime import datetime
@@ -14,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuditLogCreate(BaseModel):
-    """Schema for creating a new audit log entry."""
+    """Schema for creating a new audit log entry (internal use only)."""
 
     tenant_id: UUID = Field(
         ...,
@@ -52,42 +53,6 @@ class AuditLogCreate(BaseModel):
         max_length=45,
         examples=["192.168.1.1"],
         description="Client IP address (IPv4 or IPv6)",
-    )
-
-
-class AuditLogUpdate(BaseModel):
-    """Schema for updating an audit log entry.
-
-    All fields optional — only supplied fields are updated.
-    Note: audit log entries are immutable by design; this schema exists
-    for API consistency.
-    """
-
-    tenant_id: UUID | None = Field(
-        default=None,
-    )
-    user_id: UUID | None = Field(
-        default=None,
-    )
-    action: Literal["CREATE", "UPDATE", "DELETE"] | None = Field(
-        default=None,
-    )
-    entity_type: str | None = Field(
-        default=None,
-        max_length=100,
-    )
-    entity_id: UUID | None = Field(
-        default=None,
-    )
-    old_values: dict[str, Any] | None = Field(
-        default=None,
-    )
-    new_values: dict[str, Any] | None = Field(
-        default=None,
-    )
-    ip_address: str | None = Field(
-        default=None,
-        max_length=45,
     )
 
 

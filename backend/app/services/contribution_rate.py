@@ -8,11 +8,20 @@ SQLAlchemy Session. They flush but never commit — the caller
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.contribution_rate import ContributionRate
 from app.schemas.contribution_rate import ContributionRateCreate, ContributionRateUpdate
+
+
+def count_contribution_rates(db: Session) -> int:
+    """Return the total number of contribution rates.
+
+    Useful for building ``PaginatedResponse`` in the router layer.
+    """
+    stmt = select(func.count()).select_from(ContributionRate)
+    return db.execute(stmt).scalar_one()
 
 
 def list_contribution_rates(

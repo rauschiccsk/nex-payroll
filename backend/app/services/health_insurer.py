@@ -8,11 +8,20 @@ SQLAlchemy Session. They flush but never commit — the caller
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.health_insurer import HealthInsurer
 from app.schemas.health_insurer import HealthInsurerCreate, HealthInsurerUpdate
+
+
+def count_health_insurers(db: Session) -> int:
+    """Return the total number of health insurers.
+
+    Useful for building ``PaginatedResponse`` in the router layer.
+    """
+    stmt = select(func.count()).select_from(HealthInsurer)
+    return db.execute(stmt).scalar_one()
 
 
 def list_health_insurers(

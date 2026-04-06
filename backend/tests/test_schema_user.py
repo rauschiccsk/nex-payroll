@@ -220,7 +220,6 @@ class TestUserUpdate:
 
     def test_empty_update(self):
         schema = UserUpdate()
-        assert schema.tenant_id is None
         assert schema.employee_id is None
         assert schema.username is None
         assert schema.email is None
@@ -239,7 +238,6 @@ class TestUserUpdate:
         assert schema.username == "pnovak"
         assert schema.email == "peter.novak@example.com"
         assert schema.role == "director"
-        assert schema.tenant_id is None
         assert schema.password_hash is None
         assert schema.is_active is None
 

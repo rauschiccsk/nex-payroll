@@ -74,7 +74,6 @@ class TestEmployeeCreate:
         assert schema.status == "active"
         assert schema.hire_date == date(2024, 1, 15)
         assert schema.termination_date is None
-        assert schema.is_deleted is False
 
     def test_valid_full(self):
         schema = EmployeeCreate(
@@ -89,7 +88,6 @@ class TestEmployeeCreate:
             is_disabled=True,
             status="inactive",
             termination_date=date(2025, 12, 31),
-            is_deleted=True,
         )
         assert schema.title_before == "Ing."
         assert schema.title_after == "PhD."
@@ -101,7 +99,6 @@ class TestEmployeeCreate:
         assert schema.is_disabled is True
         assert schema.status == "inactive"
         assert schema.termination_date == date(2025, 12, 31)
-        assert schema.is_deleted is True
 
     # -- required field validation --
 
@@ -341,7 +338,6 @@ class TestEmployeeUpdate:
 
     def test_empty_update(self):
         schema = EmployeeUpdate()
-        assert schema.tenant_id is None
         assert schema.employee_number is None
         assert schema.first_name is None
         assert schema.last_name is None
@@ -365,7 +361,6 @@ class TestEmployeeUpdate:
         assert schema.status is None
         assert schema.hire_date is None
         assert schema.termination_date is None
-        assert schema.is_deleted is None
 
     def test_partial_update(self):
         schema = EmployeeUpdate(

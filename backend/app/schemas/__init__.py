@@ -1,6 +1,6 @@
 """Pydantic v2 request/response schemas for NEX Payroll API."""
 
-from app.schemas.audit_log import AuditLogCreate, AuditLogRead, AuditLogUpdate
+from app.schemas.audit_log import AuditLogCreate, AuditLogRead
 from app.schemas.contract import ContractCreate, ContractRead, ContractUpdate
 from app.schemas.contribution_rate import (
     ContributionRateCreate,
@@ -57,7 +57,6 @@ from app.schemas.user import UserCreate, UserRead, UserUpdate
 __all__ = [
     "AuditLogCreate",
     "AuditLogRead",
-    "AuditLogUpdate",
     "ContractCreate",
     "ContractRead",
     "ContractUpdate",

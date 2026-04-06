@@ -6,13 +6,12 @@ import pytest
 
 from app.models.audit_log import AuditLog
 from app.models.tenant import Tenant
-from app.schemas.audit_log import AuditLogCreate, AuditLogUpdate
+from app.schemas.audit_log import AuditLogCreate
 from app.services.audit_log import (
+    count_audit_logs,
     create_audit_log,
-    delete_audit_log,
     get_audit_log,
     list_audit_logs,
-    update_audit_log,
 )
 
 # ---------------------------------------------------------------------------
@@ -198,81 +197,94 @@ class TestListAuditLogs:
 
 
 # ---------------------------------------------------------------------------
-# update
+# filter support
 # ---------------------------------------------------------------------------
 
 
-class TestUpdateAuditLog:
-    """Tests for update_audit_log."""
+class TestListAuditLogsFilters:
+    """Tests for list_audit_logs and count_audit_logs filter parameters."""
 
-    def test_update_single_field(self, db_session, tenant):
-        created = create_audit_log(db_session, _make_payload(tenant.id))
+    def test_filter_by_tenant_id(self, db_session, tenant):
+        create_audit_log(db_session, _make_payload(tenant.id))
 
-        updated = update_audit_log(
+        result = list_audit_logs(db_session, tenant_id=tenant.id)
+        assert len(result) == 1
+
+        result_other = list_audit_logs(db_session, tenant_id=uuid4())
+        assert len(result_other) == 0
+
+    def test_filter_by_entity_type(self, db_session, tenant):
+        create_audit_log(db_session, _make_payload(tenant.id, entity_type="employees"))
+        create_audit_log(db_session, _make_payload(tenant.id, entity_type="contracts"))
+
+        result = list_audit_logs(db_session, entity_type="employees")
+        assert len(result) == 1
+        assert result[0].entity_type == "employees"
+
+    def test_filter_by_entity_id(self, db_session, tenant):
+        target_id = uuid4()
+        create_audit_log(db_session, _make_payload(tenant.id, entity_id=target_id))
+        create_audit_log(db_session, _make_payload(tenant.id))
+
+        result = list_audit_logs(db_session, entity_id=target_id)
+        assert len(result) == 1
+        assert result[0].entity_id == target_id
+
+    def test_filter_by_user_id(self, db_session, tenant):
+        uid = uuid4()
+        create_audit_log(db_session, _make_payload(tenant.id, user_id=uid))
+        create_audit_log(db_session, _make_payload(tenant.id, user_id=None))
+
+        result = list_audit_logs(db_session, user_id=uid)
+        assert len(result) == 1
+        assert result[0].user_id == uid
+
+    def test_filter_by_action(self, db_session, tenant):
+        create_audit_log(db_session, _make_payload(tenant.id, action="CREATE"))
+        create_audit_log(db_session, _make_payload(tenant.id, action="DELETE"))
+
+        result = list_audit_logs(db_session, action="DELETE")
+        assert len(result) == 1
+        assert result[0].action == "DELETE"
+
+    def test_filter_combined(self, db_session, tenant):
+        """Multiple filters are combined with AND."""
+        create_audit_log(
             db_session,
-            created.id,
-            AuditLogUpdate(ip_address="10.0.0.1"),
+            _make_payload(tenant.id, action="CREATE", entity_type="employees"),
+        )
+        create_audit_log(
+            db_session,
+            _make_payload(tenant.id, action="UPDATE", entity_type="employees"),
+        )
+        create_audit_log(
+            db_session,
+            _make_payload(tenant.id, action="CREATE", entity_type="contracts"),
         )
 
-        assert updated is not None
-        assert updated.ip_address == "10.0.0.1"
-        # unchanged fields stay the same
-        assert updated.action == "CREATE"
-
-    def test_update_multiple_fields(self, db_session, tenant):
-        created = create_audit_log(db_session, _make_payload(tenant.id))
-
-        updated = update_audit_log(
+        result = list_audit_logs(
             db_session,
-            created.id,
-            AuditLogUpdate(
-                entity_type="contracts",
-                ip_address="10.0.0.2",
-            ),
+            action="CREATE",
+            entity_type="employees",
         )
+        assert len(result) == 1
+        assert result[0].action == "CREATE"
+        assert result[0].entity_type == "employees"
 
-        assert updated is not None
-        assert updated.entity_type == "contracts"
-        assert updated.ip_address == "10.0.0.2"
+    def test_count_with_filters(self, db_session, tenant):
+        """count_audit_logs should respect the same filters as list_audit_logs."""
+        create_audit_log(db_session, _make_payload(tenant.id, action="CREATE"))
+        create_audit_log(db_session, _make_payload(tenant.id, action="CREATE"))
+        create_audit_log(db_session, _make_payload(tenant.id, action="DELETE"))
 
-    def test_update_nonexistent_returns_none(self, db_session):
-        result = update_audit_log(
-            db_session,
-            uuid4(),
-            AuditLogUpdate(ip_address="10.0.0.1"),
-        )
-        assert result is None
+        total = count_audit_logs(db_session, action="CREATE")
+        assert total == 2
 
-    def test_update_no_fields_is_noop(self, db_session, tenant):
-        """Sending an empty update should not break anything."""
-        created = create_audit_log(db_session, _make_payload(tenant.id))
+        total_all = count_audit_logs(db_session)
+        assert total_all == 3
 
-        updated = update_audit_log(
-            db_session,
-            created.id,
-            AuditLogUpdate(),
-        )
+    def test_count_with_tenant_filter(self, db_session, tenant):
+        create_audit_log(db_session, _make_payload(tenant.id))
 
-        assert updated is not None
-        assert updated.action == created.action
-
-
-# ---------------------------------------------------------------------------
-# delete
-# ---------------------------------------------------------------------------
-
-
-class TestDeleteAuditLog:
-    """Tests for delete_audit_log."""
-
-    def test_delete_existing(self, db_session, tenant):
-        created = create_audit_log(db_session, _make_payload(tenant.id))
-
-        deleted = delete_audit_log(db_session, created.id)
-
-        assert deleted is True
-        assert get_audit_log(db_session, created.id) is None
-
-    def test_delete_nonexistent_returns_false(self, db_session):
-        result = delete_audit_log(db_session, uuid4())
-        assert result is False
+        assert count_audit_logs(db_session, tenant_id=tenant.id) == 1
+        assert count_audit_logs(db_session, tenant_id=uuid4()) == 0

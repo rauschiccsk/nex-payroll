@@ -111,6 +111,7 @@ class ContractUpdate(BaseModel):
     All fields optional — only supplied fields are updated.
     """
 
+    contract_number: str | None = Field(default=None, max_length=50)
     contract_type: _CONTRACT_TYPE | None = Field(default=None)
     job_title: str | None = Field(default=None, max_length=200)
     wage_type: _WAGE_TYPE | None = Field(default=None)

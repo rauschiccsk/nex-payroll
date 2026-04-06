@@ -11,11 +11,32 @@ by default.
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.employee import Employee
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
+
+
+def count_employees(
+    db: Session,
+    *,
+    tenant_id: UUID | None = None,
+    include_deleted: bool = False,
+) -> int:
+    """Return the total number of employees (respecting filters).
+
+    Useful for building ``PaginatedResponse`` in the router layer.
+    """
+    stmt = select(func.count()).select_from(Employee)
+
+    if tenant_id is not None:
+        stmt = stmt.where(Employee.tenant_id == tenant_id)
+
+    if not include_deleted:
+        stmt = stmt.where(Employee.is_deleted.is_(False))
+
+    return db.execute(stmt).scalar_one()
 
 
 def list_employees(
@@ -94,16 +115,14 @@ def update_employee(
     # Check for duplicate employee_number if it is being changed
     new_number = update_data.get("employee_number")
     if new_number is not None and new_number != employee.employee_number:
-        # Resolve the effective tenant_id (may also be changing)
-        effective_tenant = update_data.get("tenant_id", employee.tenant_id)
         dup_stmt = select(Employee).where(
-            Employee.tenant_id == effective_tenant,
+            Employee.tenant_id == employee.tenant_id,
             Employee.employee_number == new_number,
             Employee.id != employee_id,
         )
         if db.execute(dup_stmt).scalar_one_or_none() is not None:
             raise ValueError(
-                f"Employee with employee_number={new_number!r} already exists in tenant {effective_tenant}"
+                f"Employee with employee_number={new_number!r} already exists in tenant {employee.tenant_id}"
             )
 
     for field, value in update_data.items():
@@ -114,14 +133,15 @@ def update_employee(
 
 
 def delete_employee(db: Session, employee_id: UUID) -> bool:
-    """Delete an employee by primary key (hard delete).
+    """Soft-delete an employee by setting ``is_deleted = True``.
 
-    Returns ``True`` if the row was deleted, ``False`` if not found.
+    Returns ``True`` if the employee was found and soft-deleted,
+    ``False`` if not found.
     """
     employee = db.get(Employee, employee_id)
     if employee is None:
         return False
 
-    db.delete(employee)
+    employee.is_deleted = True
     db.flush()
     return True

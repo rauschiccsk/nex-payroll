@@ -79,7 +79,6 @@ class UserUpdate(BaseModel):
     All fields optional — only supplied fields are updated.
     """
 
-    tenant_id: UUID | None = Field(default=None)
     employee_id: UUID | None = Field(default=None)
     username: str | None = Field(default=None, max_length=100)
     email: str | None = Field(default=None, max_length=255)

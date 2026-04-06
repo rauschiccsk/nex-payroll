@@ -156,10 +156,6 @@ class EmployeeCreate(BaseModel):
         examples=["2025-12-31"],
         description="Date of employment termination (null if still employed)",
     )
-    is_deleted: bool = Field(
-        default=False,
-        description="Soft-delete flag",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -173,7 +169,6 @@ class EmployeeUpdate(BaseModel):
     All fields optional — only supplied fields are updated.
     """
 
-    tenant_id: UUID | None = Field(default=None)
     employee_number: str | None = Field(default=None, max_length=20)
     first_name: str | None = Field(default=None, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
@@ -197,7 +192,6 @@ class EmployeeUpdate(BaseModel):
     status: _STATUS | None = Field(default=None)
     hire_date: date | None = Field(default=None)
     termination_date: date | None = Field(default=None)
-    is_deleted: bool | None = Field(default=None)
 
 
 # ---------------------------------------------------------------------------

@@ -8,11 +8,20 @@ SQLAlchemy Session. They flush but never commit — the caller
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.statutory_deadline import StatutoryDeadline
 from app.schemas.statutory_deadline import StatutoryDeadlineCreate, StatutoryDeadlineUpdate
+
+
+def count_statutory_deadlines(db: Session) -> int:
+    """Return the total number of statutory deadlines.
+
+    Useful for building ``PaginatedResponse`` in the router layer.
+    """
+    stmt = select(func.count()).select_from(StatutoryDeadline)
+    return db.execute(stmt).scalar_one()
 
 
 def list_statutory_deadlines(

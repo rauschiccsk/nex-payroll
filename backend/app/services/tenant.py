@@ -10,7 +10,7 @@ import re
 import unicodedata
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.tenant import Tenant
@@ -36,6 +36,15 @@ def _generate_schema_name(name: str, ico: str) -> str:
     max_slug = 63 - 7 - 1 - len(ico)
     slug = slug[:max_slug]
     return f"tenant_{slug}_{ico}"
+
+
+def count_tenants(db: Session) -> int:
+    """Return the total number of tenants.
+
+    Useful for building ``PaginatedResponse`` in the router layer.
+    """
+    stmt = select(func.count()).select_from(Tenant)
+    return db.execute(stmt).scalar_one()
 
 
 def list_tenants(

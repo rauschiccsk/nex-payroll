@@ -9,7 +9,6 @@ from pydantic import ValidationError
 from app.schemas.audit_log import (
     AuditLogCreate,
     AuditLogRead,
-    AuditLogUpdate,
 )
 
 # ---------------------------------------------------------------------------
@@ -140,50 +139,6 @@ class TestAuditLogCreate:
             ip_address="2001:0db8:85a3:0000:0000:8a2e:0370:7334",
         )
         assert schema.ip_address == "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
-
-
-# ---------------------------------------------------------------------------
-# AuditLogUpdate
-# ---------------------------------------------------------------------------
-
-
-class TestAuditLogUpdate:
-    """Tests for the Update schema — all fields optional."""
-
-    def test_empty_update(self):
-        schema = AuditLogUpdate()
-        assert schema.tenant_id is None
-        assert schema.user_id is None
-        assert schema.action is None
-        assert schema.entity_type is None
-        assert schema.entity_id is None
-        assert schema.old_values is None
-        assert schema.new_values is None
-        assert schema.ip_address is None
-
-    def test_partial_update(self):
-        schema = AuditLogUpdate(
-            ip_address="10.0.0.1",
-        )
-        assert schema.ip_address == "10.0.0.1"
-        assert schema.tenant_id is None
-        assert schema.action is None
-
-    def test_update_entity_type_max_length(self):
-        with pytest.raises(ValidationError):
-            AuditLogUpdate(entity_type="x" * 101)
-
-    def test_update_ip_address_max_length(self):
-        with pytest.raises(ValidationError):
-            AuditLogUpdate(ip_address="x" * 46)
-
-    def test_update_invalid_action_literal(self):
-        with pytest.raises(ValidationError):
-            AuditLogUpdate(action="INVALID")
-
-    def test_update_valid_action(self):
-        schema = AuditLogUpdate(action="DELETE")
-        assert schema.action == "DELETE"
 
 
 # ---------------------------------------------------------------------------

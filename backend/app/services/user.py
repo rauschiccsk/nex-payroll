@@ -11,7 +11,7 @@ by default.
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -33,6 +33,32 @@ def _validate_role(value: str | None) -> None:
 # ---------------------------------------------------------------------------
 # list
 # ---------------------------------------------------------------------------
+
+
+def count_users(
+    db: Session,
+    *,
+    tenant_id: UUID | None = None,
+    role: str | None = None,
+    include_inactive: bool = False,
+) -> int:
+    """Return the total number of users matching the given filters.
+
+    Useful for building ``PaginatedResponse`` in the router layer.
+    """
+    stmt = select(func.count()).select_from(User)
+
+    if tenant_id is not None:
+        stmt = stmt.where(User.tenant_id == tenant_id)
+
+    if role is not None:
+        _validate_role(role)
+        stmt = stmt.where(User.role == role)
+
+    if not include_inactive:
+        stmt = stmt.where(User.is_active.is_(True))
+
+    return db.execute(stmt).scalar_one()
 
 
 def list_users(
@@ -147,26 +173,24 @@ def update_user(
     # Check for duplicate username if it is being changed
     new_username = update_data.get("username")
     if new_username is not None and new_username != user.username:
-        effective_tenant = update_data.get("tenant_id", user.tenant_id)
         dup_stmt = select(User).where(
-            User.tenant_id == effective_tenant,
+            User.tenant_id == user.tenant_id,
             User.username == new_username,
             User.id != user_id,
         )
         if db.execute(dup_stmt).scalar_one_or_none() is not None:
-            raise ValueError(f"User with username={new_username!r} already exists in tenant {effective_tenant}")
+            raise ValueError(f"User with username={new_username!r} already exists in tenant {user.tenant_id}")
 
     # Check for duplicate email if it is being changed
     new_email = update_data.get("email")
     if new_email is not None and new_email != user.email:
-        effective_tenant = update_data.get("tenant_id", user.tenant_id)
         dup_stmt = select(User).where(
-            User.tenant_id == effective_tenant,
+            User.tenant_id == user.tenant_id,
             User.email == new_email,
             User.id != user_id,
         )
         if db.execute(dup_stmt).scalar_one_or_none() is not None:
-            raise ValueError(f"User with email={new_email!r} already exists in tenant {effective_tenant}")
+            raise ValueError(f"User with email={new_email!r} already exists in tenant {user.tenant_id}")
 
     for field, value in update_data.items():
         setattr(user, field, value)
@@ -181,14 +205,15 @@ def update_user(
 
 
 def delete_user(db: Session, user_id: UUID) -> bool:
-    """Delete a user by primary key (hard delete).
+    """Soft-delete a user by setting is_active=False.
 
-    Returns ``True`` if the row was deleted, ``False`` if not found.
+    Returns ``True`` if the user was deactivated, ``False`` if not found.
+    Per DESIGN.md §5.3: "Soft delete via is_active=False".
     """
     user = db.get(User, user_id)
     if user is None:
         return False
 
-    db.delete(user)
+    user.is_active = False
     db.flush()
     return True

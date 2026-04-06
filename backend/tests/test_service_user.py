@@ -572,13 +572,17 @@ class TestDeleteUser:
     """Tests for delete_user."""
 
     def test_delete_existing(self, db_session):
+        """Soft-delete sets is_active=False; user still retrievable by ID."""
         tenant = _make_tenant(db_session)
         created = create_user(db_session, _make_payload(tenant.id))
 
         deleted = delete_user(db_session, created.id)
 
         assert deleted is True
-        assert get_user(db_session, created.id) is None
+        # Soft-delete: user still exists but is_active=False
+        user = get_user(db_session, created.id)
+        assert user is not None
+        assert user.is_active is False
 
     def test_delete_nonexistent_returns_false(self, db_session):
         result = delete_user(db_session, uuid4())

@@ -82,7 +82,6 @@ def _make_payload(tenant_id, health_insurer_id, **overrides) -> EmployeeCreate:
         "status": "active",
         "hire_date": date(2024, 1, 15),
         "termination_date": None,
-        "is_deleted": False,
     }
     defaults.update(overrides)
     return EmployeeCreate(**defaults)
@@ -269,10 +268,12 @@ class TestListEmployees:
             db_session,
             _make_payload(tenant.id, insurer.id, employee_number="EMP001"),
         )
-        create_employee(
+        emp2 = create_employee(
             db_session,
-            _make_payload(tenant.id, insurer.id, employee_number="EMP002", is_deleted=True),
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002"),
         )
+        # Soft-delete via service (is_deleted not in EmployeeCreate)
+        delete_employee(db_session, emp2.id)
 
         result = list_employees(db_session)
         assert len(result) == 1
@@ -286,10 +287,12 @@ class TestListEmployees:
             db_session,
             _make_payload(tenant.id, insurer.id, employee_number="EMP001"),
         )
-        create_employee(
+        emp2 = create_employee(
             db_session,
-            _make_payload(tenant.id, insurer.id, employee_number="EMP002", is_deleted=True),
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002"),
         )
+        # Soft-delete via service (is_deleted not in EmployeeCreate)
+        delete_employee(db_session, emp2.id)
 
         result = list_employees(db_session, include_deleted=True)
         assert len(result) == 2
@@ -439,19 +442,18 @@ class TestUpdateEmployee:
         assert updated is not None
         assert updated.employee_number == "EMP099"
 
-    def test_update_soft_delete_flag(self, db_session):
+    def test_soft_delete_via_service(self, db_session):
+        """Soft-delete is handled by delete_employee, not via update."""
         tenant = _make_tenant(db_session)
         insurer = _make_health_insurer(db_session)
         created = create_employee(db_session, _make_payload(tenant.id, insurer.id))
 
-        updated = update_employee(
-            db_session,
-            created.id,
-            EmployeeUpdate(is_deleted=True),
-        )
+        result = delete_employee(db_session, created.id)
+        assert result is True
 
-        assert updated is not None
-        assert updated.is_deleted is True
+        employee = get_employee(db_session, created.id)
+        assert employee is not None
+        assert employee.is_deleted is True
 
 
 # ---------------------------------------------------------------------------
@@ -470,7 +472,10 @@ class TestDeleteEmployee:
         deleted = delete_employee(db_session, created.id)
 
         assert deleted is True
-        assert get_employee(db_session, created.id) is None
+        # Soft-delete: employee still retrievable but flagged
+        employee = get_employee(db_session, created.id)
+        assert employee is not None
+        assert employee.is_deleted is True
 
     def test_delete_nonexistent_returns_false(self, db_session):
         result = delete_employee(db_session, uuid4())

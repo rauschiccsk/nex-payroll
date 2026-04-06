@@ -8,11 +8,31 @@ SQLAlchemy Session.  They flush but never commit — the caller
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.contract import Contract
+from app.models.payroll import Payroll
 from app.schemas.contract import ContractCreate, ContractUpdate
+
+
+def count_contracts(
+    db: Session,
+    *,
+    tenant_id: UUID | None = None,
+    employee_id: UUID | None = None,
+) -> int:
+    """Return total number of contracts, optionally filtered by tenant/employee."""
+    stmt = select(func.count()).select_from(Contract)
+
+    if tenant_id is not None:
+        stmt = stmt.where(Contract.tenant_id == tenant_id)
+
+    if employee_id is not None:
+        stmt = stmt.where(Contract.employee_id == employee_id)
+
+    result = db.execute(stmt).scalar_one()
+    return int(result)
 
 
 def list_contracts(
@@ -86,6 +106,20 @@ def update_contract(
 
     update_data = payload.model_dump(exclude_unset=True)
 
+    # Validate unique constraint if contract_number is being changed
+    if "contract_number" in update_data and update_data["contract_number"] != contract.contract_number:
+        dup_stmt = select(Contract).where(
+            Contract.tenant_id == contract.tenant_id,
+            Contract.contract_number == update_data["contract_number"],
+            Contract.id != contract.id,
+        )
+        existing = db.execute(dup_stmt).scalar_one_or_none()
+        if existing is not None:
+            raise ValueError(
+                f"Contract with contract_number={update_data['contract_number']!r} "
+                f"already exists in tenant {contract.tenant_id}"
+            )
+
     for field, value in update_data.items():
         setattr(contract, field, value)
 
@@ -97,10 +131,23 @@ def delete_contract(db: Session, contract_id: UUID) -> bool:
     """Delete a contract by primary key (hard delete).
 
     Returns ``True`` if the row was deleted, ``False`` if not found.
+    Raises ``ValueError`` if the contract has dependent payroll records.
     """
     contract = db.get(Contract, contract_id)
     if contract is None:
         return False
+
+    # Check FK dependencies — payrolls reference this contract
+    payroll_count_stmt = (
+        select(func.count())
+        .select_from(Payroll)
+        .where(
+            Payroll.contract_id == contract_id,
+        )
+    )
+    payroll_count = db.execute(payroll_count_stmt).scalar_one()
+    if payroll_count > 0:
+        raise ValueError(f"Cannot delete contract {contract_id}: {payroll_count} payroll record(s) depend on it")
 
     db.delete(contract)
     db.flush()
