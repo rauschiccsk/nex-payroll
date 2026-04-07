@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 
 export interface PaySlipCreate {
-  tenant_id: string;
   payroll_id: string;
   employee_id: string;
   period_year: number;

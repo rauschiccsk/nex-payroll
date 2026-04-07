@@ -6,6 +6,7 @@ SQLAlchemy Session.  They flush but never commit — the caller
 (typically a FastAPI endpoint / unit-of-work) owns the transaction.
 """
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -119,6 +120,14 @@ def update_notification(
         raise ValueError(f"Notification with id={notification_id} not found")
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    # Never accept client-supplied read_at — always server-controlled.
+    # Set read_at server-side when is_read transitions to True; clear on False.
+    if "is_read" in update_data:
+        if update_data["is_read"] and not notification.is_read:
+            update_data["read_at"] = datetime.now(UTC)
+        elif not update_data["is_read"]:
+            update_data["read_at"] = None
 
     for field, value in update_data.items():
         setattr(notification, field, value)

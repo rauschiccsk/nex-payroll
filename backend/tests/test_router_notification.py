@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/notifications           (list, paginated, with filters)
   GET    /api/v1/notifications/{id}      (detail)
   POST   /api/v1/notifications           (create)
-  PUT    /api/v1/notifications/{id}      (update)
+  PATCH  /api/v1/notifications/{id}      (update)
   DELETE /api/v1/notifications/{id}      (delete)
 """
 
@@ -277,15 +277,15 @@ class TestGetNotification:
 
 
 # ---------------------------------------------------------------------------
-# PUT — Update
+# PATCH — Update
 # ---------------------------------------------------------------------------
 class TestUpdateNotification:
-    """PUT /api/v1/notifications/{notification_id}"""
+    """PATCH /api/v1/notifications/{notification_id}"""
 
     def test_update_single_field(self, client: TestClient, db_session: Session, tenant: Tenant, user: User):
         notif = _insert_notification(db_session, tenant, user)
 
-        resp = client.put(f"{BASE_URL}/{notif.id}", json={"title": "Updated title"})
+        resp = client.patch(f"{BASE_URL}/{notif.id}", json={"title": "Updated title"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["title"] == "Updated title"
@@ -295,20 +295,21 @@ class TestUpdateNotification:
     def test_update_mark_as_read(self, client: TestClient, db_session: Session, tenant: Tenant, user: User):
         notif = _insert_notification(db_session, tenant, user)
 
-        resp = client.put(f"{BASE_URL}/{notif.id}", json={"is_read": True})
+        resp = client.patch(f"{BASE_URL}/{notif.id}", json={"is_read": True})
         assert resp.status_code == 200
         data = resp.json()
         assert data["is_read"] is True
+        assert data["read_at"] is not None  # server-side timestamp
 
     def test_update_not_found(self, client: TestClient):
         fake_id = str(uuid.uuid4())
-        resp = client.put(f"{BASE_URL}/{fake_id}", json={"title": "X"})
+        resp = client.patch(f"{BASE_URL}/{fake_id}", json={"title": "X"})
         assert resp.status_code == 404
 
     def test_update_multiple_fields(self, client: TestClient, db_session: Session, tenant: Tenant, user: User):
         notif = _insert_notification(db_session, tenant, user)
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{notif.id}",
             json={
                 "severity": "critical",

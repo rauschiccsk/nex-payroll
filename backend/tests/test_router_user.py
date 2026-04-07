@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/users         (list, paginated)
   GET    /api/v1/users/{id}    (detail)
   POST   /api/v1/users         (create)
-  PUT    /api/v1/users/{id}    (update)
+  PATCH  /api/v1/users/{id}    (update)
   DELETE /api/v1/users/{id}    (delete / soft-delete)
 """
 
@@ -43,7 +43,7 @@ def _user_payload(tenant_id: str, **overrides) -> dict:
         "tenant_id": tenant_id,
         "username": "jnovak",
         "email": "jan.novak@example.com",
-        "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$fakehashvalue",
+        "password": "SecurePass123!",
         "role": "accountant",
     }
     defaults.update(overrides)
@@ -219,14 +219,14 @@ class TestGetUser:
 # PUT -- Update
 # ---------------------------------------------------------------------------
 class TestUpdateUser:
-    """PUT /api/v1/users/{user_id}"""
+    """PATCH /api/v1/users/{user_id}"""
 
     def test_update_single_field(self, client: TestClient, db_session: Session):
         tenant = _create_tenant(db_session)
         create_resp = client.post(BASE_URL, json=_user_payload(str(tenant.id)))
         user_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{user_id}", json={"username": "peter_novak"})
+        resp = client.patch(f"{BASE_URL}/{user_id}", json={"username": "peter_novak"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["username"] == "peter_novak"
@@ -238,7 +238,7 @@ class TestUpdateUser:
         create_resp = client.post(BASE_URL, json=_user_payload(str(tenant.id)))
         user_id = create_resp.json()["id"]
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{user_id}",
             json={"email": "new@example.com", "role": "director"},
         )
@@ -249,7 +249,7 @@ class TestUpdateUser:
 
     def test_update_not_found(self, client: TestClient):
         fake_id = str(uuid.uuid4())
-        resp = client.put(f"{BASE_URL}/{fake_id}", json={"username": "X"})
+        resp = client.patch(f"{BASE_URL}/{fake_id}", json={"username": "X"})
         assert resp.status_code == 404
         assert resp.json()["detail"] == "User not found"
 
@@ -265,7 +265,7 @@ class TestUpdateUser:
         )
         user_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{user_id}", json={"username": "user1"})
+        resp = client.patch(f"{BASE_URL}/{user_id}", json={"username": "user1"})
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
 
@@ -277,7 +277,7 @@ class TestUpdateUser:
         new_tenant_id = str(uuid.uuid4())
 
         # Sending tenant_id should be ignored (not in UserUpdate schema)
-        resp = client.put(f"{BASE_URL}/{user_id}", json={"tenant_id": new_tenant_id})
+        resp = client.patch(f"{BASE_URL}/{user_id}", json={"tenant_id": new_tenant_id})
         assert resp.status_code == 200
         data = resp.json()
         # tenant_id remains unchanged

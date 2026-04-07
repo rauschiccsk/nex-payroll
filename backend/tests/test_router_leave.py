@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/leaves         (list, paginated)
   GET    /api/v1/leaves/{id}    (detail)
   POST   /api/v1/leaves         (create)
-  PUT    /api/v1/leaves/{id}    (update)
+  PATCH  /api/v1/leaves/{id}    (update)
   DELETE /api/v1/leaves/{id}    (delete)
 """
 
@@ -189,7 +189,7 @@ class TestUpdateLeave:
     def test_update_success(self, client: TestClient):
         tid, eid = _setup_tenant_and_employee(client)
         created = client.post(BASE_URL, json=_leave_payload(tid, eid)).json()
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{created['id']}",
             json={"status": "approved", "note": "Schválené"},
         )
@@ -199,7 +199,7 @@ class TestUpdateLeave:
         assert data["note"] == "Schválené"
 
     def test_update_not_found(self, client: TestClient):
-        resp = client.put(f"{BASE_URL}/{uuid.uuid4()}", json={"status": "approved"})
+        resp = client.patch(f"{BASE_URL}/{uuid.uuid4()}", json={"status": "approved"})
         assert resp.status_code == 404
 
 

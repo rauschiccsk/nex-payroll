@@ -13,14 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.leave import LeaveCreate, LeaveRead, LeaveUpdate
 from app.schemas.pagination import PaginatedResponse
-from app.services.leave import (
-    count_leaves,
-    create_leave,
-    delete_leave,
-    get_leave,
-    list_leaves,
-    update_leave,
-)
+from app.services import leave as leave_service
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +30,7 @@ def list_leaves_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of leave records."""
-    items = list_leaves(
+    items = leave_service.list_leaves(
         db,
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -45,7 +38,7 @@ def list_leaves_endpoint(
         skip=skip,
         limit=limit,
     )
-    total = count_leaves(
+    total = leave_service.count_leaves(
         db,
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -60,10 +53,22 @@ def get_leave_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single leave record by ID."""
-    leave = get_leave(db, leave_id)
+    leave = leave_service.get_leave(db, leave_id)
     if leave is None:
         raise HTTPException(status_code=404, detail="Leave not found")
     return leave
+
+
+def _classify_value_error(exc: ValueError) -> int:
+    """Map ValueError message text to an HTTP status code per Router Generation Checklist."""
+    msg = str(exc).lower()
+    if "not found" in msg:
+        return 404
+    if "duplicate" in msg or "conflict" in msg or "already exists" in msg:
+        return 409
+    if "invalid" in msg or "constraint" in msg or "foreign key" in msg:
+        return 422
+    return 400
 
 
 @router.post("", response_model=LeaveRead, status_code=201)
@@ -72,13 +77,16 @@ def create_leave_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Create a new leave record."""
-    leave = create_leave(db, payload)
+    try:
+        leave = leave_service.create_leave(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=_classify_value_error(exc), detail=str(exc)) from exc
     db.commit()
     db.refresh(leave)
     return leave
 
 
-@router.put("/{leave_id}", response_model=LeaveRead)
+@router.patch("/{leave_id}", response_model=LeaveRead)
 def update_leave_endpoint(
     leave_id: UUID,
     payload: LeaveUpdate,
@@ -86,9 +94,9 @@ def update_leave_endpoint(
 ):
     """Update an existing leave record."""
     try:
-        leave = update_leave(db, leave_id, payload)
+        leave = leave_service.update_leave(db, leave_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_classify_value_error(exc), detail=str(exc)) from exc
     db.commit()
     db.refresh(leave)
     return leave
@@ -101,9 +109,9 @@ def delete_leave_endpoint(
 ):
     """Delete a leave record by ID."""
     try:
-        deleted = delete_leave(db, leave_id)
+        deleted = leave_service.delete_leave(db, leave_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        raise HTTPException(status_code=_classify_value_error(exc), detail=str(exc)) from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="Leave not found")
     db.commit()

@@ -114,10 +114,6 @@ class NotificationUpdate(BaseModel):
         default=None,
         description="Whether user has read this notification",
     )
-    read_at: datetime | None = Field(
-        default=None,
-        description="Timestamp when user read the notification",
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -142,4 +138,3 @@ class NotificationRead(BaseModel):
     is_read: bool
     read_at: datetime | None
     created_at: datetime
-    updated_at: datetime

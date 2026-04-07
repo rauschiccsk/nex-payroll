@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/monthly-reports         (list, paginated)
   GET    /api/v1/monthly-reports/{id}    (detail)
   POST   /api/v1/monthly-reports         (create)
-  PUT    /api/v1/monthly-reports/{id}    (update)
+  PATCH  /api/v1/monthly-reports/{id}    (update)
   DELETE /api/v1/monthly-reports/{id}    (delete)
 """
 
@@ -97,6 +97,15 @@ class TestListMonthlyReports:
         resp = client.get(BASE_URL, params={"report_type": "zp_vszp"})
         assert resp.json()["total"] == 0
 
+    def test_filter_by_status(self, client: TestClient):
+        tenant = _create_tenant(client)
+        client.post(BASE_URL, json=_report_payload(tenant["id"], status="generated"))
+        resp = client.get(BASE_URL, params={"status": "generated"})
+        assert resp.json()["total"] == 1
+
+        resp = client.get(BASE_URL, params={"status": "submitted"})
+        assert resp.json()["total"] == 0
+
     def test_filter_by_period(self, client: TestClient):
         tenant = _create_tenant(client)
         client.post(BASE_URL, json=_report_payload(tenant["id"], period_year=2025, period_month=3))
@@ -140,6 +149,14 @@ class TestCreateMonthlyReport:
         assert "id" in data
         assert "created_at" in data
 
+    def test_create_duplicate_returns_409(self, client: TestClient):
+        tenant = _create_tenant(client)
+        payload = _report_payload(tenant["id"])
+        resp1 = client.post(BASE_URL, json=payload)
+        assert resp1.status_code == 201
+        resp2 = client.post(BASE_URL, json=payload)
+        assert resp2.status_code == 409
+
     def test_create_missing_required(self, client: TestClient):
         resp = client.post(BASE_URL, json={"report_type": "sp_monthly"})
         assert resp.status_code == 422
@@ -152,7 +169,7 @@ class TestUpdateMonthlyReport:
     def test_update_success(self, client: TestClient):
         tenant = _create_tenant(client)
         created = client.post(BASE_URL, json=_report_payload(tenant["id"])).json()
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{created['id']}",
             json={"status": "submitted"},
         )
@@ -160,7 +177,7 @@ class TestUpdateMonthlyReport:
         assert resp.json()["status"] == "submitted"
 
     def test_update_not_found(self, client: TestClient):
-        resp = client.put(f"{BASE_URL}/{uuid.uuid4()}", json={"status": "submitted"})
+        resp = client.patch(f"{BASE_URL}/{uuid.uuid4()}", json={"status": "submitted"})
         assert resp.status_code == 404
 
 

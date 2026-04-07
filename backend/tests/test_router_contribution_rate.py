@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/contribution-rates         (list, paginated)
   GET    /api/v1/contribution-rates/{id}    (detail)
   POST   /api/v1/contribution-rates         (create)
-  PUT    /api/v1/contribution-rates/{id}    (update)
+  PATCH  /api/v1/contribution-rates/{id}    (update)
   DELETE /api/v1/contribution-rates/{id}    (delete)
 """
 
@@ -180,16 +180,16 @@ class TestGetContributionRate:
 
 
 # ---------------------------------------------------------------------------
-# PUT — Update
+# PATCH — Update
 # ---------------------------------------------------------------------------
 class TestUpdateContributionRate:
-    """PUT /api/v1/contribution-rates/{rate_id}"""
+    """PATCH /api/v1/contribution-rates/{rate_id}"""
 
     def test_update_single_field(self, client: TestClient):
         create_resp = client.post(BASE_URL, json=_create_rate_payload())
         rate_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{rate_id}", json={"rate_percent": "2.0000"})
+        resp = client.patch(f"{BASE_URL}/{rate_id}", json={"rate_percent": "2.0000"})
         assert resp.status_code == 200
         data = resp.json()
         assert Decimal(data["rate_percent"]) == Decimal("2.0000")
@@ -200,7 +200,7 @@ class TestUpdateContributionRate:
         create_resp = client.post(BASE_URL, json=_create_rate_payload())
         rate_id = create_resp.json()["id"]
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{rate_id}",
             json={
                 "rate_type": "zp_employee",
@@ -216,7 +216,7 @@ class TestUpdateContributionRate:
 
     def test_update_not_found(self, client: TestClient):
         fake_id = str(uuid.uuid4())
-        resp = client.put(f"{BASE_URL}/{fake_id}", json={"rate_percent": "2.0000"})
+        resp = client.patch(f"{BASE_URL}/{fake_id}", json={"rate_percent": "2.0000"})
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Contribution rate not found"
 
@@ -224,7 +224,7 @@ class TestUpdateContributionRate:
         create_resp = client.post(BASE_URL, json=_create_rate_payload())
         rate_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{rate_id}", json={"valid_to": "2025-12-31"})
+        resp = client.patch(f"{BASE_URL}/{rate_id}", json={"valid_to": "2025-12-31"})
         assert resp.status_code == 200
         assert resp.json()["valid_to"] == "2025-12-31"
 
@@ -232,7 +232,7 @@ class TestUpdateContributionRate:
         create_resp = client.post(BASE_URL, json=_create_rate_payload())
         rate_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{rate_id}", json={"payer": "invalid"})
+        resp = client.patch(f"{BASE_URL}/{rate_id}", json={"payer": "invalid"})
         assert resp.status_code == 422
 
 

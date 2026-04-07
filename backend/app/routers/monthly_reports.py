@@ -17,18 +17,23 @@ from app.schemas.monthly_report import (
     MonthlyReportUpdate,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.services.monthly_report import (
-    count_monthly_reports,
-    create_monthly_report,
-    delete_monthly_report,
-    get_monthly_report,
-    list_monthly_reports,
-    update_monthly_report,
-)
+from app.services import monthly_report as monthly_report_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Monthly Reports"])
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map ValueError message to the appropriate HTTP status code."""
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if "duplicate" in msg or "conflict" in msg or "already exists" in msg:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if "invalid" in msg or "constraint" in msg or "foreign key" in msg:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("", response_model=PaginatedResponse[MonthlyReportRead])
@@ -44,7 +49,7 @@ def list_monthly_reports_endpoint(
 ):
     """Return a paginated list of monthly reports."""
     try:
-        items = list_monthly_reports(
+        items = monthly_report_service.list_monthly_reports(
             db,
             tenant_id=tenant_id,
             report_type=report_type,
@@ -54,7 +59,7 @@ def list_monthly_reports_endpoint(
             skip=skip,
             limit=limit,
         )
-        total = count_monthly_reports(
+        total = monthly_report_service.count_monthly_reports(
             db,
             tenant_id=tenant_id,
             report_type=report_type,
@@ -63,7 +68,7 @@ def list_monthly_reports_endpoint(
             period_month=period_month,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -73,7 +78,7 @@ def get_monthly_report_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single monthly report by ID."""
-    report = get_monthly_report(db, report_id)
+    report = monthly_report_service.get_monthly_report(db, report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Monthly report not found")
     return report
@@ -86,15 +91,15 @@ def create_monthly_report_endpoint(
 ):
     """Create a new monthly report record."""
     try:
-        report = create_monthly_report(db, payload)
+        report = monthly_report_service.create_monthly_report(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(report)
     return report
 
 
-@router.put("/{report_id}", response_model=MonthlyReportRead)
+@router.patch("/{report_id}", response_model=MonthlyReportRead)
 def update_monthly_report_endpoint(
     report_id: UUID,
     payload: MonthlyReportUpdate,
@@ -102,9 +107,9 @@ def update_monthly_report_endpoint(
 ):
     """Update an existing monthly report record."""
     try:
-        report = update_monthly_report(db, report_id, payload)
+        report = monthly_report_service.update_monthly_report(db, report_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(report)
     return report
@@ -117,7 +122,7 @@ def delete_monthly_report_endpoint(
 ):
     """Delete a monthly report by ID."""
     try:
-        delete_monthly_report(db, report_id)
+        monthly_report_service.delete_monthly_report(db, report_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()

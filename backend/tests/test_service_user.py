@@ -45,7 +45,7 @@ def _make_payload(tenant_id, **overrides) -> UserCreate:
         "tenant_id": tenant_id,
         "username": "jnovak",
         "email": "jan.novak@example.com",
-        "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$fakehashvalue",
+        "password": "SecurePass123!",
         "role": "accountant",
         "is_active": True,
     }

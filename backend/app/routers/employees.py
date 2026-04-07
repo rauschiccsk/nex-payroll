@@ -18,14 +18,7 @@ from app.schemas.employee import (
     EmployeeUpdate,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.services.employee import (
-    count_employees,
-    create_employee,
-    delete_employee,
-    get_employee,
-    list_employees,
-    update_employee,
-)
+from app.services import employee as employee_service
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +36,14 @@ def list_employees_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of employees."""
-    items = list_employees(
+    items = employee_service.list_employees(
         db,
         tenant_id=tenant_id,
         skip=skip,
         limit=limit,
         include_deleted=include_deleted,
     )
-    total = count_employees(
+    total = employee_service.count_employees(
         db,
         tenant_id=tenant_id,
         include_deleted=include_deleted,
@@ -64,7 +57,7 @@ def get_employee_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single employee by ID."""
-    employee = get_employee(db, employee_id)
+    employee = employee_service.get_employee(db, employee_id)
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found")
     return employee
@@ -77,15 +70,20 @@ def create_employee_endpoint(
 ):
     """Create a new employee."""
     try:
-        employee = create_employee(db, payload)
+        employee = employee_service.create_employee(db, payload)
     except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if "invalid" in msg or "constraint" in msg:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     db.commit()
     db.refresh(employee)
     return employee
 
 
-@router.put("/{employee_id}", response_model=EmployeeRead)
+@router.patch("/{employee_id}", response_model=EmployeeRead)
 def update_employee_endpoint(
     employee_id: UUID,
     payload: EmployeeUpdate,
@@ -93,8 +91,13 @@ def update_employee_endpoint(
 ):
     """Update an existing employee."""
     try:
-        employee = update_employee(db, employee_id, payload)
+        employee = employee_service.update_employee(db, employee_id, payload)
     except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if "invalid" in msg or "constraint" in msg:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if employee is None:
         raise HTTPException(status_code=404, detail="Employee not found")
@@ -109,7 +112,7 @@ def delete_employee_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete an employee by ID."""
-    deleted = delete_employee(db, employee_id)
+    deleted = employee_service.delete_employee(db, employee_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Employee not found")
     db.commit()

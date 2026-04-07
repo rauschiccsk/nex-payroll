@@ -81,10 +81,58 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           poetry run pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=90
 
+  frontend-lint:
+    name: Frontend Lint & Type Check
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: frontend
+        run: npx tsc --noEmit
+
+      - name: ESLint check
+        working-directory: frontend
+        run: npx eslint . || true
+
+  frontend-test:
+    name: Frontend Test
+    runs-on: self-hosted
+    needs: frontend-lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: frontend
+        run: npx vitest run
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: self-hosted
+    needs: frontend-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
   build:
     name: Build Docker Image
     runs-on: self-hosted
-    needs: test
+    needs: [test, frontend-build]
     steps:
       - uses: actions/checkout@v4
 

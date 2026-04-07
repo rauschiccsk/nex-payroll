@@ -70,7 +70,7 @@ def create_bracket(
     return bracket
 
 
-@router.put("/{bracket_id}", response_model=TaxBracketRead)
+@router.patch("/{bracket_id}", response_model=TaxBracketRead)
 def update_bracket(
     bracket_id: UUID,
     payload: TaxBracketUpdate,

@@ -4,7 +4,7 @@ Verifies:
 - GET /api/v1/contracts (list with pagination and filters)
 - GET /api/v1/contracts/{contract_id} (single contract)
 - POST /api/v1/contracts (create)
-- PUT /api/v1/contracts/{contract_id} (update)
+- PATCH /api/v1/contracts/{contract_id} (update)
 - DELETE /api/v1/contracts/{contract_id} (delete)
 - Error handling: 404, 409, 422
 """
@@ -276,7 +276,7 @@ class TestCreateContract:
 
 
 # ---------------------------------------------------------------------------
-# PUT /api/v1/contracts/{contract_id} — update
+# PATCH /api/v1/contracts/{contract_id} — update
 # ---------------------------------------------------------------------------
 
 
@@ -287,7 +287,7 @@ class TestUpdateContract:
         tenant, _insurer, employee = prerequisites
         contract = _make_contract(db_session, tenant.id, employee.id)
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/contracts/{contract.id}",
             json={"job_title": "Senior inžinier"},
         )
@@ -295,7 +295,7 @@ class TestUpdateContract:
         assert resp.json()["job_title"] == "Senior inžinier"
 
     def test_update_nonexistent_returns_404(self, client):
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/contracts/{uuid4()}",
             json={"job_title": "Ghost"},
         )
@@ -306,7 +306,7 @@ class TestUpdateContract:
         _make_contract(db_session, tenant.id, employee.id, contract_number="PZ-001")
         contract_b = _make_contract(db_session, tenant.id, employee.id, contract_number="PZ-002")
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/contracts/{contract_b.id}",
             json={"contract_number": "PZ-001"},
         )

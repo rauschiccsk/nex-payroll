@@ -13,14 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.notification import NotificationCreate, NotificationRead, NotificationUpdate
 from app.schemas.pagination import PaginatedResponse
-from app.services.notification import (
-    count_notifications,
-    create_notification,
-    delete_notification,
-    get_notification,
-    list_notifications,
-    update_notification,
-)
+from app.services import notification as notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +32,7 @@ def list_notifications_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of notifications."""
-    items = list_notifications(
+    items = notification_service.list_notifications(
         db,
         tenant_id=tenant_id,
         user_id=user_id,
@@ -49,7 +42,7 @@ def list_notifications_endpoint(
         skip=skip,
         limit=limit,
     )
-    total = count_notifications(
+    total = notification_service.count_notifications(
         db,
         tenant_id=tenant_id,
         user_id=user_id,
@@ -66,10 +59,21 @@ def get_notification_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single notification by ID."""
-    notification = get_notification(db, notification_id)
+    notification = notification_service.get_notification(db, notification_id)
     if notification is None:
         raise HTTPException(status_code=404, detail="Notification not found")
     return notification
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map ValueError message text to the appropriate HTTP status code."""
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    # invalid, constraint, foreign key, or anything else → 422
+    raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("", response_model=NotificationRead, status_code=201)
@@ -78,13 +82,16 @@ def create_notification_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Create a new notification."""
-    notification = create_notification(db, payload)
+    try:
+        notification = notification_service.create_notification(db, payload)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(notification)
     return notification
 
 
-@router.put("/{notification_id}", response_model=NotificationRead)
+@router.patch("/{notification_id}", response_model=NotificationRead)
 def update_notification_endpoint(
     notification_id: UUID,
     payload: NotificationUpdate,
@@ -92,9 +99,9 @@ def update_notification_endpoint(
 ):
     """Update an existing notification."""
     try:
-        notification = update_notification(db, notification_id, payload)
+        notification = notification_service.update_notification(db, notification_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(notification)
     return notification
@@ -107,9 +114,7 @@ def delete_notification_endpoint(
 ):
     """Delete a notification by ID."""
     try:
-        deleted = delete_notification(db, notification_id)
+        notification_service.delete_notification(db, notification_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Notification not found")
+        _raise_for_value_error(exc)
     db.commit()

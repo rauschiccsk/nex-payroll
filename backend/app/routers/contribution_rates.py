@@ -17,14 +17,7 @@ from app.schemas.contribution_rate import (
     ContributionRateUpdate,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.services.contribution_rate import (
-    count_contribution_rates,
-    create_contribution_rate,
-    delete_contribution_rate,
-    get_contribution_rate,
-    list_contribution_rates,
-    update_contribution_rate,
-)
+from app.services import contribution_rate as contribution_rate_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +31,8 @@ def list_rates(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of contribution rates."""
-    items = list_contribution_rates(db, skip=skip, limit=limit)
-    total = count_contribution_rates(db)
+    items = contribution_rate_service.list_contribution_rates(db, skip=skip, limit=limit)
+    total = contribution_rate_service.count_contribution_rates(db)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -49,7 +42,7 @@ def get_rate(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single contribution rate by ID."""
-    rate = get_contribution_rate(db, rate_id)
+    rate = contribution_rate_service.get_contribution_rate(db, rate_id)
     if rate is None:
         raise HTTPException(status_code=404, detail="Contribution rate not found")
     return rate
@@ -61,20 +54,36 @@ def create_rate(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Create a new contribution rate."""
-    rate = create_contribution_rate(db, payload)
+    try:
+        rate = contribution_rate_service.create_contribution_rate(db, payload)
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if any(w in msg for w in ("duplicate", "conflict", "already exists")):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     db.commit()
     db.refresh(rate)
     return rate
 
 
-@router.put("/{rate_id}", response_model=ContributionRateRead)
+@router.patch("/{rate_id}", response_model=ContributionRateRead)
 def update_rate(
     rate_id: UUID,
     payload: ContributionRateUpdate,
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Update an existing contribution rate."""
-    rate = update_contribution_rate(db, rate_id, payload)
+    try:
+        rate = contribution_rate_service.update_contribution_rate(db, rate_id, payload)
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if any(w in msg for w in ("duplicate", "conflict", "already exists")):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if rate is None:
         raise HTTPException(status_code=404, detail="Contribution rate not found")
     db.commit()
@@ -88,7 +97,15 @@ def delete_rate(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete a contribution rate by ID."""
-    deleted = delete_contribution_rate(db, rate_id)
+    try:
+        deleted = contribution_rate_service.delete_contribution_rate(db, rate_id)
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if any(w in msg for w in ("duplicate", "conflict", "already exists")):
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not deleted:
         raise HTTPException(status_code=404, detail="Contribution rate not found")
     db.commit()

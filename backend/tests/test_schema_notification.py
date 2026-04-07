@@ -47,7 +47,6 @@ def _read_kwargs() -> dict:
         "is_read": False,
         "read_at": None,
         "created_at": now,
-        "updated_at": now,
     }
 
 
@@ -217,7 +216,6 @@ class TestNotificationUpdate:
         assert schema.related_entity is None
         assert schema.related_entity_id is None
         assert schema.is_read is None
-        assert schema.read_at is None
 
     def test_partial_update_is_read(self):
         """Only is_read supplied; the rest remain None."""
@@ -238,7 +236,6 @@ class TestNotificationUpdate:
 
     def test_full_update(self):
         """All fields explicitly set."""
-        now = datetime(2025, 7, 1, 10, 0, 0)
         entity_id = uuid4()
         schema = NotificationUpdate(
             type="system",
@@ -248,7 +245,6 @@ class TestNotificationUpdate:
             related_entity="leave",
             related_entity_id=entity_id,
             is_read=True,
-            read_at=now,
         )
         assert schema.type == "system"
         assert schema.severity == "warning"
@@ -257,7 +253,6 @@ class TestNotificationUpdate:
         assert schema.related_entity == "leave"
         assert schema.related_entity_id == entity_id
         assert schema.is_read is True
-        assert schema.read_at == now
 
     # -- Literal constraints in update --
 
@@ -319,7 +314,6 @@ class TestNotificationRead:
         assert schema.is_read is False
         assert schema.read_at is None
         assert schema.created_at == datetime(2025, 6, 1, 12, 0, 0)
-        assert schema.updated_at == datetime(2025, 6, 1, 12, 0, 0)
 
     def test_from_attributes_orm_mode(self):
         """Verify from_attributes=True allows ORM object-like access."""
@@ -338,7 +332,6 @@ class TestNotificationRead:
                 self.is_read = True
                 self.read_at = datetime(2025, 7, 1, 10, 0, 0)
                 self.created_at = datetime(2025, 1, 1, 0, 0, 0)
-                self.updated_at = datetime(2025, 1, 1, 0, 0, 0)
 
         orm_obj = FakeORM()
         schema = NotificationRead.model_validate(orm_obj)
@@ -374,7 +367,6 @@ class TestNotificationRead:
             "is_read",
             "read_at",
             "created_at",
-            "updated_at",
         }
         assert set(NotificationRead.model_fields.keys()) == expected_fields
 

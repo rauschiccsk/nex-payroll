@@ -17,18 +17,24 @@ from app.schemas.contract import (
     ContractUpdate,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.services.contract import (
-    count_contracts,
-    create_contract,
-    delete_contract,
-    get_contract,
-    list_contracts,
-    update_contract,
-)
+from app.services import contract as contract_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Contracts"])
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map ValueError message to the appropriate HTTP status code."""
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("invalid", "constraint", "foreign key")):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("", response_model=PaginatedResponse[ContractRead])
@@ -40,14 +46,14 @@ def list_contracts_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of contracts."""
-    items = list_contracts(
+    items = contract_service.list_contracts(
         db,
         tenant_id=tenant_id,
         employee_id=employee_id,
         skip=skip,
         limit=limit,
     )
-    total = count_contracts(
+    total = contract_service.count_contracts(
         db,
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -61,7 +67,7 @@ def get_contract_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single contract by ID."""
-    contract = get_contract(db, contract_id)
+    contract = contract_service.get_contract(db, contract_id)
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found")
     return contract
@@ -74,15 +80,15 @@ def create_contract_endpoint(
 ):
     """Create a new contract."""
     try:
-        contract = create_contract(db, payload)
+        contract = contract_service.create_contract(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(contract)
     return contract
 
 
-@router.put("/{contract_id}", response_model=ContractRead)
+@router.patch("/{contract_id}", response_model=ContractRead)
 def update_contract_endpoint(
     contract_id: UUID,
     payload: ContractUpdate,
@@ -90,9 +96,9 @@ def update_contract_endpoint(
 ):
     """Update an existing contract."""
     try:
-        contract = update_contract(db, contract_id, payload)
+        contract = contract_service.update_contract(db, contract_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     if contract is None:
         raise HTTPException(status_code=404, detail="Contract not found")
     db.commit()
@@ -107,9 +113,9 @@ def delete_contract_endpoint(
 ):
     """Delete a contract by ID."""
     try:
-        deleted = delete_contract(db, contract_id)
+        deleted = contract_service.delete_contract(db, contract_id)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     if not deleted:
         raise HTTPException(status_code=404, detail="Contract not found")
     db.commit()

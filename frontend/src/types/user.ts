@@ -21,8 +21,6 @@ export interface UserUpdate {
   password?: string | null;
   role?: UserRole | null;
   is_active?: boolean | null;
-  last_login_at?: string | null;
-  password_changed_at?: string | null;
 }
 
 export interface UserRead {

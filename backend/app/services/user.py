@@ -11,11 +11,24 @@ by default.
 
 from uuid import UUID
 
+from pwdlib import PasswordHash
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
+
+# ---------------------------------------------------------------------------
+# Password hashing (Argon2 via pwdlib)
+# ---------------------------------------------------------------------------
+
+_pwd_hash = PasswordHash.recommended()
+
+
+def _hash_password(plaintext: str) -> str:
+    """Return an Argon2 hash for the given plaintext password."""
+    return _pwd_hash.hash(plaintext)
+
 
 # ---------------------------------------------------------------------------
 # Allowed enum values (validated at service level)
@@ -137,7 +150,10 @@ def create_user(
     if db.execute(dup_email).scalar_one_or_none() is not None:
         raise ValueError(f"User with email={payload.email!r} already exists in tenant {payload.tenant_id}")
 
-    user = User(**payload.model_dump())
+    data = payload.model_dump()
+    # Hash plaintext password before persisting
+    data["password_hash"] = _hash_password(data.pop("password"))
+    user = User(**data)
     db.add(user)
     db.flush()
     return user
@@ -191,6 +207,19 @@ def update_user(
         )
         if db.execute(dup_stmt).scalar_one_or_none() is not None:
             raise ValueError(f"User with email={new_email!r} already exists in tenant {user.tenant_id}")
+
+    # Hash plaintext password if being changed
+    if "password" in update_data:
+        plaintext = update_data.pop("password")
+        if plaintext is not None:
+            update_data["password_hash"] = _hash_password(plaintext)
+
+    # Validate employee_id requirement when role changes to 'employee'
+    new_role = update_data.get("role")
+    if new_role == "employee":
+        new_employee_id = update_data.get("employee_id", user.employee_id)
+        if new_employee_id is None:
+            raise ValueError("employee_id is required when role is 'employee'")
 
     for field, value in update_data.items():
         setattr(user, field, value)

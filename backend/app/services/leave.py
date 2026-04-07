@@ -11,7 +11,9 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.employee import Employee
 from app.models.leave import Leave
+from app.models.tenant import Tenant
 from app.schemas.leave import LeaveCreate, LeaveUpdate
 
 
@@ -79,7 +81,19 @@ def create_leave(
     db: Session,
     payload: LeaveCreate,
 ) -> Leave:
-    """Insert a new leave record and flush (no commit)."""
+    """Insert a new leave record and flush (no commit).
+
+    Validates that referenced tenant and employee exist before inserting.
+    Raises ``ValueError`` if either foreign key reference is invalid.
+    """
+    tenant = db.get(Tenant, payload.tenant_id)
+    if tenant is None:
+        raise ValueError(f"Tenant with id={payload.tenant_id} not found")
+
+    employee = db.get(Employee, payload.employee_id)
+    if employee is None:
+        raise ValueError(f"Employee with id={payload.employee_id} not found")
+
     leave = Leave(**payload.model_dump())
     db.add(leave)
     db.flush()

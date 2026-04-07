@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/employees         (list, paginated)
   GET    /api/v1/employees/{id}    (detail)
   POST   /api/v1/employees         (create)
-  PUT    /api/v1/employees/{id}    (update)
+  PATCH  /api/v1/employees/{id}    (update)
   DELETE /api/v1/employees/{id}    (soft-delete)
 """
 
@@ -227,10 +227,10 @@ class TestGetEmployee:
 
 
 # ---------------------------------------------------------------------------
-# PUT — Update
+# PATCH — Update
 # ---------------------------------------------------------------------------
 class TestUpdateEmployee:
-    """PUT /api/v1/employees/{employee_id}"""
+    """PATCH /api/v1/employees/{employee_id}"""
 
     def test_update_single_field(self, client: TestClient):
         tenant_id, insurer_id = _setup_dependencies(client)
@@ -240,7 +240,7 @@ class TestUpdateEmployee:
         )
         employee_id = create_resp.json()["id"]
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{employee_id}",
             json={"first_name": "Peter"},
         )
@@ -252,7 +252,7 @@ class TestUpdateEmployee:
 
     def test_update_not_found(self, client: TestClient):
         fake_id = str(uuid.uuid4())
-        resp = client.put(f"{BASE_URL}/{fake_id}", json={"first_name": "X"})
+        resp = client.patch(f"{BASE_URL}/{fake_id}", json={"first_name": "X"})
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Employee not found"
 
@@ -268,7 +268,7 @@ class TestUpdateEmployee:
         )
         employee_id = create_resp.json()["id"]
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{employee_id}",
             json={"employee_number": "EMP001"},
         )
@@ -285,7 +285,7 @@ class TestUpdateEmployee:
         employee_id = create_resp.json()["id"]
         other_tenant = str(uuid.uuid4())
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{employee_id}",
             json={"tenant_id": other_tenant},
         )

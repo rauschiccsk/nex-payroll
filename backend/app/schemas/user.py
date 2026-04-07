@@ -45,10 +45,10 @@ class UserCreate(BaseModel):
         examples=["jan.novak@example.com"],
         description="Email address (unique within tenant)",
     )
-    password_hash: str = Field(
+    password: str = Field(
         ...,
         max_length=255,
-        description="Argon2 password hash via pwdlib",
+        description="Plaintext password — hashed server-side via pwdlib (Argon2)",
     )
     role: _ROLE = Field(
         ...,
@@ -82,11 +82,13 @@ class UserUpdate(BaseModel):
     employee_id: UUID | None = Field(default=None)
     username: str | None = Field(default=None, max_length=100)
     email: str | None = Field(default=None, max_length=255)
-    password_hash: str | None = Field(default=None, max_length=255)
+    password: str | None = Field(
+        default=None,
+        max_length=255,
+        description="New plaintext password — hashed server-side via pwdlib (Argon2)",
+    )
     role: _ROLE | None = Field(default=None)
     is_active: bool | None = Field(default=None)
-    last_login_at: datetime | None = Field(default=None)
-    password_changed_at: datetime | None = Field(default=None)
 
 
 # ---------------------------------------------------------------------------

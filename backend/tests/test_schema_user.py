@@ -26,7 +26,7 @@ def _valid_create_kwargs() -> dict:
         "tenant_id": _TENANT_ID,
         "username": "jnovak",
         "email": "jan.novak@example.com",
-        "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest",
+        "password": "$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest",
         "role": "accountant",
     }
 
@@ -45,7 +45,7 @@ class TestUserCreate:
         assert schema.employee_id is None
         assert schema.username == "jnovak"
         assert schema.email == "jan.novak@example.com"
-        assert schema.password_hash == "$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest"
+        assert schema.password == "$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest"
         assert schema.role == "accountant"
         assert schema.is_active is True
 
@@ -81,12 +81,12 @@ class TestUserCreate:
             UserCreate(**kw)
         assert "email" in str(exc_info.value)
 
-    def test_missing_required_password_hash(self):
+    def test_missing_required_password(self):
         kw = _valid_create_kwargs()
-        del kw["password_hash"]
+        del kw["password"]
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**kw)
-        assert "password_hash" in str(exc_info.value)
+        assert "password" in str(exc_info.value)
 
     def test_missing_required_role(self):
         kw = _valid_create_kwargs()
@@ -121,17 +121,17 @@ class TestUserCreate:
         schema = UserCreate(**kw)
         assert len(schema.email) == 255
 
-    def test_password_hash_max_length(self):
+    def test_password_max_length(self):
         kw = _valid_create_kwargs()
-        kw["password_hash"] = "x" * 256
+        kw["password"] = "x" * 256
         with pytest.raises(ValidationError):
             UserCreate(**kw)
 
-    def test_password_hash_at_max_length(self):
+    def test_password_at_max_length(self):
         kw = _valid_create_kwargs()
-        kw["password_hash"] = "x" * 255
+        kw["password"] = "x" * 255
         schema = UserCreate(**kw)
-        assert len(schema.password_hash) == 255
+        assert len(schema.password) == 255
 
     # -- role validation --
 
@@ -223,11 +223,9 @@ class TestUserUpdate:
         assert schema.employee_id is None
         assert schema.username is None
         assert schema.email is None
-        assert schema.password_hash is None
+        assert schema.password is None
         assert schema.role is None
         assert schema.is_active is None
-        assert schema.last_login_at is None
-        assert schema.password_changed_at is None
 
     def test_partial_update(self):
         schema = UserUpdate(
@@ -238,7 +236,7 @@ class TestUserUpdate:
         assert schema.username == "pnovak"
         assert schema.email == "peter.novak@example.com"
         assert schema.role == "director"
-        assert schema.password_hash is None
+        assert schema.password is None
         assert schema.is_active is None
 
     # -- max_length validation in update --
@@ -251,9 +249,9 @@ class TestUserUpdate:
         with pytest.raises(ValidationError):
             UserUpdate(email="x" * 256)
 
-    def test_update_password_hash_max_length(self):
+    def test_update_password_max_length(self):
         with pytest.raises(ValidationError):
-            UserUpdate(password_hash="x" * 256)
+            UserUpdate(password="x" * 256)
 
     # -- role validation in update --
 
@@ -273,17 +271,15 @@ class TestUserUpdate:
         schema = UserUpdate(role="employee")
         assert schema.role == "employee"
 
-    # -- datetime fields --
+    # -- readonly datetime fields are NOT in UserUpdate --
 
-    def test_update_last_login_at(self):
-        now = datetime(2025, 6, 1, 12, 0, 0)
-        schema = UserUpdate(last_login_at=now)
-        assert schema.last_login_at == now
+    def test_last_login_at_not_in_update(self):
+        """last_login_at is system-managed and must not be in UserUpdate fields."""
+        assert "last_login_at" not in UserUpdate.model_fields
 
-    def test_update_password_changed_at(self):
-        now = datetime(2025, 6, 1, 12, 0, 0)
-        schema = UserUpdate(password_changed_at=now)
-        assert schema.password_changed_at == now
+    def test_password_changed_at_not_in_update(self):
+        """password_changed_at is system-managed and must not be in UserUpdate fields."""
+        assert "password_changed_at" not in UserUpdate.model_fields
 
 
 # ---------------------------------------------------------------------------
@@ -326,17 +322,17 @@ class TestUserRead:
         assert schema.created_at == datetime(2025, 6, 1, 12, 0, 0)
         assert schema.updated_at == datetime(2025, 6, 1, 12, 0, 0)
 
-    def test_password_hash_excluded(self):
-        """Verify that password_hash is NOT part of UserRead schema."""
+    def test_password_excluded(self):
+        """Verify that password is NOT part of UserRead schema."""
         kw = self._read_kwargs()
         schema = UserRead(**kw)
         dumped = schema.model_dump()
-        assert "password_hash" not in dumped
+        assert "password" not in dumped
 
-        # Also verify that passing password_hash is ignored (extra='ignore' default)
-        kw["password_hash"] = "$argon2id$v=19$m=65536,t=3,p=4$fakehash"
+        # Also verify that passing password is ignored (extra='ignore' default)
+        kw["password"] = "$argon2id$v=19$m=65536,t=3,p=4$fakehash"
         schema2 = UserRead(**kw)
-        assert not hasattr(schema2, "password_hash") or "password_hash" not in schema2.model_fields
+        assert not hasattr(schema2, "password") or "password" not in schema2.model_fields
 
     def test_from_attributes_orm_mode(self):
         """Verify from_attributes=True allows ORM object-like access."""

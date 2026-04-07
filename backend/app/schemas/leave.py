@@ -120,11 +120,11 @@ class LeaveRead(BaseModel):
     id: UUID
     tenant_id: UUID
     employee_id: UUID
-    leave_type: str
+    leave_type: _LEAVE_TYPE
     start_date: date
     end_date: date
     business_days: int
-    status: str
+    status: _LEAVE_STATUS
     note: str | None
     approved_by: UUID | None
     approved_at: datetime | None

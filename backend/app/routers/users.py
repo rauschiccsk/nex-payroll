@@ -17,14 +17,7 @@ from app.schemas.user import (
     UserRead,
     UserUpdate,
 )
-from app.services.user import (
-    count_users,
-    create_user,
-    delete_user,
-    get_user,
-    list_users,
-    update_user,
-)
+from app.services import user as user_service
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +34,7 @@ def list_users_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of users."""
-    items = list_users(
+    items = user_service.list_users(
         db,
         tenant_id=tenant_id,
         role=role,
@@ -49,7 +42,7 @@ def list_users_endpoint(
         limit=limit,
         include_inactive=include_inactive,
     )
-    total = count_users(
+    total = user_service.count_users(
         db,
         tenant_id=tenant_id,
         role=role,
@@ -64,7 +57,7 @@ def get_user_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single user by ID."""
-    user = get_user(db, user_id)
+    user = user_service.get_user(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
@@ -77,15 +70,20 @@ def create_user_endpoint(
 ):
     """Create a new user."""
     try:
-        user = create_user(db, payload)
+        user = user_service.create_user(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if "duplicate" in msg or "already exists" in msg or "conflict" in msg:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     db.commit()
     db.refresh(user)
     return user
 
 
-@router.put("/{user_id}", response_model=UserRead)
+@router.patch("/{user_id}", response_model=UserRead)
 def update_user_endpoint(
     user_id: UUID,
     payload: UserUpdate,
@@ -93,9 +91,14 @@ def update_user_endpoint(
 ):
     """Update an existing user."""
     try:
-        user = update_user(db, user_id, payload)
+        user = user_service.update_user(db, user_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        msg = str(exc).lower()
+        if "not found" in msg:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        if "duplicate" in msg or "already exists" in msg or "conflict" in msg:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     db.commit()
@@ -109,7 +112,7 @@ def delete_user_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete a user by ID."""
-    deleted = delete_user(db, user_id)
+    deleted = user_service.delete_user(db, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="User not found")
     db.commit()

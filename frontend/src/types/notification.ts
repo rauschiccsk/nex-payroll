@@ -24,7 +24,6 @@ export interface NotificationUpdate {
   related_entity?: string | null;
   related_entity_id?: string | null;
   is_read?: boolean | null;
-  read_at?: string | null;
 }
 
 export interface NotificationRead {
