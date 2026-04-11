@@ -47,6 +47,7 @@ def _read_kwargs() -> dict:
         "is_read": False,
         "read_at": None,
         "created_at": now,
+        "updated_at": now,
     }
 
 
@@ -187,6 +188,54 @@ class TestNotificationCreate:
         schema = NotificationCreate(**kw)
         assert len(schema.related_entity) == 50
 
+    # -- whitespace / empty validators --
+
+    def test_title_blank_rejected(self):
+        """Blank title must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["title"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            NotificationCreate(**kw)
+        assert "title" in str(exc_info.value)
+
+    def test_title_empty_rejected(self):
+        """Empty title must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["title"] = ""
+        with pytest.raises(ValidationError) as exc_info:
+            NotificationCreate(**kw)
+        assert "title" in str(exc_info.value)
+
+    def test_message_blank_rejected(self):
+        """Blank message must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["message"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            NotificationCreate(**kw)
+        assert "message" in str(exc_info.value)
+
+    def test_message_empty_rejected(self):
+        """Empty message must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["message"] = ""
+        with pytest.raises(ValidationError) as exc_info:
+            NotificationCreate(**kw)
+        assert "message" in str(exc_info.value)
+
+    def test_title_stripped(self):
+        """Leading/trailing whitespace should be stripped from title."""
+        kw = _valid_create_kwargs()
+        kw["title"] = "  Some Title  "
+        schema = NotificationCreate(**kw)
+        assert schema.title == "Some Title"
+
+    def test_message_stripped(self):
+        """Leading/trailing whitespace should be stripped from message."""
+        kw = _valid_create_kwargs()
+        kw["message"] = "  Some message  "
+        schema = NotificationCreate(**kw)
+        assert schema.message == "Some message"
+
     # -- is_read / read_at excluded from Create --
 
     def test_create_excludes_is_read(self):
@@ -216,6 +265,7 @@ class TestNotificationUpdate:
         assert schema.related_entity is None
         assert schema.related_entity_id is None
         assert schema.is_read is None
+        assert schema.read_at is None
 
     def test_partial_update_is_read(self):
         """Only is_read supplied; the rest remain None."""
@@ -223,6 +273,13 @@ class TestNotificationUpdate:
         assert schema.is_read is True
         assert schema.type is None
         assert schema.severity is None
+
+    def test_partial_update_read_at(self):
+        """Only read_at supplied; the rest remain None."""
+        now = datetime(2025, 7, 1, 10, 0, 0)
+        schema = NotificationUpdate(read_at=now)
+        assert schema.read_at == now
+        assert schema.is_read is None
 
     def test_partial_update_type(self):
         schema = NotificationUpdate(type="anomaly")
@@ -245,6 +302,7 @@ class TestNotificationUpdate:
             related_entity="leave",
             related_entity_id=entity_id,
             is_read=True,
+            read_at=datetime(2025, 7, 1, 10, 0, 0),
         )
         assert schema.type == "system"
         assert schema.severity == "warning"
@@ -279,6 +337,40 @@ class TestNotificationUpdate:
         with pytest.raises(ValidationError) as exc_info:
             NotificationUpdate(related_entity="X" * 51)
         assert "related_entity" in str(exc_info.value)
+
+    # -- whitespace / empty validators in update --
+
+    def test_update_title_blank_rejected(self):
+        """Blank title must be rejected in Update."""
+        with pytest.raises(ValidationError) as exc_info:
+            NotificationUpdate(title="   ")
+        assert "title" in str(exc_info.value)
+
+    def test_update_message_blank_rejected(self):
+        """Blank message must be rejected in Update."""
+        with pytest.raises(ValidationError) as exc_info:
+            NotificationUpdate(message="   ")
+        assert "message" in str(exc_info.value)
+
+    def test_update_title_stripped(self):
+        """Leading/trailing whitespace should be stripped from title in Update."""
+        schema = NotificationUpdate(title="  Updated  ")
+        assert schema.title == "Updated"
+
+    def test_update_message_stripped(self):
+        """Leading/trailing whitespace should be stripped from message in Update."""
+        schema = NotificationUpdate(message="  Updated msg  ")
+        assert schema.message == "Updated msg"
+
+    def test_update_title_none_accepted(self):
+        """None title (not provided) should be accepted in Update."""
+        schema = NotificationUpdate(title=None)
+        assert schema.title is None
+
+    def test_update_message_none_accepted(self):
+        """None message (not provided) should be accepted in Update."""
+        schema = NotificationUpdate(message=None)
+        assert schema.message is None
 
     # -- no immutable fields --
 
@@ -332,6 +424,7 @@ class TestNotificationRead:
                 self.is_read = True
                 self.read_at = datetime(2025, 7, 1, 10, 0, 0)
                 self.created_at = datetime(2025, 1, 1, 0, 0, 0)
+                self.updated_at = datetime(2025, 1, 1, 0, 0, 0)
 
         orm_obj = FakeORM()
         schema = NotificationRead.model_validate(orm_obj)
@@ -367,6 +460,7 @@ class TestNotificationRead:
             "is_read",
             "read_at",
             "created_at",
+            "updated_at",
         }
         assert set(NotificationRead.model_fields.keys()) == expected_fields
 

@@ -8,7 +8,7 @@ used days, remaining days, and carryover from the previous year.
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # LeaveEntitlementCreate
@@ -58,6 +58,23 @@ class LeaveEntitlementCreate(BaseModel):
         description="Leave days carried over from previous year",
     )
 
+    @model_validator(mode="after")
+    def _check_used_le_total(self) -> "LeaveEntitlementCreate":
+        """Ensure used_days does not exceed total_days."""
+        if self.used_days > self.total_days:
+            msg = "used_days must not exceed total_days"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _check_remaining_consistency(self) -> "LeaveEntitlementCreate":
+        """Ensure remaining_days equals total_days - used_days."""
+        expected = self.total_days - self.used_days
+        if self.remaining_days != expected:
+            msg = f"remaining_days ({self.remaining_days}) must equal total_days - used_days ({expected})"
+            raise ValueError(msg)
+        return self
+
 
 # ---------------------------------------------------------------------------
 # LeaveEntitlementUpdate
@@ -74,6 +91,14 @@ class LeaveEntitlementUpdate(BaseModel):
     used_days: int | None = Field(default=None, ge=0)
     remaining_days: int | None = Field(default=None, ge=0)
     carryover_days: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _check_used_le_total(self) -> "LeaveEntitlementUpdate":
+        """When both supplied, used_days must not exceed total_days."""
+        if self.used_days is not None and self.total_days is not None and self.used_days > self.total_days:
+            msg = "used_days must not exceed total_days"
+            raise ValueError(msg)
+        return self
 
 
 # ---------------------------------------------------------------------------

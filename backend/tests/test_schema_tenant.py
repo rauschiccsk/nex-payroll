@@ -13,6 +13,20 @@ from app.schemas.tenant import (
 )
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_VALID_CREATE = {
+    "name": "Firma s.r.o.",
+    "ico": "12345678",
+    "address_street": "Hlavná 1",
+    "address_city": "Bratislava",
+    "address_zip": "81101",
+    "bank_iban": "SK8975000000000012345678",
+}
+
+
+# ---------------------------------------------------------------------------
 # TenantCreate
 # ---------------------------------------------------------------------------
 
@@ -21,14 +35,7 @@ class TestTenantCreate:
     """Tests for the Create schema."""
 
     def test_valid_minimal(self):
-        schema = TenantCreate(
-            name="Firma s.r.o.",
-            ico="12345678",
-            address_street="Hlavná 1",
-            address_city="Bratislava",
-            address_zip="81101",
-            bank_iban="SK8975000000000012345678",
-        )
+        schema = TenantCreate(**_VALID_CREATE)
         assert schema.name == "Firma s.r.o."
         assert schema.ico == "12345678"
         assert schema.dic is None
@@ -66,195 +73,150 @@ class TestTenantCreate:
 
     def test_missing_required_name(self):
         with pytest.raises(ValidationError) as exc_info:
-            TenantCreate(
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{k: v for k, v in _VALID_CREATE.items() if k != "name"})
         assert "name" in str(exc_info.value)
 
     def test_missing_required_ico(self):
         with pytest.raises(ValidationError) as exc_info:
-            TenantCreate(
-                name="Firma s.r.o.",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{k: v for k, v in _VALID_CREATE.items() if k != "ico"})
         assert "ico" in str(exc_info.value)
 
     def test_missing_required_address_street(self):
         with pytest.raises(ValidationError) as exc_info:
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{k: v for k, v in _VALID_CREATE.items() if k != "address_street"})
         assert "address_street" in str(exc_info.value)
 
     def test_missing_required_address_city(self):
         with pytest.raises(ValidationError) as exc_info:
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{k: v for k, v in _VALID_CREATE.items() if k != "address_city"})
         assert "address_city" in str(exc_info.value)
 
     def test_missing_required_address_zip(self):
         with pytest.raises(ValidationError) as exc_info:
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{k: v for k, v in _VALID_CREATE.items() if k != "address_zip"})
         assert "address_zip" in str(exc_info.value)
 
     def test_missing_required_bank_iban(self):
         with pytest.raises(ValidationError) as exc_info:
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-            )
+            TenantCreate(**{k: v for k, v in _VALID_CREATE.items() if k != "bank_iban"})
         assert "bank_iban" in str(exc_info.value)
+
+    # -- Name validation --
+
+    def test_name_blank_rejected(self):
+        with pytest.raises(ValidationError, match="Name must not be blank"):
+            TenantCreate(**{**_VALID_CREATE, "name": "   "})
+
+    def test_name_stripped(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "name": "  Firma s.r.o.  "})
+        assert schema.name == "Firma s.r.o."
 
     def test_name_max_length(self):
         with pytest.raises(ValidationError):
-            TenantCreate(
-                name="x" * 201,
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{**_VALID_CREATE, "name": "x" * 201})
 
-    def test_ico_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="123456789",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+    # -- IČO validation --
 
-    def test_dic_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                dic="x" * 13,
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+    def test_ico_must_be_8_digits(self):
+        with pytest.raises(ValidationError, match="IČO must be exactly 8 digits"):
+            TenantCreate(**{**_VALID_CREATE, "ico": "1234567"})
 
-    def test_ic_dph_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                ic_dph="x" * 15,
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+    def test_ico_non_digits_rejected(self):
+        with pytest.raises(ValidationError, match="IČO must be exactly 8 digits"):
+            TenantCreate(**{**_VALID_CREATE, "ico": "1234567A"})
 
-    def test_address_street_max_length(self):
+    def test_ico_9_digits_rejected(self):
         with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="x" * 201,
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+            TenantCreate(**{**_VALID_CREATE, "ico": "123456789"})
 
-    def test_address_city_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="x" * 101,
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-            )
+    # -- DIČ validation --
 
-    def test_address_zip_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="x" * 11,
-                bank_iban="SK8975000000000012345678",
-            )
+    def test_dic_valid_10_digits(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "dic": "2012345678"})
+        assert schema.dic == "2012345678"
 
-    def test_address_country_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                address_country="SVK",
-                bank_iban="SK8975000000000012345678",
-            )
+    def test_dic_valid_12_digits(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "dic": "201234567890"})
+        assert schema.dic == "201234567890"
 
-    def test_bank_iban_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="x" * 35,
-            )
+    def test_dic_non_digits_rejected(self):
+        with pytest.raises(ValidationError, match="DIČ must be 10-12 digits"):
+            TenantCreate(**{**_VALID_CREATE, "dic": "20123456AB"})
 
-    def test_bank_bic_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-                bank_bic="x" * 12,
-            )
+    def test_dic_too_short_rejected(self):
+        with pytest.raises(ValidationError, match="DIČ must be 10-12 digits"):
+            TenantCreate(**{**_VALID_CREATE, "dic": "123456789"})
 
-    def test_default_role_max_length(self):
+    # -- IČ DPH validation --
+
+    def test_ic_dph_valid(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "ic_dph": "SK2012345678"})
+        assert schema.ic_dph == "SK2012345678"
+
+    def test_ic_dph_lowercase_normalised(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "ic_dph": "sk2012345678"})
+        assert schema.ic_dph == "SK2012345678"
+
+    def test_ic_dph_missing_sk_prefix_rejected(self):
+        with pytest.raises(ValidationError, match="IČ DPH must match format"):
+            TenantCreate(**{**_VALID_CREATE, "ic_dph": "CZ2012345678"})
+
+    def test_ic_dph_wrong_length_rejected(self):
+        with pytest.raises(ValidationError, match="IČ DPH must match format"):
+            TenantCreate(**{**_VALID_CREATE, "ic_dph": "SK20123456"})
+
+    # -- Country code validation --
+
+    def test_country_code_uppercase_normalised(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "address_country": "cz"})
+        assert schema.address_country == "CZ"
+
+    def test_country_code_too_long_rejected(self):
         with pytest.raises(ValidationError):
-            TenantCreate(
-                name="Firma s.r.o.",
-                ico="12345678",
-                address_street="Hlavná 1",
-                address_city="Bratislava",
-                address_zip="81101",
-                bank_iban="SK8975000000000012345678",
-                default_role="x" * 21,
-            )
+            TenantCreate(**{**_VALID_CREATE, "address_country": "SVK"})
+
+    def test_country_code_digits_only_rejected(self):
+        with pytest.raises(ValidationError, match="2-letter ISO"):
+            TenantCreate(**{**_VALID_CREATE, "address_country": "12"})
+
+    # -- IBAN validation --
+
+    def test_iban_spaces_normalised(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "bank_iban": "SK89 7500 0000 0000 1234 5678"})
+        assert schema.bank_iban == "SK8975000000000012345678"
+
+    def test_iban_lowercase_normalised(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "bank_iban": "sk8975000000000012345678"})
+        assert schema.bank_iban == "SK8975000000000012345678"
+
+    def test_iban_invalid_format_rejected(self):
+        with pytest.raises(ValidationError, match="Invalid IBAN"):
+            TenantCreate(**{**_VALID_CREATE, "bank_iban": "12345678"})
+
+    # -- BIC validation --
+
+    def test_bic_valid_8_chars(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "bank_bic": "SUBASKBX"})
+        assert schema.bank_bic == "SUBASKBX"
+
+    def test_bic_valid_11_chars(self):
+        schema = TenantCreate(**{**_VALID_CREATE, "bank_bic": "SUBASKBXXXX"})
+        assert schema.bank_bic == "SUBASKBXXXX"
+
+    def test_bic_invalid_rejected(self):
+        with pytest.raises(ValidationError, match="Invalid BIC"):
+            TenantCreate(**{**_VALID_CREATE, "bank_bic": "SHORT"})
+
+    # -- default_role Literal validation --
+
+    def test_default_role_invalid_rejected(self):
+        with pytest.raises(ValidationError):
+            TenantCreate(**{**_VALID_CREATE, "default_role": "admin"})
+
+    def test_default_role_all_valid_values(self):
+        for role in ("director", "accountant", "employee"):
+            schema = TenantCreate(**{**_VALID_CREATE, "default_role": role})
+            assert schema.default_role == role
 
 
 # ---------------------------------------------------------------------------
@@ -290,49 +252,73 @@ class TestTenantUpdate:
         assert schema.ico is None
         assert schema.address_street is None
 
+    def test_update_name_blank_rejected(self):
+        with pytest.raises(ValidationError, match="Name must not be blank"):
+            TenantUpdate(name="   ")
+
+    def test_update_name_stripped(self):
+        schema = TenantUpdate(name="  New Name  ")
+        assert schema.name == "New Name"
+
     def test_update_name_max_length(self):
         with pytest.raises(ValidationError):
             TenantUpdate(name="x" * 201)
 
-    def test_update_ico_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(ico="123456789")
+    def test_update_ico_invalid_rejected(self):
+        with pytest.raises(ValidationError, match="IČO must be exactly 8 digits"):
+            TenantUpdate(ico="1234")
 
-    def test_update_dic_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(dic="x" * 13)
+    def test_update_ico_valid(self):
+        schema = TenantUpdate(ico="87654321")
+        assert schema.ico == "87654321"
 
-    def test_update_ic_dph_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(ic_dph="x" * 15)
+    def test_update_dic_invalid_rejected(self):
+        with pytest.raises(ValidationError, match="DIČ must be 10-12 digits"):
+            TenantUpdate(dic="short")
 
-    def test_update_address_street_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(address_street="x" * 201)
+    def test_update_ic_dph_invalid_rejected(self):
+        with pytest.raises(ValidationError, match="IČ DPH must match format"):
+            TenantUpdate(ic_dph="CZ2012345678")
 
-    def test_update_address_city_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(address_city="x" * 101)
+    def test_update_ic_dph_normalised(self):
+        schema = TenantUpdate(ic_dph="sk2012345678")
+        assert schema.ic_dph == "SK2012345678"
 
-    def test_update_address_zip_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(address_zip="x" * 11)
-
-    def test_update_address_country_max_length(self):
+    def test_update_country_too_long_rejected(self):
         with pytest.raises(ValidationError):
             TenantUpdate(address_country="SVK")
 
-    def test_update_bank_iban_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(bank_iban="x" * 35)
+    def test_update_country_digits_rejected(self):
+        with pytest.raises(ValidationError, match="2-letter ISO"):
+            TenantUpdate(address_country="12")
 
-    def test_update_bank_bic_max_length(self):
-        with pytest.raises(ValidationError):
-            TenantUpdate(bank_bic="x" * 12)
+    def test_update_country_normalised(self):
+        schema = TenantUpdate(address_country="cz")
+        assert schema.address_country == "CZ"
 
-    def test_update_default_role_max_length(self):
+    def test_update_iban_invalid_rejected(self):
+        with pytest.raises(ValidationError, match="Invalid IBAN"):
+            TenantUpdate(bank_iban="bad")
+
+    def test_update_iban_normalised(self):
+        schema = TenantUpdate(bank_iban="sk89 7500 0000 0000 1234 5678")
+        assert schema.bank_iban == "SK8975000000000012345678"
+
+    def test_update_bic_invalid_rejected(self):
+        with pytest.raises(ValidationError, match="Invalid BIC"):
+            TenantUpdate(bank_bic="X")
+
+    def test_update_bic_normalised(self):
+        schema = TenantUpdate(bank_bic="subaskbx")
+        assert schema.bank_bic == "SUBASKBX"
+
+    def test_update_default_role_invalid_rejected(self):
         with pytest.raises(ValidationError):
-            TenantUpdate(default_role="x" * 21)
+            TenantUpdate(default_role="admin")
+
+    def test_update_default_role_valid(self):
+        schema = TenantUpdate(default_role="director")
+        assert schema.default_role == "director"
 
 
 # ---------------------------------------------------------------------------

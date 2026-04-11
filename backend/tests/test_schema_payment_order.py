@@ -32,6 +32,7 @@ def _valid_create_kwargs() -> dict:
         "recipient_name": "Jan Novak",
         "recipient_iban": "SK3112000000198742637541",
         "amount": Decimal("1234.56"),
+        "employee_id": _EMPLOYEE_ID,
     }
 
 
@@ -85,13 +86,13 @@ class TestPaymentOrderCreate:
         assert schema.specific_symbol is None
         assert schema.constant_symbol is None
         assert schema.reference is None
-        assert schema.employee_id is None
+        assert schema.employee_id == _EMPLOYEE_ID
         assert schema.health_insurer_id is None
 
     def test_valid_full(self):
         """Valid creation with all fields explicitly set."""
-        schema = PaymentOrderCreate(
-            **_valid_create_kwargs(),
+        kw = _valid_create_kwargs()
+        kw.update(
             recipient_bic="TATRSKBX",
             variable_symbol="1234567890",
             specific_symbol="0012345678",
@@ -101,6 +102,7 @@ class TestPaymentOrderCreate:
             employee_id=_EMPLOYEE_ID,
             health_insurer_id=_HEALTH_INSURER_ID,
         )
+        schema = PaymentOrderCreate(**kw)
         assert schema.recipient_bic == "TATRSKBX"
         assert schema.variable_symbol == "1234567890"
         assert schema.specific_symbol == "0012345678"
@@ -173,6 +175,7 @@ class TestPaymentOrderCreate:
 
     def test_all_valid_payment_types(self):
         """All 7 payment types defined in DESIGN.md must be accepted."""
+        zp_types = {"zp_vszp", "zp_dovera", "zp_union"}
         valid_types = [
             "net_wage",
             "sp",
@@ -185,6 +188,11 @@ class TestPaymentOrderCreate:
         for ptype in valid_types:
             kw = _valid_create_kwargs()
             kw["payment_type"] = ptype
+            if ptype in zp_types:
+                kw["health_insurer_id"] = _HEALTH_INSURER_ID
+                kw.pop("employee_id", None)
+            elif ptype != "net_wage":
+                kw.pop("employee_id", None)
             schema = PaymentOrderCreate(**kw)
             assert schema.payment_type == ptype
 
@@ -310,6 +318,105 @@ class TestPaymentOrderCreate:
         kw["reference"] = "x" * 141
         with pytest.raises(ValidationError):
             PaymentOrderCreate(**kw)
+
+    # -- field validators --
+
+    def test_recipient_name_stripped(self):
+        """Leading/trailing whitespace must be stripped."""
+        kw = _valid_create_kwargs()
+        kw["recipient_name"] = "  Jan Novak  "
+        schema = PaymentOrderCreate(**kw)
+        assert schema.recipient_name == "Jan Novak"
+
+    def test_recipient_name_blank_rejected(self):
+        """Blank (whitespace-only) recipient_name must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["recipient_name"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            PaymentOrderCreate(**kw)
+        assert "recipient_name" in str(exc_info.value)
+
+    def test_iban_normalised_uppercase(self):
+        """IBAN must be uppercased and spaces removed."""
+        kw = _valid_create_kwargs()
+        kw["recipient_iban"] = "sk31 1200 0000 1987 4263 7541"
+        schema = PaymentOrderCreate(**kw)
+        assert schema.recipient_iban == "SK3112000000198742637541"
+
+    def test_iban_invalid_format_rejected(self):
+        """IBAN with invalid format must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["recipient_iban"] = "12345"
+        with pytest.raises(ValidationError) as exc_info:
+            PaymentOrderCreate(**kw)
+        assert "iban" in str(exc_info.value).lower()
+
+    def test_iban_blank_rejected(self):
+        """Blank IBAN must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["recipient_iban"] = "     "
+        with pytest.raises(ValidationError) as exc_info:
+            PaymentOrderCreate(**kw)
+        assert "iban" in str(exc_info.value).lower()
+
+    def test_bic_normalised_uppercase(self):
+        """BIC must be uppercased and stripped."""
+        kw = _valid_create_kwargs()
+        kw["recipient_bic"] = " tatrskbx "
+        schema = PaymentOrderCreate(**kw)
+        assert schema.recipient_bic == "TATRSKBX"
+
+    def test_bic_blank_becomes_none(self):
+        """Blank BIC must become None."""
+        kw = _valid_create_kwargs()
+        kw["recipient_bic"] = "   "
+        schema = PaymentOrderCreate(**kw)
+        assert schema.recipient_bic is None
+
+    # -- model validators --
+
+    def test_net_wage_requires_employee_id(self):
+        """payment_type='net_wage' must have employee_id."""
+        kw = _valid_create_kwargs()
+        kw["payment_type"] = "net_wage"
+        kw["employee_id"] = None
+        with pytest.raises(ValidationError) as exc_info:
+            PaymentOrderCreate(**kw)
+        assert "employee_id" in str(exc_info.value)
+
+    def test_net_wage_with_employee_id_accepted(self):
+        """payment_type='net_wage' with employee_id set is valid."""
+        kw = _valid_create_kwargs()
+        kw["payment_type"] = "net_wage"
+        kw["employee_id"] = _EMPLOYEE_ID
+        schema = PaymentOrderCreate(**kw)
+        assert schema.employee_id == _EMPLOYEE_ID
+
+    def test_zp_types_require_health_insurer_id(self):
+        """ZP payment types must have health_insurer_id set."""
+        for ptype in ("zp_vszp", "zp_dovera", "zp_union"):
+            kw = _valid_create_kwargs()
+            kw["payment_type"] = ptype
+            kw["health_insurer_id"] = None
+            with pytest.raises(ValidationError) as exc_info:
+                PaymentOrderCreate(**kw)
+            assert "health_insurer_id" in str(exc_info.value)
+
+    def test_zp_type_with_health_insurer_id_accepted(self):
+        """ZP payment type with health_insurer_id is valid."""
+        kw = _valid_create_kwargs()
+        kw["payment_type"] = "zp_vszp"
+        kw["health_insurer_id"] = _HEALTH_INSURER_ID
+        schema = PaymentOrderCreate(**kw)
+        assert schema.health_insurer_id == _HEALTH_INSURER_ID
+
+    def test_sp_tax_pillar2_no_refs_required(self):
+        """sp, tax, pillar2 don't require employee_id or health_insurer_id."""
+        for ptype in ("sp", "tax", "pillar2"):
+            kw = _valid_create_kwargs()
+            kw["payment_type"] = ptype
+            schema = PaymentOrderCreate(**kw)
+            assert schema.payment_type == ptype
 
     # -- amount gt=0 validation --
 
@@ -454,6 +561,32 @@ class TestPaymentOrderUpdate:
     def test_amount_negative_in_update(self):
         with pytest.raises(ValidationError):
             PaymentOrderUpdate(amount=Decimal("-1.00"))
+
+    # -- field validators in update --
+
+    def test_update_recipient_name_stripped(self):
+        schema = PaymentOrderUpdate(recipient_name="  Updated  ")
+        assert schema.recipient_name == "Updated"
+
+    def test_update_recipient_name_blank_rejected(self):
+        with pytest.raises(ValidationError):
+            PaymentOrderUpdate(recipient_name="   ")
+
+    def test_update_iban_normalised(self):
+        schema = PaymentOrderUpdate(recipient_iban="sk99 9999 9999 9999 9999 9999")
+        assert schema.recipient_iban == "SK9999999999999999999999"
+
+    def test_update_iban_invalid_format_rejected(self):
+        with pytest.raises(ValidationError):
+            PaymentOrderUpdate(recipient_iban="12345")
+
+    def test_update_bic_normalised(self):
+        schema = PaymentOrderUpdate(recipient_bic=" tatrskbx ")
+        assert schema.recipient_bic == "TATRSKBX"
+
+    def test_update_bic_blank_becomes_none(self):
+        schema = PaymentOrderUpdate(recipient_bic="   ")
+        assert schema.recipient_bic is None
 
     # -- Update excludes immutable / identity fields --
 

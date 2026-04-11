@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ContributionRateCreate(BaseModel):
@@ -24,6 +24,7 @@ class ContributionRateCreate(BaseModel):
         ...,
         max_digits=6,
         decimal_places=4,
+        ge=Decimal("0"),
         examples=[Decimal("1.4000")],
         description="Contribution rate as percentage (e.g. 1.4000 = 1.4 %)",
     )
@@ -31,6 +32,7 @@ class ContributionRateCreate(BaseModel):
         default=None,
         max_digits=12,
         decimal_places=2,
+        ge=Decimal("0"),
         description="Maximum assessment base; null if uncapped",
     )
     payer: Literal["employee", "employer"] = Field(
@@ -52,6 +54,13 @@ class ContributionRateCreate(BaseModel):
         description="End of validity period (inclusive); null if open-ended",
     )
 
+    @model_validator(mode="after")
+    def _check_valid_range(self) -> "ContributionRateCreate":
+        if self.valid_to is not None and self.valid_to < self.valid_from:
+            msg = "valid_to must be >= valid_from"
+            raise ValueError(msg)
+        return self
+
 
 class ContributionRateUpdate(BaseModel):
     """Schema for updating a contribution rate.
@@ -67,11 +76,13 @@ class ContributionRateUpdate(BaseModel):
         default=None,
         max_digits=6,
         decimal_places=4,
+        ge=Decimal("0"),
     )
     max_assessment_base: Decimal | None = Field(
         default=None,
         max_digits=12,
         decimal_places=2,
+        ge=Decimal("0"),
     )
     payer: Literal["employee", "employer"] | None = Field(
         default=None,

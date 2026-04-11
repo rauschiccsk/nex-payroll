@@ -128,6 +128,49 @@ class TestContributionRateCreate:
                 valid_from=date(2025, 1, 1),
             )
 
+    def test_valid_to_before_valid_from_rejected(self):
+        with pytest.raises(ValidationError, match="valid_to must be >= valid_from"):
+            ContributionRateCreate(
+                rate_type="sp_employee_nemocenske",
+                rate_percent=Decimal("1.4000"),
+                payer="employee",
+                fund="nemocenske",
+                valid_from=date(2025, 6, 1),
+                valid_to=date(2025, 1, 1),
+            )
+
+    def test_valid_to_equal_valid_from_accepted(self):
+        schema = ContributionRateCreate(
+            rate_type="sp_employee_nemocenske",
+            rate_percent=Decimal("1.4000"),
+            payer="employee",
+            fund="nemocenske",
+            valid_from=date(2025, 1, 1),
+            valid_to=date(2025, 1, 1),
+        )
+        assert schema.valid_to == schema.valid_from
+
+    def test_negative_rate_percent_rejected(self):
+        with pytest.raises(ValidationError):
+            ContributionRateCreate(
+                rate_type="sp_employee_nemocenske",
+                rate_percent=Decimal("-1.0000"),
+                payer="employee",
+                fund="nemocenske",
+                valid_from=date(2025, 1, 1),
+            )
+
+    def test_negative_max_assessment_base_rejected(self):
+        with pytest.raises(ValidationError):
+            ContributionRateCreate(
+                rate_type="sp_employee_nemocenske",
+                rate_percent=Decimal("1.4000"),
+                max_assessment_base=Decimal("-100.00"),
+                payer="employee",
+                fund="nemocenske",
+                valid_from=date(2025, 1, 1),
+            )
+
 
 # ---------------------------------------------------------------------------
 # ContributionRateUpdate
@@ -163,6 +206,14 @@ class TestContributionRateUpdate:
     def test_update_rate_type_max_length(self):
         with pytest.raises(ValidationError):
             ContributionRateUpdate(rate_type="x" * 51)
+
+    def test_update_negative_rate_percent_rejected(self):
+        with pytest.raises(ValidationError):
+            ContributionRateUpdate(rate_percent=Decimal("-0.5000"))
+
+    def test_update_negative_max_assessment_base_rejected(self):
+        with pytest.raises(ValidationError):
+            ContributionRateUpdate(max_assessment_base=Decimal("-1.00"))
 
 
 # ---------------------------------------------------------------------------

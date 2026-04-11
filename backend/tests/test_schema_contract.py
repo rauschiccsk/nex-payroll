@@ -195,6 +195,86 @@ class TestContractCreate:
         schema = ContractCreate(**kw)
         assert schema.wage_type == "hourly"
 
+    # -- strip / blank validators --
+
+    def test_contract_number_stripped(self):
+        kw = _valid_create_kwargs()
+        kw["contract_number"] = "  PZ-001  "
+        schema = ContractCreate(**kw)
+        assert schema.contract_number == "PZ-001"
+
+    def test_contract_number_blank_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["contract_number"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            ContractCreate(**kw)
+        assert "blank" in str(exc_info.value).lower()
+
+    def test_job_title_stripped(self):
+        kw = _valid_create_kwargs()
+        kw["job_title"] = "  Developer  "
+        schema = ContractCreate(**kw)
+        assert schema.job_title == "Developer"
+
+    def test_job_title_blank_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["job_title"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            ContractCreate(**kw)
+        assert "blank" in str(exc_info.value).lower()
+
+    # -- positive wage / hours validators --
+
+    def test_base_wage_zero_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["base_wage"] = Decimal("0.00")
+        with pytest.raises(ValidationError):
+            ContractCreate(**kw)
+
+    def test_base_wage_negative_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["base_wage"] = Decimal("-100.00")
+        with pytest.raises(ValidationError):
+            ContractCreate(**kw)
+
+    def test_hours_per_week_zero_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["hours_per_week"] = Decimal("0.0")
+        with pytest.raises(ValidationError):
+            ContractCreate(**kw)
+
+    # -- date range validators --
+
+    def test_end_date_before_start_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["start_date"] = date(2024, 6, 1)
+        kw["end_date"] = date(2024, 1, 1)
+        with pytest.raises(ValidationError) as exc_info:
+            ContractCreate(**kw)
+        assert "end date" in str(exc_info.value).lower()
+
+    def test_end_date_same_as_start_accepted(self):
+        kw = _valid_create_kwargs()
+        kw["start_date"] = date(2024, 6, 1)
+        kw["end_date"] = date(2024, 6, 1)
+        schema = ContractCreate(**kw)
+        assert schema.end_date == schema.start_date
+
+    def test_termination_date_before_start_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["start_date"] = date(2024, 6, 1)
+        kw["termination_date"] = date(2024, 1, 1)
+        with pytest.raises(ValidationError) as exc_info:
+            ContractCreate(**kw)
+        assert "termination date" in str(exc_info.value).lower()
+
+    def test_termination_date_same_as_start_accepted(self):
+        kw = _valid_create_kwargs()
+        kw["start_date"] = date(2024, 6, 1)
+        kw["termination_date"] = date(2024, 6, 1)
+        schema = ContractCreate(**kw)
+        assert schema.termination_date == schema.start_date
+
 
 # ---------------------------------------------------------------------------
 # ContractUpdate
@@ -249,6 +329,40 @@ class TestContractUpdate:
     def test_update_invalid_wage_type(self):
         with pytest.raises(ValidationError):
             ContractUpdate(wage_type="daily")
+
+    # -- strip / blank validators in update --
+
+    def test_update_contract_number_stripped(self):
+        schema = ContractUpdate(contract_number="  PZ-002  ")
+        assert schema.contract_number == "PZ-002"
+
+    def test_update_contract_number_blank_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            ContractUpdate(contract_number="   ")
+        assert "blank" in str(exc_info.value).lower()
+
+    def test_update_job_title_stripped(self):
+        schema = ContractUpdate(job_title="  Lead  ")
+        assert schema.job_title == "Lead"
+
+    def test_update_job_title_blank_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            ContractUpdate(job_title="   ")
+        assert "blank" in str(exc_info.value).lower()
+
+    # -- positive wage in update --
+
+    def test_update_base_wage_zero_rejected(self):
+        with pytest.raises(ValidationError):
+            ContractUpdate(base_wage=Decimal("0.00"))
+
+    def test_update_base_wage_negative_rejected(self):
+        with pytest.raises(ValidationError):
+            ContractUpdate(base_wage=Decimal("-50.00"))
+
+    def test_update_hours_per_week_zero_rejected(self):
+        with pytest.raises(ValidationError):
+            ContractUpdate(hours_per_week=Decimal("0.0"))
 
 
 # ---------------------------------------------------------------------------

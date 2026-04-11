@@ -198,9 +198,32 @@ class TestPaySlipCreate:
     def test_pdf_path_at_max_length_accepted(self):
         """pdf_path exactly 500 chars must be accepted."""
         kw = _valid_create_kwargs()
-        kw["pdf_path"] = "a" * 500
+        kw["pdf_path"] = "a" * 496 + ".pdf"
         schema = PaySlipCreate(**kw)
         assert len(schema.pdf_path) == 500
+
+    def test_pdf_path_must_end_with_pdf(self):
+        """pdf_path not ending with .pdf must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["pdf_path"] = "/opt/data/payslips/file.txt"
+        with pytest.raises(ValidationError) as exc_info:
+            PaySlipCreate(**kw)
+        assert "pdf_path" in str(exc_info.value).lower() or ".pdf" in str(exc_info.value)
+
+    def test_pdf_path_case_insensitive_extension(self):
+        """pdf_path ending with .PDF (uppercase) must be accepted."""
+        kw = _valid_create_kwargs()
+        kw["pdf_path"] = "/opt/data/payslips/file.PDF"
+        schema = PaySlipCreate(**kw)
+        assert schema.pdf_path.endswith(".PDF")
+
+    def test_pdf_path_empty_rejected(self):
+        """Empty pdf_path must be rejected (min_length=1)."""
+        kw = _valid_create_kwargs()
+        kw["pdf_path"] = ""
+        with pytest.raises(ValidationError) as exc_info:
+            PaySlipCreate(**kw)
+        assert "pdf_path" in str(exc_info.value)
 
     # -- file_size_bytes validation --
 
@@ -238,10 +261,6 @@ class TestPaySlipUpdate:
     def test_empty_update(self):
         """All fields default to None when no data supplied."""
         schema = PaySlipUpdate()
-        assert schema.payroll_id is None
-        assert schema.employee_id is None
-        assert schema.period_year is None
-        assert schema.period_month is None
         assert schema.pdf_path is None
         assert schema.file_size_bytes is None
         assert schema.downloaded_at is None
@@ -255,10 +274,6 @@ class TestPaySlipUpdate:
         assert schema.pdf_path.endswith("EMP002.pdf")
         assert schema.file_size_bytes == 65536
         # everything else remains None
-        assert schema.payroll_id is None
-        assert schema.employee_id is None
-        assert schema.period_year is None
-        assert schema.period_month is None
         assert schema.downloaded_at is None
 
     def test_update_downloaded_at(self):
@@ -267,55 +282,13 @@ class TestPaySlipUpdate:
         schema = PaySlipUpdate(downloaded_at=ts)
         assert schema.downloaded_at == ts
 
-    def test_update_payroll_id(self):
-        """payroll_id can be updated."""
-        new_id = uuid4()
-        schema = PaySlipUpdate(payroll_id=new_id)
-        assert schema.payroll_id == new_id
-
-    def test_update_employee_id(self):
-        """employee_id can be updated."""
-        new_id = uuid4()
-        schema = PaySlipUpdate(employee_id=new_id)
-        assert schema.employee_id == new_id
-
-    def test_update_period_year(self):
-        """period_year can be updated."""
-        schema = PaySlipUpdate(period_year=2026)
-        assert schema.period_year == 2026
-
-    def test_update_period_month(self):
-        """period_month can be updated."""
-        schema = PaySlipUpdate(period_month=12)
-        assert schema.period_month == 12
-
-    # -- period_year boundary validation in update --
-
-    def test_update_period_year_below_min_rejected(self):
-        """period_year=1999 in update must be rejected (ge=2000)."""
-        with pytest.raises(ValidationError) as exc_info:
-            PaySlipUpdate(period_year=1999)
-        assert "period_year" in str(exc_info.value)
-
-    def test_update_period_year_above_max_rejected(self):
-        """period_year=2101 in update must be rejected (le=2100)."""
-        with pytest.raises(ValidationError) as exc_info:
-            PaySlipUpdate(period_year=2101)
-        assert "period_year" in str(exc_info.value)
-
-    # -- period_month boundary validation in update --
-
-    def test_update_period_month_zero_rejected(self):
-        """period_month=0 in update must be rejected (ge=1)."""
-        with pytest.raises(ValidationError) as exc_info:
-            PaySlipUpdate(period_month=0)
-        assert "period_month" in str(exc_info.value)
-
-    def test_update_period_month_13_rejected(self):
-        """period_month=13 in update must be rejected (le=12)."""
-        with pytest.raises(ValidationError) as exc_info:
-            PaySlipUpdate(period_month=13)
-        assert "period_month" in str(exc_info.value)
+    def test_update_immutable_fields_rejected(self):
+        """Immutable FK/identity fields are not part of the Update schema."""
+        schema = PaySlipUpdate()
+        assert not hasattr(schema, "payroll_id")
+        assert not hasattr(schema, "employee_id")
+        assert not hasattr(schema, "period_year")
+        assert not hasattr(schema, "period_month")
 
     # -- pdf_path validation in update --
 
@@ -324,6 +297,17 @@ class TestPaySlipUpdate:
         with pytest.raises(ValidationError) as exc_info:
             PaySlipUpdate(pdf_path="/opt/" + "a" * 500)
         assert "pdf_path" in str(exc_info.value)
+
+    def test_update_pdf_path_must_end_with_pdf(self):
+        """pdf_path not ending with .pdf in update must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            PaySlipUpdate(pdf_path="/opt/data/payslips/file.txt")
+        assert ".pdf" in str(exc_info.value)
+
+    def test_update_pdf_path_none_accepted(self):
+        """pdf_path=None in update must be accepted (optional field)."""
+        schema = PaySlipUpdate(pdf_path=None)
+        assert schema.pdf_path is None
 
     # -- file_size_bytes validation in update --
 

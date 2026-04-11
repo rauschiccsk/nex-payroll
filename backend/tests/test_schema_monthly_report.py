@@ -162,9 +162,13 @@ class TestMonthlyReportCreate:
             "zp_union",
             "tax_prehled",
         ]
+        zp_types = {"zp_vszp", "zp_dovera", "zp_union"}
         for rtype in valid_types:
             kw = _valid_create_kwargs()
             kw["report_type"] = rtype
+            # ZP report types require health_insurer_id
+            if rtype in zp_types:
+                kw["health_insurer_id"] = _HEALTH_INSURER_ID
             schema = MonthlyReportCreate(**kw)
             assert schema.report_type == rtype
 
@@ -279,6 +283,68 @@ class TestMonthlyReportCreate:
         with pytest.raises(ValidationError):
             MonthlyReportCreate(**kw)
 
+    # -- field_validator: strip whitespace / not blank --
+
+    def test_file_path_blank_rejected(self):
+        """Blank file_path (whitespace only) must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["file_path"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            MonthlyReportCreate(**kw)
+        assert "file_path" in str(exc_info.value)
+
+    def test_file_path_stripped(self):
+        """Leading/trailing whitespace must be stripped from file_path."""
+        kw = _valid_create_kwargs()
+        kw["file_path"] = "  /data/report.xml  "
+        schema = MonthlyReportCreate(**kw)
+        assert schema.file_path == "/data/report.xml"
+
+    def test_institution_blank_rejected(self):
+        """Blank institution (whitespace only) must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["institution"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            MonthlyReportCreate(**kw)
+        assert "institution" in str(exc_info.value)
+
+    def test_institution_stripped(self):
+        """Leading/trailing whitespace must be stripped from institution."""
+        kw = _valid_create_kwargs()
+        kw["institution"] = "  Sociálna poisťovňa  "
+        schema = MonthlyReportCreate(**kw)
+        assert schema.institution == "Sociálna poisťovňa"
+
+    # -- model_validator: health_insurer_id required for ZP types --
+
+    def test_zp_type_without_health_insurer_rejected(self):
+        """ZP report types require health_insurer_id."""
+        for rtype in ("zp_vszp", "zp_dovera", "zp_union"):
+            kw = _valid_create_kwargs()
+            kw["report_type"] = rtype
+            kw["health_insurer_id"] = None
+            with pytest.raises(ValidationError) as exc_info:
+                MonthlyReportCreate(**kw)
+            assert "health_insurer_id" in str(exc_info.value)
+
+    def test_zp_type_with_health_insurer_accepted(self):
+        """ZP report types with health_insurer_id must be accepted."""
+        for rtype in ("zp_vszp", "zp_dovera", "zp_union"):
+            kw = _valid_create_kwargs()
+            kw["report_type"] = rtype
+            kw["health_insurer_id"] = _HEALTH_INSURER_ID
+            schema = MonthlyReportCreate(**kw)
+            assert schema.health_insurer_id == _HEALTH_INSURER_ID
+
+    def test_non_zp_type_without_health_insurer_accepted(self):
+        """Non-ZP report types do not require health_insurer_id."""
+        for rtype in ("sp_monthly", "tax_prehled"):
+            kw = _valid_create_kwargs()
+            kw["report_type"] = rtype
+            kw["health_insurer_id"] = None
+            schema = MonthlyReportCreate(**kw)
+            assert schema.health_insurer_id is None
+
 
 # ---------------------------------------------------------------------------
 # MonthlyReportUpdate
@@ -371,6 +437,30 @@ class TestMonthlyReportUpdate:
     def test_update_excludes_report_type(self):
         """report_type is part of unique key — not updatable."""
         assert "report_type" not in MonthlyReportUpdate.model_fields
+
+    # -- field_validator: strip whitespace / not blank in Update --
+
+    def test_file_path_blank_rejected_in_update(self):
+        """Blank file_path in Update must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            MonthlyReportUpdate(file_path="   ")
+        assert "file_path" in str(exc_info.value)
+
+    def test_file_path_stripped_in_update(self):
+        """Leading/trailing whitespace must be stripped from file_path."""
+        schema = MonthlyReportUpdate(file_path="  /new/path.xml  ")
+        assert schema.file_path == "/new/path.xml"
+
+    def test_institution_blank_rejected_in_update(self):
+        """Blank institution in Update must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            MonthlyReportUpdate(institution="   ")
+        assert "institution" in str(exc_info.value)
+
+    def test_institution_stripped_in_update(self):
+        """Leading/trailing whitespace must be stripped from institution."""
+        schema = MonthlyReportUpdate(institution="  VšZP  ")
+        assert schema.institution == "VšZP"
 
 
 # ---------------------------------------------------------------------------

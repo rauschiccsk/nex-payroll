@@ -9,7 +9,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Reusable type aliases
@@ -18,6 +18,22 @@ from pydantic import BaseModel, ConfigDict, Field
 _REPORT_TYPE = Literal["sp_monthly", "zp_vszp", "zp_dovera", "zp_union", "tax_prehled"]
 _REPORT_STATUS = Literal["generated", "submitted", "accepted", "rejected"]
 _FILE_FORMAT = Literal["xml", "pdf"]
+
+_ZP_REPORT_TYPES = {"zp_vszp", "zp_dovera", "zp_union"}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _strip_not_blank(value: str, field_name: str) -> str:
+    """Strip whitespace and ensure not blank."""
+    stripped = value.strip()
+    if not stripped:
+        msg = f"{field_name} must not be blank"
+        raise ValueError(msg)
+    return stripped
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +69,7 @@ class MonthlyReportCreate(BaseModel):
     )
     file_path: str = Field(
         ...,
+        min_length=1,
         max_length=500,
         examples=["/opt/nex-payroll-src/data/reports/2025/01/sp_monthly.xml"],
         description="Path to generated report file",
@@ -74,6 +91,7 @@ class MonthlyReportCreate(BaseModel):
     )
     institution: str = Field(
         ...,
+        min_length=1,
         max_length=100,
         examples=["Sociálna poisťovňa"],
         description="Target institution (e.g. Sociálna poisťovňa, VšZP)",
@@ -87,6 +105,24 @@ class MonthlyReportCreate(BaseModel):
         description="Reference to health insurer (for ZP report types)",
     )
 
+    @field_validator("file_path")
+    @classmethod
+    def _file_path_not_blank(cls, v: str) -> str:
+        return _strip_not_blank(v, "file_path")
+
+    @field_validator("institution")
+    @classmethod
+    def _institution_not_blank(cls, v: str) -> str:
+        return _strip_not_blank(v, "institution")
+
+    @model_validator(mode="after")
+    def _check_health_insurer_for_zp(self) -> "MonthlyReportCreate":
+        """ZP report types must have health_insurer_id set."""
+        if self.report_type in _ZP_REPORT_TYPES and self.health_insurer_id is None:
+            msg = f"health_insurer_id is required for report_type '{self.report_type}'"
+            raise ValueError(msg)
+        return self
+
 
 # ---------------------------------------------------------------------------
 # MonthlyReportUpdate
@@ -99,13 +135,27 @@ class MonthlyReportUpdate(BaseModel):
     All fields optional — only supplied fields are updated.
     """
 
-    file_path: str | None = Field(default=None, max_length=500)
+    file_path: str | None = Field(default=None, min_length=1, max_length=500)
     file_format: _FILE_FORMAT | None = Field(default=None)
     status: _REPORT_STATUS | None = Field(default=None)
     deadline_date: date | None = Field(default=None)
-    institution: str | None = Field(default=None, max_length=100)
+    institution: str | None = Field(default=None, min_length=1, max_length=100)
     submitted_at: datetime | None = Field(default=None)
     health_insurer_id: UUID | None = Field(default=None)
+
+    @field_validator("file_path")
+    @classmethod
+    def _file_path_not_blank(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_not_blank(v, "file_path")
+        return v
+
+    @field_validator("institution")
+    @classmethod
+    def _institution_not_blank(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_not_blank(v, "institution")
+        return v
 
 
 # ---------------------------------------------------------------------------

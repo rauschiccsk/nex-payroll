@@ -8,7 +8,7 @@ approved payroll, including file path, size, and download tracking.
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # PaySlipCreate
@@ -46,6 +46,7 @@ class PaySlipCreate(BaseModel):
     )
     pdf_path: str = Field(
         ...,
+        min_length=1,
         max_length=500,
         examples=["/opt/nex-payroll-src/data/payslips/tenant1/2025/01/EMP001.pdf"],
         description="Absolute path to the generated PDF file",
@@ -57,6 +58,15 @@ class PaySlipCreate(BaseModel):
         description="PDF file size in bytes",
     )
 
+    @field_validator("pdf_path")
+    @classmethod
+    def _pdf_path_must_end_with_pdf(cls, v: str) -> str:
+        """Ensure pdf_path ends with .pdf extension."""
+        if not v.lower().endswith(".pdf"):
+            msg = "pdf_path must end with '.pdf'"
+            raise ValueError(msg)
+        return v
+
 
 # ---------------------------------------------------------------------------
 # PaySlipUpdate
@@ -67,30 +77,14 @@ class PaySlipUpdate(BaseModel):
     """Schema for updating a pay slip record.
 
     All fields optional — only supplied fields are updated.
+    Immutable FK/identity fields (payroll_id, employee_id, period_year,
+    period_month) are excluded — a pay slip is generated from an approved
+    payroll and those references must not change after creation.
     """
 
-    payroll_id: UUID | None = Field(
-        default=None,
-        description="Reference to the approved payroll record (payrolls.id)",
-    )
-    employee_id: UUID | None = Field(
-        default=None,
-        description="Reference to the employee (employees.id)",
-    )
-    period_year: int | None = Field(
-        default=None,
-        ge=2000,
-        le=2100,
-        description="Pay slip period year (e.g. 2025)",
-    )
-    period_month: int | None = Field(
-        default=None,
-        ge=1,
-        le=12,
-        description="Pay slip period month (1-12)",
-    )
     pdf_path: str | None = Field(
         default=None,
+        min_length=1,
         max_length=500,
         description="Absolute path to the generated PDF file",
     )
@@ -103,6 +97,15 @@ class PaySlipUpdate(BaseModel):
         default=None,
         description="Timestamp when employee first downloaded the pay slip",
     )
+
+    @field_validator("pdf_path")
+    @classmethod
+    def _pdf_path_must_end_with_pdf(cls, v: str | None) -> str | None:
+        """Ensure pdf_path ends with .pdf extension when provided."""
+        if v is not None and not v.lower().endswith(".pdf"):
+            msg = "pdf_path must end with '.pdf'"
+            raise ValueError(msg)
+        return v
 
 
 # ---------------------------------------------------------------------------

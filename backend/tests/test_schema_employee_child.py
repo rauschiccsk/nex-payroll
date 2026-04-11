@@ -160,11 +160,78 @@ class TestEmployeeChildCreate:
         schema = EmployeeChildCreate(**kw)
         assert len(schema.last_name) == 100
 
-    def test_birth_number_at_max_length(self):
+    def test_birth_number_at_valid_length(self):
+        """Valid 10-digit birth number is accepted."""
         kw = _valid_create_kwargs()
-        kw["birth_number"] = "9" * 20
+        kw["birth_number"] = "1503200001"
         schema = EmployeeChildCreate(**kw)
-        assert len(schema.birth_number) == 20
+        assert schema.birth_number == "1503200001"
+
+    # -- validator: strip whitespace / not blank --
+
+    def test_first_name_stripped(self):
+        kw = _valid_create_kwargs()
+        kw["first_name"] = "  Anna  "
+        schema = EmployeeChildCreate(**kw)
+        assert schema.first_name == "Anna"
+
+    def test_first_name_blank_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["first_name"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildCreate(**kw)
+        assert "must not be blank" in str(exc_info.value)
+
+    def test_last_name_stripped(self):
+        kw = _valid_create_kwargs()
+        kw["last_name"] = "  Nováková  "
+        schema = EmployeeChildCreate(**kw)
+        assert schema.last_name == "Nováková"
+
+    def test_last_name_blank_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["last_name"] = "   "
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildCreate(**kw)
+        assert "must not be blank" in str(exc_info.value)
+
+    # -- validator: birth_number format --
+
+    def test_birth_number_valid_without_slash(self):
+        kw = _valid_create_kwargs()
+        kw["birth_number"] = "1503200001"
+        schema = EmployeeChildCreate(**kw)
+        assert schema.birth_number == "1503200001"
+
+    def test_birth_number_valid_with_slash(self):
+        kw = _valid_create_kwargs()
+        kw["birth_number"] = "150320/0001"
+        schema = EmployeeChildCreate(**kw)
+        assert schema.birth_number == "1503200001"  # slash stripped
+
+    def test_birth_number_invalid_format(self):
+        kw = _valid_create_kwargs()
+        kw["birth_number"] = "ABCDEF"
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildCreate(**kw)
+        assert "Birth number" in str(exc_info.value)
+
+    # -- validator: custody_to >= custody_from --
+
+    def test_custody_to_before_from_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["custody_from"] = date(2020, 6, 1)
+        kw["custody_to"] = date(2020, 1, 1)
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildCreate(**kw)
+        assert "custody_to" in str(exc_info.value)
+
+    def test_custody_to_equal_from_accepted(self):
+        kw = _valid_create_kwargs()
+        kw["custody_from"] = date(2020, 6, 1)
+        kw["custody_to"] = date(2020, 6, 1)
+        schema = EmployeeChildCreate(**kw)
+        assert schema.custody_from == schema.custody_to
 
     # -- default values --
 
@@ -240,6 +307,47 @@ class TestEmployeeChildUpdate:
     def test_update_birth_number_max_length(self):
         with pytest.raises(ValidationError):
             EmployeeChildUpdate(birth_number="x" * 21)
+
+    # -- validator: strip whitespace / not blank --
+
+    def test_update_first_name_stripped(self):
+        schema = EmployeeChildUpdate(first_name="  Mária  ")
+        assert schema.first_name == "Mária"
+
+    def test_update_first_name_blank_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildUpdate(first_name="   ")
+        assert "must not be blank" in str(exc_info.value)
+
+    def test_update_last_name_stripped(self):
+        schema = EmployeeChildUpdate(last_name="  Kováčová  ")
+        assert schema.last_name == "Kováčová"
+
+    def test_update_last_name_blank_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildUpdate(last_name="   ")
+        assert "must not be blank" in str(exc_info.value)
+
+    # -- validator: birth_number format --
+
+    def test_update_birth_number_valid(self):
+        schema = EmployeeChildUpdate(birth_number="150320/0001")
+        assert schema.birth_number == "1503200001"
+
+    def test_update_birth_number_invalid(self):
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildUpdate(birth_number="ABCDEF")
+        assert "Birth number" in str(exc_info.value)
+
+    # -- validator: custody_to >= custody_from --
+
+    def test_update_custody_to_before_from_rejected(self):
+        with pytest.raises(ValidationError) as exc_info:
+            EmployeeChildUpdate(
+                custody_from=date(2020, 6, 1),
+                custody_to=date(2020, 1, 1),
+            )
+        assert "custody_to" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------

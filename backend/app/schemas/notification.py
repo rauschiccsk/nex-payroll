@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Reusable type aliases
@@ -70,6 +70,26 @@ class NotificationCreate(BaseModel):
         description="ID of the related entity",
     )
 
+    @field_validator("title")
+    @classmethod
+    def _title_not_blank(cls, v: str) -> str:
+        """Title must not be empty or whitespace-only."""
+        stripped = v.strip()
+        if not stripped:
+            msg = "title must not be empty or whitespace-only"
+            raise ValueError(msg)
+        return stripped
+
+    @field_validator("message")
+    @classmethod
+    def _message_not_blank(cls, v: str) -> str:
+        """Message body must not be empty or whitespace-only."""
+        stripped = v.strip()
+        if not stripped:
+            msg = "message must not be empty or whitespace-only"
+            raise ValueError(msg)
+        return stripped
+
 
 # ---------------------------------------------------------------------------
 # NotificationUpdate
@@ -114,6 +134,34 @@ class NotificationUpdate(BaseModel):
         default=None,
         description="Whether user has read this notification",
     )
+    read_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when user read the notification",
+    )
+
+    @field_validator("title")
+    @classmethod
+    def _title_not_blank(cls, v: str | None) -> str | None:
+        """When supplied, title must not be empty or whitespace-only."""
+        if v is None:
+            return v
+        stripped = v.strip()
+        if not stripped:
+            msg = "title must not be empty or whitespace-only"
+            raise ValueError(msg)
+        return stripped
+
+    @field_validator("message")
+    @classmethod
+    def _message_not_blank(cls, v: str | None) -> str | None:
+        """When supplied, message must not be empty or whitespace-only."""
+        if v is None:
+            return v
+        stripped = v.strip()
+        if not stripped:
+            msg = "message must not be empty or whitespace-only"
+            raise ValueError(msg)
+        return stripped
 
 
 # ---------------------------------------------------------------------------
@@ -138,3 +186,4 @@ class NotificationRead(BaseModel):
     is_read: bool
     read_at: datetime | None
     created_at: datetime
+    updated_at: datetime

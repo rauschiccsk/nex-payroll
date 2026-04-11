@@ -123,21 +123,23 @@ class TestPayrollCreate:
 
     def test_valid_full(self):
         """Valid creation with all fields explicitly set."""
-        schema = PayrollCreate(
-            **_valid_create_kwargs(),
-            status="calculated",
-            overtime_hours=Decimal("10.50"),
-            overtime_amount=Decimal("250.00"),
-            bonus_amount=Decimal("100.00"),
-            supplement_amount=Decimal("50.00"),
-            child_bonus=Decimal("140.00"),
-            pillar2_amount=Decimal("30.00"),
-        )
+        kw = _valid_create_kwargs()
+        # Override gross components — gross must equal base + overtime + bonus + supplement
+        kw["overtime_hours"] = Decimal("10.50")
+        kw["overtime_amount"] = Decimal("250.00")
+        kw["bonus_amount"] = Decimal("100.00")
+        kw["supplement_amount"] = Decimal("50.00")
+        kw["gross_wage"] = Decimal("2900.00")  # 2500 + 250 + 100 + 50
+        kw["status"] = "calculated"
+        kw["child_bonus"] = Decimal("140.00")
+        kw["pillar2_amount"] = Decimal("30.00")
+        schema = PayrollCreate(**kw)
         assert schema.status == "calculated"
         assert schema.overtime_hours == Decimal("10.50")
         assert schema.overtime_amount == Decimal("250.00")
         assert schema.bonus_amount == Decimal("100.00")
         assert schema.supplement_amount == Decimal("50.00")
+        assert schema.gross_wage == Decimal("2900.00")
         assert schema.child_bonus == Decimal("140.00")
         assert schema.pillar2_amount == Decimal("30.00")
 
@@ -439,6 +441,102 @@ class TestPayrollCreate:
         kw["period_month"] = 12
         schema = PayrollCreate(**kw)
         assert schema.period_month == 12
+
+    # -- period_year range validation (ge=2000, le=2100) --
+
+    def test_period_year_too_low(self):
+        """period_year=1999 must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["period_year"] = 1999
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "period_year" in str(exc_info.value)
+
+    def test_period_year_too_high(self):
+        """period_year=2101 must be rejected."""
+        kw = _valid_create_kwargs()
+        kw["period_year"] = 2101
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "period_year" in str(exc_info.value)
+
+    def test_period_year_boundary_min(self):
+        """period_year=2000 must be accepted."""
+        kw = _valid_create_kwargs()
+        kw["period_year"] = 2000
+        schema = PayrollCreate(**kw)
+        assert schema.period_year == 2000
+
+    def test_period_year_boundary_max(self):
+        """period_year=2100 must be accepted."""
+        kw = _valid_create_kwargs()
+        kw["period_year"] = 2100
+        schema = PayrollCreate(**kw)
+        assert schema.period_year == 2100
+
+    # -- ge=0 constraints on amount fields --
+
+    def test_negative_overtime_hours_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["overtime_hours"] = Decimal("-1.00")
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "overtime_hours" in str(exc_info.value)
+
+    def test_negative_overtime_amount_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["overtime_amount"] = Decimal("-1.00")
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "overtime_amount" in str(exc_info.value)
+
+    def test_negative_bonus_amount_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["bonus_amount"] = Decimal("-1.00")
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "bonus_amount" in str(exc_info.value)
+
+    def test_negative_supplement_amount_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["supplement_amount"] = Decimal("-1.00")
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "supplement_amount" in str(exc_info.value)
+
+    def test_negative_child_bonus_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["child_bonus"] = Decimal("-1.00")
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "child_bonus" in str(exc_info.value)
+
+    def test_negative_pillar2_amount_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["pillar2_amount"] = Decimal("-1.00")
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "pillar2_amount" in str(exc_info.value)
+
+    # -- gross_wage model validator --
+
+    def test_gross_wage_mismatch_rejected(self):
+        """gross_wage must equal base + overtime + bonus + supplement."""
+        kw = _valid_create_kwargs()
+        kw["gross_wage"] = Decimal("9999.00")  # doesn't match sum
+        with pytest.raises(ValidationError) as exc_info:
+            PayrollCreate(**kw)
+        assert "Gross wage" in str(exc_info.value)
+
+    def test_gross_wage_with_components_valid(self):
+        """gross_wage matching component sum is accepted."""
+        kw = _valid_create_kwargs()
+        kw["overtime_amount"] = Decimal("100.00")
+        kw["bonus_amount"] = Decimal("50.00")
+        kw["supplement_amount"] = Decimal("25.00")
+        kw["gross_wage"] = Decimal("2675.00")  # 2500 + 100 + 50 + 25
+        schema = PayrollCreate(**kw)
+        assert schema.gross_wage == Decimal("2675.00")
 
 
 # ---------------------------------------------------------------------------

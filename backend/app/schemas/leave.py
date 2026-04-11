@@ -9,7 +9,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Reusable type aliases
@@ -85,6 +85,14 @@ class LeaveCreate(BaseModel):
         description="Timestamp when the leave was approved/rejected",
     )
 
+    @model_validator(mode="after")
+    def _check_date_range(self) -> "LeaveCreate":
+        """Ensure end_date is not before start_date."""
+        if self.end_date < self.start_date:
+            msg = "end_date must not be before start_date"
+            raise ValueError(msg)
+        return self
+
 
 # ---------------------------------------------------------------------------
 # LeaveUpdate
@@ -105,6 +113,14 @@ class LeaveUpdate(BaseModel):
     note: str | None = Field(default=None)
     approved_by: UUID | None = Field(default=None)
     approved_at: datetime | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def _check_date_range(self) -> "LeaveUpdate":
+        """When both dates supplied, end_date must not be before start_date."""
+        if self.start_date is not None and self.end_date is not None and self.end_date < self.start_date:
+            msg = "end_date must not be before start_date"
+            raise ValueError(msg)
+        return self
 
 
 # ---------------------------------------------------------------------------

@@ -70,11 +70,10 @@ class TestLeaveEntitlementCreate:
 
     def test_valid_full(self):
         """Valid creation with all fields explicitly set."""
-        schema = LeaveEntitlementCreate(
-            **_valid_create_kwargs(),
-            used_days=5,
-            carryover_days=3,
-        )
+        kw = _valid_create_kwargs()
+        kw["used_days"] = 5
+        kw["remaining_days"] = 20  # 25 - 5
+        schema = LeaveEntitlementCreate(**kw, carryover_days=3)
         assert schema.used_days == 5
         assert schema.carryover_days == 3
 
@@ -150,6 +149,7 @@ class TestLeaveEntitlementCreate:
     def test_total_days_zero_accepted(self):
         kw = _valid_create_kwargs()
         kw["total_days"] = 0
+        kw["remaining_days"] = 0
         schema = LeaveEntitlementCreate(**kw)
         assert schema.total_days == 0
 
@@ -161,6 +161,7 @@ class TestLeaveEntitlementCreate:
 
     def test_remaining_days_zero_accepted(self):
         kw = _valid_create_kwargs()
+        kw["total_days"] = 0
         kw["remaining_days"] = 0
         schema = LeaveEntitlementCreate(**kw)
         assert schema.remaining_days == 0
@@ -210,6 +211,35 @@ class TestLeaveEntitlementCreate:
         """carryover_days defaults to 0."""
         schema = LeaveEntitlementCreate(**_valid_create_kwargs())
         assert schema.carryover_days == 0
+
+    # -- model validators --
+
+    def test_used_exceeds_total_rejected(self):
+        """used_days > total_days is rejected."""
+        kw = _valid_create_kwargs()
+        kw["used_days"] = 30
+        kw["total_days"] = 25
+        kw["remaining_days"] = 0  # ge=0 passes, but model validator catches used > total
+        with pytest.raises(ValidationError, match="used_days must not exceed total_days"):
+            LeaveEntitlementCreate(**kw)
+
+    def test_remaining_consistency_rejected(self):
+        """remaining_days must equal total_days - used_days."""
+        kw = _valid_create_kwargs()
+        kw["total_days"] = 25
+        kw["used_days"] = 5
+        kw["remaining_days"] = 25  # should be 20
+        with pytest.raises(ValidationError, match="remaining_days"):
+            LeaveEntitlementCreate(**kw)
+
+    def test_remaining_consistency_accepted(self):
+        """Correct remaining_days = total - used passes."""
+        kw = _valid_create_kwargs()
+        kw["total_days"] = 25
+        kw["used_days"] = 5
+        kw["remaining_days"] = 20
+        schema = LeaveEntitlementCreate(**kw)
+        assert schema.remaining_days == 20
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +339,25 @@ class TestLeaveEntitlementUpdate:
     def test_update_excludes_year(self):
         """year is part of unique key — not updatable."""
         assert "year" not in LeaveEntitlementUpdate.model_fields
+
+    # -- cross-field model validator in update --
+
+    def test_update_used_exceeds_total_rejected(self):
+        """When both used_days and total_days supplied, used must not exceed total."""
+        with pytest.raises(ValidationError, match="used_days must not exceed total_days"):
+            LeaveEntitlementUpdate(total_days=10, used_days=15)
+
+    def test_update_used_le_total_accepted(self):
+        """used_days <= total_days passes."""
+        schema = LeaveEntitlementUpdate(total_days=20, used_days=10)
+        assert schema.total_days == 20
+        assert schema.used_days == 10
+
+    def test_update_partial_no_cross_validation(self):
+        """When only one of used/total supplied, no cross-field check."""
+        schema = LeaveEntitlementUpdate(used_days=99)
+        assert schema.used_days == 99
+        assert schema.total_days is None
 
 
 # ---------------------------------------------------------------------------

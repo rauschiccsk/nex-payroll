@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Reusable type aliases
@@ -40,6 +40,8 @@ class PayrollCreate(BaseModel):
     )
     period_year: int = Field(
         ...,
+        ge=2000,
+        le=2100,
         examples=[2025],
         description="Payroll period year (e.g. 2025)",
     )
@@ -68,6 +70,7 @@ class PayrollCreate(BaseModel):
         default=Decimal("0"),
         max_digits=6,
         decimal_places=2,
+        ge=0,
         examples=["0.00"],
         description="Number of overtime hours worked",
     )
@@ -75,6 +78,7 @@ class PayrollCreate(BaseModel):
         default=Decimal("0"),
         max_digits=10,
         decimal_places=2,
+        ge=0,
         examples=["0.00"],
         description="Overtime pay amount",
     )
@@ -82,6 +86,7 @@ class PayrollCreate(BaseModel):
         default=Decimal("0"),
         max_digits=10,
         decimal_places=2,
+        ge=0,
         examples=["0.00"],
         description="Bonus amount for the period",
     )
@@ -89,6 +94,7 @@ class PayrollCreate(BaseModel):
         default=Decimal("0"),
         max_digits=10,
         decimal_places=2,
+        ge=0,
         examples=["0.00"],
         description="Supplementary pay (night, weekend, holiday)",
     )
@@ -181,6 +187,7 @@ class PayrollCreate(BaseModel):
         default=Decimal("0"),
         max_digits=10,
         decimal_places=2,
+        ge=0,
         examples=["0.00"],
         description="Child tax bonus (daňový bonus na deti)",
     )
@@ -273,9 +280,31 @@ class PayrollCreate(BaseModel):
         default=Decimal("0"),
         max_digits=10,
         decimal_places=2,
+        ge=0,
         examples=["0.00"],
         description="II. pillar pension saving deduction",
     )
+
+    @field_validator("period_year")
+    @classmethod
+    def _period_year_reasonable(cls, v: int) -> int:
+        """Ensure period year is within a reasonable range."""
+        if v < 2000 or v > 2100:
+            msg = "Period year must be between 2000 and 2100"
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode="after")
+    def _validate_gross_wage_components(self) -> "PayrollCreate":
+        """Validate gross wage equals sum of components."""
+        expected = self.base_wage + self.overtime_amount + self.bonus_amount + self.supplement_amount
+        if self.gross_wage != expected:
+            msg = (
+                f"Gross wage ({self.gross_wage}) must equal "
+                f"base_wage + overtime_amount + bonus_amount + supplement_amount ({expected})"
+            )
+            raise ValueError(msg)
+        return self
 
 
 # ---------------------------------------------------------------------------

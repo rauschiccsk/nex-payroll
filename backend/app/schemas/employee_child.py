@@ -5,10 +5,28 @@ PII field (birth_number) is represented as a plain string in the schema layer �
 encryption/decryption is handled transparently by the ORM EncryptedString type.
 """
 
+import re
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
+
+# Slovak birth number (rodne cislo): 6 digits + optional slash + 3-4 digits
+_BIRTH_NUMBER_RE = re.compile(r"^\d{6}/?(\d{3,4})$")
+
+
+def _strip_not_blank(value: str, field_name: str) -> str:
+    """Strip whitespace and ensure not blank."""
+    stripped = value.strip()
+    if not stripped:
+        msg = f"{field_name} must not be blank"
+        raise ValueError(msg)
+    return stripped
+
 
 # ---------------------------------------------------------------------------
 # EmployeeChildCreate
@@ -28,12 +46,14 @@ class EmployeeChildCreate(BaseModel):
     )
     first_name: str = Field(
         ...,
+        min_length=1,
         max_length=100,
         examples=["Anna"],
         description="Child first name",
     )
     last_name: str = Field(
         ...,
+        min_length=1,
         max_length=100,
         examples=["Nováková"],
         description="Child last name",
@@ -63,6 +83,38 @@ class EmployeeChildCreate(BaseModel):
         description="End of custody period (NULL = ongoing)",
     )
 
+    @field_validator("first_name")
+    @classmethod
+    def _first_name_not_blank(cls, v: str) -> str:
+        return _strip_not_blank(v, "First name")
+
+    @field_validator("last_name")
+    @classmethod
+    def _last_name_not_blank(cls, v: str) -> str:
+        return _strip_not_blank(v, "Last name")
+
+    @field_validator("birth_number")
+    @classmethod
+    def _birth_number_format(cls, v: str | None) -> str | None:
+        if v is not None:
+            cleaned = v.replace("/", "")
+            if not _BIRTH_NUMBER_RE.match(v) and not _BIRTH_NUMBER_RE.match(cleaned):
+                msg = "Birth number must be in format YYMMDDNNN or YYMMDD/NNNN"
+                raise ValueError(msg)
+            return cleaned
+        return v
+
+    @field_validator("custody_to")
+    @classmethod
+    def _custody_to_after_from(cls, v: date | None, info: object) -> date | None:
+        """Ensure custody_to is on or after custody_from when both are set."""
+        if v is not None and hasattr(info, "data"):
+            custody_from = info.data.get("custody_from")  # type: ignore[union-attr]
+            if custody_from is not None and v < custody_from:
+                msg = "custody_to must be on or after custody_from"
+                raise ValueError(msg)
+        return v
+
 
 # ---------------------------------------------------------------------------
 # EmployeeChildUpdate
@@ -75,13 +127,49 @@ class EmployeeChildUpdate(BaseModel):
     All fields optional — only supplied fields are updated.
     """
 
-    first_name: str | None = Field(default=None, max_length=100)
-    last_name: str | None = Field(default=None, max_length=100)
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
     birth_date: date | None = Field(default=None)
     birth_number: str | None = Field(default=None, max_length=20)
     is_tax_bonus_eligible: bool | None = Field(default=None)
     custody_from: date | None = Field(default=None)
     custody_to: date | None = Field(default=None)
+
+    @field_validator("first_name")
+    @classmethod
+    def _first_name_not_blank(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_not_blank(v, "First name")
+        return v
+
+    @field_validator("last_name")
+    @classmethod
+    def _last_name_not_blank(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_not_blank(v, "Last name")
+        return v
+
+    @field_validator("birth_number")
+    @classmethod
+    def _birth_number_format(cls, v: str | None) -> str | None:
+        if v is not None:
+            cleaned = v.replace("/", "")
+            if not _BIRTH_NUMBER_RE.match(v) and not _BIRTH_NUMBER_RE.match(cleaned):
+                msg = "Birth number must be in format YYMMDDNNN or YYMMDD/NNNN"
+                raise ValueError(msg)
+            return cleaned
+        return v
+
+    @field_validator("custody_to")
+    @classmethod
+    def _custody_to_after_from(cls, v: date | None, info: object) -> date | None:
+        """Ensure custody_to is on or after custody_from when both are set."""
+        if v is not None and hasattr(info, "data"):
+            custody_from = info.data.get("custody_from")  # type: ignore[union-attr]
+            if custody_from is not None and v < custody_from:
+                msg = "custody_to must be on or after custody_from"
+                raise ValueError(msg)
+        return v
 
 
 # ---------------------------------------------------------------------------

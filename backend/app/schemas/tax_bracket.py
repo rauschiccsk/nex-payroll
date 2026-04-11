@@ -7,7 +7,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TaxBracketCreate(BaseModel):
@@ -74,6 +74,13 @@ class TaxBracketCreate(BaseModel):
         default=None,
         description="End of validity period (inclusive); null if open-ended",
     )
+
+    @model_validator(mode="after")
+    def _check_valid_range(self) -> "TaxBracketCreate":
+        if self.valid_to is not None and self.valid_to < self.valid_from:
+            msg = "valid_to must be >= valid_from"
+            raise ValueError(msg)
+        return self
 
 
 class TaxBracketUpdate(BaseModel):

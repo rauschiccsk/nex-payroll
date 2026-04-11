@@ -8,13 +8,29 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ---------------------------------------------------------------------------
 # Reusable type aliases
 # ---------------------------------------------------------------------------
 
 _ROLE = Literal["director", "accountant", "employee"]
+
+# ---------------------------------------------------------------------------
+# Validation constants
+# ---------------------------------------------------------------------------
+
+# Password: minimum 8 characters
+_PASSWORD_MIN_LENGTH = 8
+
+
+def _strip_not_blank(value: str, field_name: str) -> str:
+    """Strip whitespace and ensure not blank."""
+    stripped = value.strip()
+    if not stripped:
+        msg = f"{field_name} must not be blank"
+        raise ValueError(msg)
+    return stripped
 
 
 # ---------------------------------------------------------------------------
@@ -35,18 +51,21 @@ class UserCreate(BaseModel):
     )
     username: str = Field(
         ...,
+        min_length=1,
         max_length=100,
         examples=["jnovak"],
         description="Login username (unique within tenant)",
     )
     email: str = Field(
         ...,
+        min_length=1,
         max_length=255,
         examples=["jan.novak@example.com"],
         description="Email address (unique within tenant)",
     )
     password: str = Field(
         ...,
+        min_length=_PASSWORD_MIN_LENGTH,
         max_length=255,
         description="Plaintext password — hashed server-side via pwdlib (Argon2)",
     )
@@ -59,6 +78,16 @@ class UserCreate(BaseModel):
         default=True,
         description="Whether user account is active",
     )
+
+    @field_validator("username")
+    @classmethod
+    def _username_not_blank(cls, v: str) -> str:
+        return _strip_not_blank(v, "Username")
+
+    @field_validator("email")
+    @classmethod
+    def _email_not_blank(cls, v: str) -> str:
+        return _strip_not_blank(v, "Email")
 
     @model_validator(mode="after")
     def employee_role_requires_employee_id(self) -> Self:
@@ -80,15 +109,30 @@ class UserUpdate(BaseModel):
     """
 
     employee_id: UUID | None = Field(default=None)
-    username: str | None = Field(default=None, max_length=100)
-    email: str | None = Field(default=None, max_length=255)
+    username: str | None = Field(default=None, min_length=1, max_length=100)
+    email: str | None = Field(default=None, min_length=1, max_length=255)
     password: str | None = Field(
         default=None,
+        min_length=_PASSWORD_MIN_LENGTH,
         max_length=255,
         description="New plaintext password — hashed server-side via pwdlib (Argon2)",
     )
     role: _ROLE | None = Field(default=None)
     is_active: bool | None = Field(default=None)
+
+    @field_validator("username")
+    @classmethod
+    def _username_not_blank(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_not_blank(v, "Username")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def _email_not_blank(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_not_blank(v, "Email")
+        return v
 
 
 # ---------------------------------------------------------------------------
