@@ -67,25 +67,15 @@ class TestLeaveCreate:
         assert schema.end_date == date(2025, 7, 14)
         assert schema.business_days == 10
         # defaults
-        assert schema.status == "pending"
         assert schema.note is None
-        assert schema.approved_by is None
-        assert schema.approved_at is None
 
     def test_valid_full(self):
         """Valid creation with all fields explicitly set."""
-        approved_at = datetime(2025, 6, 15, 10, 0, 0)
         schema = LeaveCreate(
             **_valid_create_kwargs(),
-            status="approved",
             note="Letná dovolenka",
-            approved_by=_USER_ID,
-            approved_at=approved_at,
         )
-        assert schema.status == "approved"
         assert schema.note == "Letná dovolenka"
-        assert schema.approved_by == _USER_ID
-        assert schema.approved_at == approved_at
 
     # -- required field validation --
 
@@ -159,21 +149,7 @@ class TestLeaveCreate:
         schema = LeaveCreate(**kw)
         assert schema.leave_type == leave_type
 
-    # -- status Literal validation --
-
-    def test_invalid_status_rejected(self):
-        kw = _valid_create_kwargs()
-        kw["status"] = "deleted"
-        with pytest.raises(ValidationError) as exc_info:
-            LeaveCreate(**kw)
-        assert "status" in str(exc_info.value)
-
-    @pytest.mark.parametrize("status", ["pending", "approved", "rejected", "cancelled"])
-    def test_all_valid_statuses_accepted(self, status: str):
-        kw = _valid_create_kwargs()
-        kw["status"] = status
-        schema = LeaveCreate(**kw)
-        assert schema.status == status
+    # -- status is not part of LeaveCreate (managed server-side) --
 
     # -- business_days ge=1 constraint --
 
@@ -199,25 +175,12 @@ class TestLeaveCreate:
 
     # -- default values --
 
-    def test_default_status(self):
-        """status defaults to 'pending'."""
-        schema = LeaveCreate(**_valid_create_kwargs())
-        assert schema.status == "pending"
-
     def test_default_note(self):
         """note defaults to None."""
         schema = LeaveCreate(**_valid_create_kwargs())
         assert schema.note is None
 
-    def test_default_approved_by(self):
-        """approved_by defaults to None."""
-        schema = LeaveCreate(**_valid_create_kwargs())
-        assert schema.approved_by is None
-
-    def test_default_approved_at(self):
-        """approved_at defaults to None."""
-        schema = LeaveCreate(**_valid_create_kwargs())
-        assert schema.approved_at is None
+    # approved_by / approved_at are not part of LeaveCreate
 
 
 # ---------------------------------------------------------------------------

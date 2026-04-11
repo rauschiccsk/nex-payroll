@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from app.models.health_insurer import HealthInsurer
 from app.models.monthly_report import MonthlyReport
 from app.models.tenant import Tenant
 from app.schemas.monthly_report import MonthlyReportCreate, MonthlyReportUpdate
@@ -60,6 +61,20 @@ def _make_tenant(db_session, **overrides) -> Tenant:
     return tenant
 
 
+def _make_health_insurer(db_session, **overrides) -> HealthInsurer:
+    """Insert a minimal HealthInsurer and flush; return the instance."""
+    defaults = {
+        "code": "25",
+        "name": "Všeobecná zdravotná poisťovňa, a.s.",
+        "iban": "SK8975000000000012345679",
+    }
+    defaults.update(overrides)
+    hi = HealthInsurer(**defaults)
+    db_session.add(hi)
+    db_session.flush()
+    return hi
+
+
 def _make_report_payload(tenant_id, **overrides) -> MonthlyReportCreate:
     """Build a valid MonthlyReportCreate with sensible defaults."""
     defaults = {
@@ -110,6 +125,7 @@ class TestCreateMonthlyReport:
     def test_create_different_report_types_same_period(self, db_session):
         """Different report types for the same period are allowed."""
         tenant = _make_tenant(db_session)
+        hi = _make_health_insurer(db_session)
 
         rpt_a = create_monthly_report(
             db_session,
@@ -122,6 +138,7 @@ class TestCreateMonthlyReport:
                 report_type="zp_vszp",
                 file_path="/opt/nex-payroll-src/data/reports/2025/01/zp_vszp.xml",
                 institution="VšZP",
+                health_insurer_id=hi.id,
             ),
         )
 
@@ -236,6 +253,7 @@ class TestListMonthlyReports:
 
     def test_list_returns_all(self, db_session):
         tenant = _make_tenant(db_session)
+        hi = _make_health_insurer(db_session)
 
         create_monthly_report(
             db_session,
@@ -248,6 +266,7 @@ class TestListMonthlyReports:
                 report_type="zp_vszp",
                 file_path="/data/zp.xml",
                 institution="VšZP",
+                health_insurer_id=hi.id,
             ),
         )
 
@@ -292,6 +311,7 @@ class TestListMonthlyReports:
 
     def test_list_scoped_by_report_type(self, db_session):
         tenant = _make_tenant(db_session)
+        hi = _make_health_insurer(db_session)
 
         create_monthly_report(
             db_session,
@@ -304,6 +324,7 @@ class TestListMonthlyReports:
                 report_type="zp_vszp",
                 file_path="/data/zp.xml",
                 institution="VšZP",
+                health_insurer_id=hi.id,
             ),
         )
 
@@ -313,6 +334,7 @@ class TestListMonthlyReports:
 
     def test_list_scoped_by_status(self, db_session):
         tenant = _make_tenant(db_session)
+        hi = _make_health_insurer(db_session)
 
         create_monthly_report(
             db_session,
@@ -326,6 +348,7 @@ class TestListMonthlyReports:
                 file_path="/data/zp.xml",
                 institution="VšZP",
                 status="submitted",
+                health_insurer_id=hi.id,
             ),
         )
 
@@ -454,6 +477,7 @@ class TestCountMonthlyReports:
 
     def test_count_scoped_by_report_type(self, db_session):
         tenant = _make_tenant(db_session)
+        hi = _make_health_insurer(db_session)
 
         create_monthly_report(
             db_session,
@@ -466,6 +490,7 @@ class TestCountMonthlyReports:
                 report_type="zp_vszp",
                 file_path="/data/zp.xml",
                 institution="VšZP",
+                health_insurer_id=hi.id,
             ),
         )
 
@@ -474,6 +499,7 @@ class TestCountMonthlyReports:
 
     def test_count_scoped_by_status(self, db_session):
         tenant = _make_tenant(db_session)
+        hi = _make_health_insurer(db_session)
 
         create_monthly_report(
             db_session,
@@ -487,6 +513,7 @@ class TestCountMonthlyReports:
                 file_path="/data/zp.xml",
                 institution="VšZP",
                 status="submitted",
+                health_insurer_id=hi.id,
             ),
         )
 

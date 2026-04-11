@@ -22,6 +22,7 @@ def count_employees(
     db: Session,
     *,
     tenant_id: UUID | None = None,
+    status: str | None = None,
     include_deleted: bool = False,
 ) -> int:
     """Return the total number of employees (respecting filters).
@@ -33,6 +34,9 @@ def count_employees(
     if tenant_id is not None:
         stmt = stmt.where(Employee.tenant_id == tenant_id)
 
+    if status is not None:
+        stmt = stmt.where(Employee.status == status)
+
     if not include_deleted:
         stmt = stmt.where(Employee.is_deleted.is_(False))
 
@@ -43,6 +47,7 @@ def list_employees(
     db: Session,
     *,
     tenant_id: UUID | None = None,
+    status: str | None = None,
     skip: int = 0,
     limit: int = 100,
     include_deleted: bool = False,
@@ -50,12 +55,16 @@ def list_employees(
     """Return a paginated list of employees ordered by last_name, first_name.
 
     When *tenant_id* is provided the result is scoped to that tenant.
+    When *status* is provided the result is filtered by employee status.
     Soft-deleted records are excluded unless *include_deleted* is ``True``.
     """
     stmt = select(Employee).order_by(Employee.last_name, Employee.first_name)
 
     if tenant_id is not None:
         stmt = stmt.where(Employee.tenant_id == tenant_id)
+
+    if status is not None:
+        stmt = stmt.where(Employee.status == status)
 
     if not include_deleted:
         stmt = stmt.where(Employee.is_deleted.is_(False))

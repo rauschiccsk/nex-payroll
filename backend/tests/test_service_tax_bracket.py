@@ -12,6 +12,7 @@ from app.services.tax_bracket import (
     count_tax_brackets,
     create_tax_bracket,
     delete_tax_bracket,
+    get_effective_brackets,
     get_tax_bracket,
     list_tax_brackets,
     update_tax_bracket,
@@ -242,6 +243,119 @@ class TestListTaxBrackets:
         result = list_tax_brackets(db_session, skip=1, limit=2)
 
         assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# get_effective_brackets
+# ---------------------------------------------------------------------------
+
+
+class TestGetEffectiveBrackets:
+    """Tests for get_effective_brackets."""
+
+    def test_effective_returns_matching_brackets(self, db_session):
+        """Brackets valid on the given date are returned."""
+        create_tax_bracket(
+            db_session,
+            _make_payload(bracket_order=1, valid_from=date(2025, 1, 1)),
+        )
+        create_tax_bracket(
+            db_session,
+            _make_payload(
+                bracket_order=2,
+                min_amount=Decimal("41445.47"),
+                max_amount=None,
+                rate_percent=Decimal("25.00"),
+                valid_from=date(2025, 1, 1),
+            ),
+        )
+
+        result = get_effective_brackets(db_session, date(2025, 6, 15))
+
+        assert len(result) == 2
+        assert result[0].bracket_order == 1
+        assert result[1].bracket_order == 2
+
+    def test_effective_excludes_future_brackets(self, db_session):
+        """Brackets with valid_from in the future are excluded."""
+        create_tax_bracket(
+            db_session,
+            _make_payload(bracket_order=1, valid_from=date(2026, 1, 1)),
+        )
+
+        result = get_effective_brackets(db_session, date(2025, 6, 15))
+
+        assert result == []
+
+    def test_effective_excludes_expired_brackets(self, db_session):
+        """Brackets with valid_to before the date are excluded."""
+        create_tax_bracket(
+            db_session,
+            _make_payload(
+                bracket_order=1,
+                valid_from=date(2024, 1, 1),
+                valid_to=date(2024, 12, 31),
+            ),
+        )
+
+        result = get_effective_brackets(db_session, date(2025, 6, 15))
+
+        assert result == []
+
+    def test_effective_includes_boundary_dates(self, db_session):
+        """Brackets on exact valid_from and valid_to boundaries are included."""
+        create_tax_bracket(
+            db_session,
+            _make_payload(
+                bracket_order=1,
+                valid_from=date(2025, 1, 1),
+                valid_to=date(2025, 12, 31),
+            ),
+        )
+
+        # Exact start
+        assert len(get_effective_brackets(db_session, date(2025, 1, 1))) == 1
+        # Exact end
+        assert len(get_effective_brackets(db_session, date(2025, 12, 31))) == 1
+        # Day before start
+        assert len(get_effective_brackets(db_session, date(2024, 12, 31))) == 0
+        # Day after end
+        assert len(get_effective_brackets(db_session, date(2026, 1, 1))) == 0
+
+    def test_effective_empty_when_no_brackets(self, db_session):
+        result = get_effective_brackets(db_session, date(2025, 1, 1))
+
+        assert result == []
+
+    def test_effective_ordered_by_bracket_order(self, db_session):
+        """Results are sorted by bracket_order ascending."""
+        # Insert in reverse order
+        create_tax_bracket(
+            db_session,
+            _make_payload(
+                bracket_order=3,
+                min_amount=Decimal("80000.00"),
+                max_amount=None,
+                valid_from=date(2025, 1, 1),
+            ),
+        )
+        create_tax_bracket(
+            db_session,
+            _make_payload(bracket_order=1, valid_from=date(2025, 1, 1)),
+        )
+        create_tax_bracket(
+            db_session,
+            _make_payload(
+                bracket_order=2,
+                min_amount=Decimal("41445.47"),
+                max_amount=Decimal("79999.99"),
+                valid_from=date(2025, 1, 1),
+            ),
+        )
+
+        result = get_effective_brackets(db_session, date(2025, 6, 15))
+
+        assert [b.bracket_order for b in result] == [1, 2, 3]
 
 
 # ---------------------------------------------------------------------------

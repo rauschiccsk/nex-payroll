@@ -10,6 +10,7 @@ from app.models.health_insurer import HealthInsurer
 from app.models.tenant import Tenant
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
 from app.services.employee import (
+    count_employees,
     create_employee,
     delete_employee,
     get_employee,
@@ -85,6 +86,98 @@ def _make_payload(tenant_id, health_insurer_id, **overrides) -> EmployeeCreate:
     }
     defaults.update(overrides)
     return EmployeeCreate(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# count
+# ---------------------------------------------------------------------------
+
+
+class TestCountEmployees:
+    """Tests for count_employees."""
+
+    def test_count_empty(self, db_session):
+        assert count_employees(db_session) == 0
+
+    def test_count_after_inserts(self, db_session):
+        tenant = _make_tenant(db_session)
+        insurer = _make_health_insurer(db_session)
+
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP001"),
+        )
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002"),
+        )
+
+        assert count_employees(db_session) == 2
+
+    def test_count_scoped_by_tenant(self, db_session):
+        tenant_a = _make_tenant(db_session, ico="11111111", schema_name="tenant_a_11111111")
+        tenant_b = _make_tenant(db_session, ico="22222222", schema_name="tenant_b_22222222")
+        insurer = _make_health_insurer(db_session)
+
+        create_employee(
+            db_session,
+            _make_payload(tenant_a.id, insurer.id, employee_number="EMP001"),
+        )
+        create_employee(
+            db_session,
+            _make_payload(tenant_b.id, insurer.id, employee_number="EMP002"),
+        )
+
+        assert count_employees(db_session, tenant_id=tenant_a.id) == 1
+
+    def test_count_excludes_deleted_by_default(self, db_session):
+        tenant = _make_tenant(db_session)
+        insurer = _make_health_insurer(db_session)
+
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP001"),
+        )
+        emp2 = create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002"),
+        )
+        delete_employee(db_session, emp2.id)
+
+        assert count_employees(db_session) == 1
+
+    def test_count_include_deleted(self, db_session):
+        tenant = _make_tenant(db_session)
+        insurer = _make_health_insurer(db_session)
+
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP001"),
+        )
+        emp2 = create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002"),
+        )
+        delete_employee(db_session, emp2.id)
+
+        assert count_employees(db_session, include_deleted=True) == 2
+
+    def test_count_filtered_by_status(self, db_session):
+        tenant = _make_tenant(db_session)
+        insurer = _make_health_insurer(db_session)
+
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP001", status="active"),
+        )
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002", status="inactive"),
+        )
+
+        assert count_employees(db_session, status="active") == 1
+        assert count_employees(db_session, status="inactive") == 1
+        assert count_employees(db_session, status="terminated") == 0
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +428,34 @@ class TestListEmployees:
 
         result = list_employees(db_session, skip=1, limit=2)
         assert len(result) == 2
+
+    def test_list_filtered_by_status(self, db_session):
+        """list_employees supports status filter (uses INDEX(tenant_id, status))."""
+        tenant = _make_tenant(db_session)
+        insurer = _make_health_insurer(db_session)
+
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP001", status="active"),
+        )
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP002", status="inactive"),
+        )
+        create_employee(
+            db_session,
+            _make_payload(tenant.id, insurer.id, employee_number="EMP003", status="active"),
+        )
+
+        active = list_employees(db_session, status="active")
+        assert len(active) == 2
+
+        inactive = list_employees(db_session, status="inactive")
+        assert len(inactive) == 1
+        assert inactive[0].employee_number == "EMP002"
+
+        terminated = list_employees(db_session, status="terminated")
+        assert len(terminated) == 0
 
 
 # ---------------------------------------------------------------------------

@@ -174,7 +174,7 @@ class TestUpdateEmployeeChild:
     def test_update_success(self, client: TestClient):
         tid, eid = _setup_tenant_and_employee(client)
         created = client.post(BASE_URL, json=_child_payload(tid, eid)).json()
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{created['id']}",
             json={"first_name": "Mária", "is_tax_bonus_eligible": False},
         )
@@ -184,7 +184,7 @@ class TestUpdateEmployeeChild:
         assert data["is_tax_bonus_eligible"] is False
 
     def test_update_not_found(self, client: TestClient):
-        resp = client.put(f"{BASE_URL}/{uuid.uuid4()}", json={"first_name": "X"})
+        resp = client.patch(f"{BASE_URL}/{uuid.uuid4()}", json={"first_name": "X"})
         assert resp.status_code in (404, 409)
 
 

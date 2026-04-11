@@ -30,6 +30,7 @@ def list_employees_endpoint(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Max records to return"),
     tenant_id: UUID | None = Query(None, description="Filter by tenant"),  # noqa: B008
+    status: str | None = Query(None, description="Filter by status (active/inactive/terminated)"),  # noqa: B008
     include_deleted: bool = Query(  # noqa: B008
         False, description="Include soft-deleted records"
     ),
@@ -39,6 +40,7 @@ def list_employees_endpoint(
     items = employee_service.list_employees(
         db,
         tenant_id=tenant_id,
+        status=status,
         skip=skip,
         limit=limit,
         include_deleted=include_deleted,
@@ -46,6 +48,7 @@ def list_employees_endpoint(
     total = employee_service.count_employees(
         db,
         tenant_id=tenant_id,
+        status=status,
         include_deleted=include_deleted,
     )
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)

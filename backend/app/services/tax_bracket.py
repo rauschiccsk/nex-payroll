@@ -6,9 +6,10 @@ SQLAlchemy Session. They flush but never commit — the caller
 (typically a FastAPI endpoint / unit-of-work) owns the transaction.
 """
 
+from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.tax_bracket import TaxBracket
@@ -39,6 +40,30 @@ def list_tax_brackets(
 def get_tax_bracket(db: Session, bracket_id: UUID) -> TaxBracket | None:
     """Return a single tax bracket by primary key, or ``None``."""
     return db.get(TaxBracket, bracket_id)
+
+
+def get_effective_brackets(
+    db: Session,
+    effective_date: date,
+) -> list[TaxBracket]:
+    """Return all tax brackets effective on *effective_date*.
+
+    A bracket is effective when ``valid_from <= effective_date`` and
+    either ``valid_to`` is NULL or ``valid_to >= effective_date``.
+    Results are ordered by ``bracket_order`` ascending (lowest bracket first).
+    """
+    stmt = (
+        select(TaxBracket)
+        .where(
+            TaxBracket.valid_from <= effective_date,
+            or_(
+                TaxBracket.valid_to.is_(None),
+                TaxBracket.valid_to >= effective_date,
+            ),
+        )
+        .order_by(TaxBracket.bracket_order)
+    )
+    return list(db.execute(stmt).scalars().all())
 
 
 def create_tax_bracket(

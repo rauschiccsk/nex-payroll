@@ -144,34 +144,38 @@ class TestListStatutoryDeadlines:
 
     def test_list_returns_all(self, db_session):
         create_statutory_deadline(db_session, _make_payload(deadline_type="monthly"))
-        create_statutory_deadline(db_session, _make_payload(deadline_type="annual"))
+        create_statutory_deadline(
+            db_session,
+            _make_payload(deadline_type="annual", month_of_year=3),
+        )
 
         result = list_statutory_deadlines(db_session)
 
         assert len(result) == 2
 
     def test_list_ordering(self, db_session):
-        """Deadlines with the same type are ordered by valid_from DESC."""
-        create_statutory_deadline(
+        """Deadlines are ordered by deadline_type then code."""
+        d1 = create_statutory_deadline(
             db_session,
             _make_payload(deadline_type="monthly", valid_from=date(2024, 1, 1)),
         )
-        create_statutory_deadline(
+        d2 = create_statutory_deadline(
             db_session,
             _make_payload(deadline_type="monthly", valid_from=date(2025, 1, 1)),
         )
 
         result = list_statutory_deadlines(db_session)
 
-        assert result[0].valid_from == date(2025, 1, 1)
-        assert result[1].valid_from == date(2024, 1, 1)
+        # Ordered by deadline_type, code — so d1 (lower counter) comes first
+        assert result[0].id == d1.id
+        assert result[1].id == d2.id
 
     def test_list_pagination_skip(self, db_session):
         for i in range(3):
             create_statutory_deadline(
                 db_session,
                 _make_payload(
-                    deadline_type="annual" if i == 0 else "monthly",
+                    deadline_type="monthly",
                     valid_from=date(2025, i + 1, 1),
                 ),
             )
@@ -185,7 +189,7 @@ class TestListStatutoryDeadlines:
             create_statutory_deadline(
                 db_session,
                 _make_payload(
-                    deadline_type="annual" if i == 0 else "monthly",
+                    deadline_type="monthly",
                     valid_from=date(2025, i + 1, 1),
                 ),
             )

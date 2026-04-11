@@ -6,8 +6,9 @@ import pytest
 
 from app.models.tenant import Tenant
 from app.schemas.tenant import TenantCreate, TenantUpdate
-from app.services.tenant import (
+from app.services.tenant_service import (
     _generate_schema_name,
+    count_tenants,
     create_tenant,
     delete_tenant,
     get_tenant,
@@ -68,6 +69,29 @@ class TestGenerateSchemaName:
     def test_empty_name(self):
         result = _generate_schema_name("", "12345678")
         assert result == "tenant__12345678"
+
+
+# ---------------------------------------------------------------------------
+# count
+# ---------------------------------------------------------------------------
+
+
+class TestCountTenants:
+    """Tests for count_tenants."""
+
+    def test_count_empty(self, db_session):
+        assert count_tenants(db_session) == 0
+
+    def test_count_after_inserts(self, db_session):
+        create_tenant(db_session, _make_payload(ico="11111111", name="Alpha"))
+        create_tenant(db_session, _make_payload(ico="22222222", name="Beta"))
+        assert count_tenants(db_session) == 2
+
+    def test_count_after_delete(self, db_session):
+        t = create_tenant(db_session, _make_payload())
+        assert count_tenants(db_session) == 1
+        delete_tenant(db_session, t.id)
+        assert count_tenants(db_session) == 0
 
 
 # ---------------------------------------------------------------------------

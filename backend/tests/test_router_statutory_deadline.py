@@ -164,11 +164,13 @@ class TestListStatutoryDeadlines:
     def test_list_pagination_skip(self, client: TestClient):
         # Create 3 deadlines with different types
         for dtype in ["monthly", "annual", "one_time"]:
+            extra = {"month_of_year": 6} if dtype == "annual" else {}
             client.post(
                 BASE_URL,
                 json=_create_deadline_payload(
                     deadline_type=dtype,
                     institution=f"Institution {dtype}",
+                    **extra,
                 ),
             )
         resp = client.get(BASE_URL, params={"skip": 1, "limit": 2})
@@ -181,11 +183,13 @@ class TestListStatutoryDeadlines:
 
     def test_list_pagination_limit(self, client: TestClient):
         for i, dtype in enumerate(["monthly", "annual", "one_time", "monthly", "annual"]):
+            extra = {"month_of_year": 6} if dtype == "annual" else {}
             client.post(
                 BASE_URL,
                 json=_create_deadline_payload(
                     deadline_type=dtype,
                     institution=f"Limit Institution {i}",
+                    **extra,
                 ),
             )
         resp = client.get(BASE_URL, params={"limit": 2})

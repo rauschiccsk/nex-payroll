@@ -205,7 +205,7 @@ class TestUpdateTenant:
         create_resp = client.post(BASE_URL, json=_create_tenant_payload())
         tenant_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{tenant_id}", json={"name": "Nova Firma s.r.o."})
+        resp = client.patch(f"{BASE_URL}/{tenant_id}", json={"name": "Nova Firma s.r.o."})
         assert resp.status_code == 200
         data = resp.json()
         assert data["name"] == "Nova Firma s.r.o."
@@ -216,7 +216,7 @@ class TestUpdateTenant:
         create_resp = client.post(BASE_URL, json=_create_tenant_payload())
         tenant_id = create_resp.json()["id"]
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{tenant_id}",
             json={
                 "address_city": "Kosice",
@@ -232,7 +232,7 @@ class TestUpdateTenant:
 
     def test_update_not_found(self, client: TestClient):
         fake_id = str(uuid.uuid4())
-        resp = client.put(f"{BASE_URL}/{fake_id}", json={"name": "X"})
+        resp = client.patch(f"{BASE_URL}/{fake_id}", json={"name": "X"})
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Tenant not found"
 
@@ -241,7 +241,7 @@ class TestUpdateTenant:
         create_resp = client.post(BASE_URL, json=_create_tenant_payload(ico="22222222"))
         tenant_id = create_resp.json()["id"]
 
-        resp = client.put(f"{BASE_URL}/{tenant_id}", json={"ico": "11111111"})
+        resp = client.patch(f"{BASE_URL}/{tenant_id}", json={"ico": "11111111"})
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
 

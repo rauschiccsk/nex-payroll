@@ -1,4 +1,4 @@
-"""Service layer for User entity.
+"""Service layer for User entity (DESIGN.md §5.3).
 
 Provides CRUD operations over the users table (tenant-specific schema).
 All functions are synchronous (def, not async def) and accept a
@@ -7,6 +7,15 @@ SQLAlchemy Session.  They flush but never commit — the caller
 
 Soft-delete via ``is_active`` flag — list excludes inactive users
 by default.
+
+Public API
+----------
+- count_users   — count matching rows (for pagination)
+- list_users    — paginated, filtered, ordered by username
+- get_user      — single lookup by PK
+- create_user   — insert with password hashing & uniqueness checks
+- update_user   — partial update with constraint re-validation
+- delete_user   — soft-delete (is_active=False)
 """
 
 from uuid import UUID

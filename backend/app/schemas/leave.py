@@ -66,23 +66,10 @@ class LeaveCreate(BaseModel):
         examples=[10],
         description="Number of business (working) days in the leave period",
     )
-    status: _LEAVE_STATUS = Field(
-        default="pending",
-        examples=["pending"],
-        description="Leave status: pending, approved, rejected, cancelled",
-    )
     note: str | None = Field(
         default=None,
         examples=["Rodinná dovolenka"],
         description="Optional note or reason for the leave request",
-    )
-    approved_by: UUID | None = Field(
-        default=None,
-        description="User who approved/rejected the leave request",
-    )
-    approved_at: datetime | None = Field(
-        default=None,
-        description="Timestamp when the leave was approved/rejected",
     )
 
     @model_validator(mode="after")

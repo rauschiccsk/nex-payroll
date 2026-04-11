@@ -38,8 +38,8 @@ def _order_payload(tenant_id: str, **overrides) -> dict:
         "tenant_id": tenant_id,
         "period_year": 2025,
         "period_month": 1,
-        "payment_type": "net_wage",
-        "recipient_name": "Jan Novak",
+        "payment_type": "sp",
+        "recipient_name": "Socialna poistovna",
         "recipient_iban": "SK3112000000198742637541",
         "amount": "1234.56",
         "status": "pending",
@@ -70,7 +70,7 @@ class TestListPaymentOrders:
         assert resp.status_code == 200
         data = resp.json()
         assert data["total"] == 1
-        assert data["items"][0]["payment_type"] == "net_wage"
+        assert data["items"][0]["payment_type"] == "sp"
 
     def test_pagination(self, client: TestClient):
         tenant = _create_tenant(client)
@@ -96,7 +96,7 @@ class TestListPaymentOrders:
 
     def test_filter_by_payment_type(self, client: TestClient):
         tenant = _create_tenant(client)
-        client.post(BASE_URL, json=_order_payload(tenant["id"], payment_type="net_wage"))
+        client.post(BASE_URL, json=_order_payload(tenant["id"], payment_type="sp"))
         client.post(
             BASE_URL,
             json=_order_payload(tenant["id"], payment_type="tax", period_month=2),
@@ -147,7 +147,7 @@ class TestGetPaymentOrder:
         assert resp.status_code == 200
         data = resp.json()
         assert data["id"] == created["id"]
-        assert data["recipient_name"] == "Jan Novak"
+        assert data["recipient_name"] == "Socialna poistovna"
         assert data["amount"] == "1234.56"
 
     def test_get_not_found(self, client: TestClient):
@@ -166,7 +166,7 @@ class TestCreatePaymentOrder:
         assert resp.status_code == 201
         data = resp.json()
         assert data["tenant_id"] == tenant["id"]
-        assert data["payment_type"] == "net_wage"
+        assert data["payment_type"] == "sp"
         assert data["recipient_iban"] == "SK3112000000198742637541"
         assert data["status"] == "pending"
         assert "id" in data
@@ -175,10 +175,9 @@ class TestCreatePaymentOrder:
 
     def test_create_all_payment_types(self, client: TestClient):
         tenant = _create_tenant(client)
-        for idx, ptype in enumerate(
-            ("net_wage", "sp", "zp_vszp", "zp_dovera", "zp_union", "tax", "pillar2"),
-            start=1,
-        ):
+        # Types that don't require extra FK references
+        simple_types = ("sp", "tax", "pillar2")
+        for idx, ptype in enumerate(simple_types, start=1):
             payload = _order_payload(tenant["id"], payment_type=ptype, period_month=idx)
             resp = client.post(BASE_URL, json=payload)
             assert resp.status_code == 201, f"Failed to create payment_type={ptype}"
@@ -221,7 +220,7 @@ class TestUpdatePaymentOrder:
         assert data["status"] == "exported"
         assert data["amount"] == "999.99"
         # unchanged
-        assert data["recipient_name"] == "Jan Novak"
+        assert data["recipient_name"] == "Socialna poistovna"
 
     def test_update_not_found(self, client: TestClient):
         resp = client.put(

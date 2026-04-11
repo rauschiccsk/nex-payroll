@@ -69,20 +69,25 @@ def _make_tenant(db_session, **overrides) -> Tenant:
 
 
 def _make_order_payload(tenant_id, **overrides) -> PaymentOrderCreate:
-    """Build a valid PaymentOrderCreate with sensible defaults."""
+    """Build a valid PaymentOrderCreate with sensible defaults.
+
+    Uses ``payment_type='sp'`` by default to avoid FK dependency on
+    employees table.  Tests that need ``net_wage`` or ZP types must
+    supply their own ``employee_id`` / ``health_insurer_id``.
+    """
     defaults = {
         "tenant_id": tenant_id,
         "period_year": 2025,
         "period_month": 1,
-        "payment_type": "net_wage",
-        "recipient_name": "Ján Novák",
+        "payment_type": "sp",
+        "recipient_name": "Sociálna poisťovňa",
         "recipient_iban": "SK3112000000198742637541",
         "recipient_bic": "TATRSKBX",
         "amount": Decimal("1850.00"),
         "variable_symbol": "1234567890",
         "specific_symbol": None,
         "constant_symbol": "0558",
-        "reference": "PAYROLL-2025-01-NOVAK",
+        "reference": "PAYROLL-2025-01",
         "status": "pending",
         "employee_id": None,
         "health_insurer_id": None,
@@ -110,31 +115,31 @@ class TestCreatePaymentOrder:
         assert result.tenant_id == tenant.id
         assert result.period_year == 2025
         assert result.period_month == 1
-        assert result.payment_type == "net_wage"
-        assert result.recipient_name == "Ján Novák"
+        assert result.payment_type == "sp"
+        assert result.recipient_name == "Sociálna poisťovňa"
         assert result.recipient_iban == "SK3112000000198742637541"
         assert result.recipient_bic == "TATRSKBX"
         assert result.amount == Decimal("1850.00")
         assert result.variable_symbol == "1234567890"
         assert result.specific_symbol is None
         assert result.constant_symbol == "0558"
-        assert result.reference == "PAYROLL-2025-01-NOVAK"
+        assert result.reference == "PAYROLL-2025-01"
         assert result.status == "pending"
         assert result.employee_id is None
         assert result.health_insurer_id is None
 
     def test_create_multiple_same_type_same_period(self, db_session):
         """Multiple payment orders of the same type for the same period are allowed
-        (e.g. multiple net_wage orders for different employees)."""
+        (e.g. multiple sp orders for different recipients)."""
         tenant = _make_tenant(db_session)
 
         order_a = create_payment_order(
             db_session,
-            _make_order_payload(tenant.id, recipient_name="Ján Novák"),
+            _make_order_payload(tenant.id, recipient_name="Sociálna poisťovňa A"),
         )
         order_b = create_payment_order(
             db_session,
-            _make_order_payload(tenant.id, recipient_name="Peter Horváth"),
+            _make_order_payload(tenant.id, recipient_name="Sociálna poisťovňa B"),
         )
 
         assert order_a.id != order_b.id
@@ -144,9 +149,13 @@ class TestCreatePaymentOrder:
         """Different payment types for the same period are allowed."""
         tenant = _make_tenant(db_session)
 
-        order_wage = create_payment_order(
+        order_tax = create_payment_order(
             db_session,
-            _make_order_payload(tenant.id, payment_type="net_wage"),
+            _make_order_payload(
+                tenant.id,
+                payment_type="tax",
+                recipient_name="Daňový úrad",
+            ),
         )
         order_sp = create_payment_order(
             db_session,
@@ -158,8 +167,8 @@ class TestCreatePaymentOrder:
             ),
         )
 
-        assert order_wage.id != order_sp.id
-        assert order_wage.payment_type == "net_wage"
+        assert order_tax.id != order_sp.id
+        assert order_tax.payment_type == "tax"
         assert order_sp.payment_type == "sp"
 
     def test_create_default_status_is_pending(self, db_session):
@@ -201,7 +210,7 @@ class TestCreatePaymentOrder:
             tenant_id=tenant.id,
             period_year=2025,
             period_month=1,
-            payment_type="net_wage",
+            payment_type="sp",
             recipient_name="Test",
             recipient_iban="SK3112000000198742637541",
             recipient_bic=None,
@@ -311,20 +320,20 @@ class TestListPaymentOrders:
 
         create_payment_order(
             db_session,
-            _make_order_payload(tenant.id, payment_type="net_wage"),
+            _make_order_payload(
+                tenant.id,
+                payment_type="tax",
+                recipient_name="Daňový úrad",
+            ),
         )
         create_payment_order(
             db_session,
-            _make_order_payload(
-                tenant.id,
-                payment_type="sp",
-                recipient_name="Sociálna poisťovňa",
-            ),
+            _make_order_payload(tenant.id, payment_type="sp"),
         )
 
-        result = list_payment_orders(db_session, payment_type="net_wage")
+        result = list_payment_orders(db_session, payment_type="tax")
         assert len(result) == 1
-        assert result[0].payment_type == "net_wage"
+        assert result[0].payment_type == "tax"
 
     def test_list_scoped_by_status(self, db_session):
         tenant = _make_tenant(db_session)
@@ -470,18 +479,18 @@ class TestCountPaymentOrders:
 
         create_payment_order(
             db_session,
-            _make_order_payload(tenant.id, payment_type="net_wage"),
+            _make_order_payload(
+                tenant.id,
+                payment_type="tax",
+                recipient_name="Daňový úrad",
+            ),
         )
         create_payment_order(
             db_session,
-            _make_order_payload(
-                tenant.id,
-                payment_type="sp",
-                recipient_name="Sociálna poisťovňa",
-            ),
+            _make_order_payload(tenant.id, payment_type="sp"),
         )
 
-        assert count_payment_orders(db_session, payment_type="net_wage") == 1
+        assert count_payment_orders(db_session, payment_type="tax") == 1
         assert count_payment_orders(db_session, payment_type="sp") == 1
 
     def test_count_scoped_by_status(self, db_session):
@@ -565,8 +574,8 @@ class TestUpdatePaymentOrder:
         assert updated is not None
         assert updated.status == "exported"
         # unchanged fields stay the same
-        assert updated.payment_type == "net_wage"
-        assert updated.recipient_name == "Ján Novák"
+        assert updated.payment_type == "sp"
+        assert updated.recipient_name == "Sociálna poisťovňa"
 
     def test_update_multiple_fields(self, db_session):
         tenant = _make_tenant(db_session)

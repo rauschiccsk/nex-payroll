@@ -7,6 +7,7 @@ from uuid import uuid4
 from app.models.contribution_rate import ContributionRate
 from app.schemas.contribution_rate import ContributionRateCreate, ContributionRateUpdate
 from app.services.contribution_rate import (
+    count_contribution_rates,
     create_contribution_rate,
     delete_contribution_rate,
     get_contribution_rate,
@@ -32,6 +33,25 @@ def _make_payload(**overrides) -> ContributionRateCreate:
     }
     defaults.update(overrides)
     return ContributionRateCreate(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# count
+# ---------------------------------------------------------------------------
+
+
+class TestCountContributionRates:
+    """Tests for count_contribution_rates."""
+
+    def test_count_empty(self, db_session):
+        assert count_contribution_rates(db_session) == 0
+
+    def test_count_after_inserts(self, db_session):
+        create_contribution_rate(db_session, _make_payload(rate_type="rate_a"))
+        create_contribution_rate(db_session, _make_payload(rate_type="rate_b"))
+        create_contribution_rate(db_session, _make_payload(rate_type="rate_c"))
+
+        assert count_contribution_rates(db_session) == 3
 
 
 # ---------------------------------------------------------------------------

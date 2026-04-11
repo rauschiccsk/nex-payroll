@@ -17,14 +17,7 @@ from app.schemas.employee_child import (
     EmployeeChildUpdate,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.services.employee_child import (
-    count_employee_children,
-    create_employee_child,
-    delete_employee_child,
-    get_employee_child,
-    list_employee_children,
-    update_employee_child,
-)
+from app.services import employee_child as employee_child_service
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +33,14 @@ def list_employee_children_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of employee children."""
-    items = list_employee_children(
+    items = employee_child_service.list_employee_children(
         db,
         tenant_id=tenant_id,
         employee_id=employee_id,
         skip=skip,
         limit=limit,
     )
-    total = count_employee_children(
+    total = employee_child_service.count_employee_children(
         db,
         tenant_id=tenant_id,
         employee_id=employee_id,
@@ -61,7 +54,7 @@ def get_employee_child_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single employee child by ID."""
-    child = get_employee_child(db, child_id)
+    child = employee_child_service.get_employee_child(db, child_id)
     if child is None:
         raise HTTPException(status_code=404, detail="Employee child not found")
     return child
@@ -74,7 +67,7 @@ def create_employee_child_endpoint(
 ):
     """Create a new employee child record."""
     try:
-        child = create_employee_child(db, payload)
+        child = employee_child_service.create_employee_child(db, payload)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     db.commit()
@@ -82,7 +75,7 @@ def create_employee_child_endpoint(
     return child
 
 
-@router.put("/{child_id}", response_model=EmployeeChildRead)
+@router.patch("/{child_id}", response_model=EmployeeChildRead)
 def update_employee_child_endpoint(
     child_id: UUID,
     payload: EmployeeChildUpdate,
@@ -90,7 +83,7 @@ def update_employee_child_endpoint(
 ):
     """Update an existing employee child record."""
     try:
-        child = update_employee_child(db, child_id, payload)
+        child = employee_child_service.update_employee_child(db, child_id, payload)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if child is None:
@@ -107,7 +100,7 @@ def delete_employee_child_endpoint(
 ):
     """Delete an employee child by ID."""
     try:
-        deleted = delete_employee_child(db, child_id)
+        deleted = employee_child_service.delete_employee_child(db, child_id)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not deleted:

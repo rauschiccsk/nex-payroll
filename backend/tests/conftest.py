@@ -28,6 +28,7 @@ if not os.environ.get("PAYROLL_ENCRYPTION_KEY") and not os.environ.get("FERNET_K
 # so that Base.metadata is fully populated for create_all/drop_all.
 import app.models as _models  # noqa: F401
 from app.models.base import Base
+from app.models.notification import Notification  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 
 # ---------------------------------------------------------------------------

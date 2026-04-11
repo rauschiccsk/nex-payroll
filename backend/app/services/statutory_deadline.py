@@ -32,12 +32,12 @@ def list_statutory_deadlines(
 ) -> list[StatutoryDeadline]:
     """Return a paginated list of statutory deadlines.
 
-    Ordered by ``deadline_type`` then ``valid_from`` descending so the
-    most-recent version of each deadline comes first.
+    Ordered by ``deadline_type`` then ``code`` so related deadlines
+    are grouped together.
     """
     stmt = (
         select(StatutoryDeadline)
-        .order_by(StatutoryDeadline.deadline_type, StatutoryDeadline.valid_from.desc())
+        .order_by(StatutoryDeadline.deadline_type, StatutoryDeadline.code)
         .offset(skip)
         .limit(limit)
     )

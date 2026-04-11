@@ -121,6 +121,12 @@ def update_leave_entitlement(
     for field, value in update_data.items():
         setattr(entitlement, field, value)
 
+    # Re-check consistency after partial update: used_days must not exceed
+    # total_days, and remaining_days must equal total_days - used_days.
+    if entitlement.used_days > entitlement.total_days:
+        raise ValueError(f"used_days ({entitlement.used_days}) cannot exceed total_days ({entitlement.total_days})")
+    entitlement.remaining_days = entitlement.total_days - entitlement.used_days
+
     db.flush()
     return entitlement
 

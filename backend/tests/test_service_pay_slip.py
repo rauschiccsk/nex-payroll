@@ -845,16 +845,15 @@ class TestUpdatePaySlip:
             PaySlipUpdate(
                 pdf_path="/updated/path.pdf",
                 file_size_bytes=99999,
-                period_year=2026,
-                period_month=6,
             ),
         )
 
         assert updated is not None
         assert updated.pdf_path == "/updated/path.pdf"
         assert updated.file_size_bytes == 99999
-        assert updated.period_year == 2026
-        assert updated.period_month == 6
+        # Immutable fields remain unchanged
+        assert updated.period_year == created.period_year
+        assert updated.period_month == created.period_month
 
     def test_update_nonexistent_raises_value_error(self, db_session):
         with pytest.raises(ValueError, match="not found"):
@@ -911,7 +910,14 @@ class TestUpdatePaySlip:
         assert updated.downloaded_at == now
 
     def test_update_payroll_id_duplicate_raises_value_error(self, db_session):
-        """Changing payroll_id to an already-used value raises ValueError."""
+        """Changing payroll_id to an already-used value raises ValueError.
+
+        PaySlipUpdate schema currently excludes payroll_id (immutable), so
+        we use a SimpleNamespace mock to inject payroll_id into model_dump
+        output and exercise the service-level defense-in-depth guard directly.
+        """
+        from types import SimpleNamespace
+
         chain_a = _setup_parent_chain_unique(db_session, suffix="upd_a")
 
         # Create two pay slips in the SAME tenant — need second payroll under same tenant
@@ -942,16 +948,22 @@ class TestUpdatePaySlip:
             ),
         )
 
-        # Try to update slip_a's payroll_id to payroll_b (already used in same tenant)
+        # Duck-typed payload that returns payroll_id in model_dump — exercises the
+        # service guard that prevents duplicate (tenant_id, payroll_id).
+        fake_payload = SimpleNamespace(
+            model_dump=lambda exclude_unset=False: {"payroll_id": payroll_b.id},
+        )
         with pytest.raises(ValueError, match="already exists"):
-            update_pay_slip(
-                db_session,
-                slip_a.id,
-                PaySlipUpdate(payroll_id=payroll_b.id),
-            )
+            update_pay_slip(db_session, slip_a.id, fake_payload)
 
     def test_update_payroll_id_same_value_no_error(self, db_session):
-        """Setting payroll_id to its current value should not raise."""
+        """Setting payroll_id to its current value should not raise.
+
+        Uses a duck-typed payload to inject payroll_id with the same value
+        and exercise the service-level guard that allows same-value updates.
+        """
+        from types import SimpleNamespace
+
         chain = _setup_parent_chain_unique(db_session, suffix="upd_same")
         slip = create_pay_slip(
             db_session,
@@ -962,13 +974,39 @@ class TestUpdatePaySlip:
             ),
         )
 
-        # This should NOT raise — payroll_id is unchanged
+        # Same payroll_id as current — should not raise
+        fake_payload = SimpleNamespace(
+            model_dump=lambda exclude_unset=False: {"payroll_id": chain["payroll"].id},
+        )
+        updated = update_pay_slip(db_session, slip.id, fake_payload)
+        assert updated.payroll_id == chain["payroll"].id
+
+    def test_immutable_fields_not_changed_via_update(self, db_session):
+        """PaySlipUpdate excludes immutable FK/identity fields (payroll_id, etc.).
+
+        Passing unknown fields to PaySlipUpdate is silently ignored by Pydantic,
+        so the original values must remain unchanged.
+        """
+        chain = _setup_parent_chain_unique(db_session, suffix="upd_immut")
+        slip = create_pay_slip(
+            db_session,
+            _make_pay_slip_payload(
+                chain["tenant"].id,
+                chain["payroll"].id,
+                chain["employee"].id,
+            ),
+        )
+
         updated = update_pay_slip(
             db_session,
             slip.id,
-            PaySlipUpdate(payroll_id=chain["payroll"].id),
+            PaySlipUpdate(pdf_path="/updated/immutable_test.pdf"),
         )
+
         assert updated.payroll_id == chain["payroll"].id
+        assert updated.employee_id == chain["employee"].id
+        assert updated.period_year == 2025
+        assert updated.period_month == 1
 
 
 # ---------------------------------------------------------------------------

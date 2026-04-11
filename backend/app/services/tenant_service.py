@@ -51,7 +51,7 @@ def list_tenants(
     db: Session,
     *,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 50,
 ) -> list[Tenant]:
     """Return a paginated list of tenants ordered by name."""
     stmt = select(Tenant).order_by(Tenant.name).offset(skip).limit(limit)

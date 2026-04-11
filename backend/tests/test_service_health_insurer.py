@@ -5,6 +5,7 @@ from uuid import uuid4
 from app.models.health_insurer import HealthInsurer
 from app.schemas.health_insurer import HealthInsurerCreate, HealthInsurerUpdate
 from app.services.health_insurer import (
+    count_health_insurers,
     create_health_insurer,
     delete_health_insurer,
     get_health_insurer,
@@ -28,6 +29,24 @@ def _make_payload(**overrides) -> HealthInsurerCreate:
     }
     defaults.update(overrides)
     return HealthInsurerCreate(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# count
+# ---------------------------------------------------------------------------
+
+
+class TestCountHealthInsurers:
+    """Tests for count_health_insurers."""
+
+    def test_count_empty(self, db_session):
+        assert count_health_insurers(db_session) == 0
+
+    def test_count_after_inserts(self, db_session):
+        create_health_insurer(db_session, _make_payload(code="24"))
+        create_health_insurer(db_session, _make_payload(code="25"))
+
+        assert count_health_insurers(db_session) == 2
 
 
 # ---------------------------------------------------------------------------

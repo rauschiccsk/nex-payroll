@@ -17,14 +17,7 @@ from app.schemas.tenant import (
     TenantRead,
     TenantUpdate,
 )
-from app.services.tenant import (
-    count_tenants,
-    create_tenant,
-    delete_tenant,
-    get_tenant,
-    list_tenants,
-    update_tenant,
-)
+from app.services import tenant_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +31,8 @@ def list_tenants_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of tenants."""
-    items = list_tenants(db, skip=skip, limit=limit)
-    total = count_tenants(db)
+    items = tenant_service.list_tenants(db, skip=skip, limit=limit)
+    total = tenant_service.count_tenants(db)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -49,7 +42,7 @@ def get_tenant_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single tenant by ID."""
-    tenant = get_tenant(db, tenant_id)
+    tenant = tenant_service.get_tenant(db, tenant_id)
     if tenant is None:
         raise HTTPException(status_code=404, detail="Tenant not found")
     return tenant
@@ -62,7 +55,7 @@ def create_tenant_endpoint(
 ):
     """Create a new tenant."""
     try:
-        tenant = create_tenant(db, payload)
+        tenant = tenant_service.create_tenant(db, payload)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     db.commit()
@@ -70,7 +63,7 @@ def create_tenant_endpoint(
     return tenant
 
 
-@router.put("/{tenant_id}", response_model=TenantRead)
+@router.patch("/{tenant_id}", response_model=TenantRead)
 def update_tenant_endpoint(
     tenant_id: UUID,
     payload: TenantUpdate,
@@ -78,7 +71,7 @@ def update_tenant_endpoint(
 ):
     """Update an existing tenant."""
     try:
-        tenant = update_tenant(db, tenant_id, payload)
+        tenant = tenant_service.update_tenant(db, tenant_id, payload)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if tenant is None:
@@ -94,7 +87,7 @@ def delete_tenant_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete a tenant by ID."""
-    deleted = delete_tenant(db, tenant_id)
+    deleted = tenant_service.delete_tenant(db, tenant_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Tenant not found")
     db.commit()

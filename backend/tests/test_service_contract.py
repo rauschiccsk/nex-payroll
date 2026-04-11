@@ -12,6 +12,7 @@ from app.models.health_insurer import HealthInsurer
 from app.models.tenant import Tenant
 from app.schemas.contract import ContractCreate, ContractUpdate
 from app.services.contract import (
+    count_contracts,
     create_contract,
     delete_contract,
     get_contract,
@@ -116,6 +117,48 @@ def _setup_prerequisites(db_session):
     insurer = _make_health_insurer(db_session)
     employee = _make_employee(db_session, tenant.id, insurer.id)
     return tenant, employee
+
+
+# ---------------------------------------------------------------------------
+# count
+# ---------------------------------------------------------------------------
+
+
+class TestCountContracts:
+    """Tests for count_contracts."""
+
+    def test_count_empty(self, db_session):
+        assert count_contracts(db_session) == 0
+
+    def test_count_all(self, db_session):
+        tenant, employee = _setup_prerequisites(db_session)
+        create_contract(db_session, _make_payload(tenant.id, employee.id, contract_number="PZ-001"))
+        create_contract(db_session, _make_payload(tenant.id, employee.id, contract_number="PZ-002"))
+
+        assert count_contracts(db_session) == 2
+
+    def test_count_scoped_by_tenant(self, db_session):
+        tenant_a = _make_tenant(db_session, ico="11111111", schema_name="tenant_a_11111111")
+        tenant_b = _make_tenant(db_session, ico="22222222", schema_name="tenant_b_22222222")
+        insurer = _make_health_insurer(db_session)
+        emp_a = _make_employee(db_session, tenant_a.id, insurer.id, employee_number="EMP001")
+        emp_b = _make_employee(db_session, tenant_b.id, insurer.id, employee_number="EMP002")
+
+        create_contract(db_session, _make_payload(tenant_a.id, emp_a.id, contract_number="PZ-A"))
+        create_contract(db_session, _make_payload(tenant_b.id, emp_b.id, contract_number="PZ-B"))
+
+        assert count_contracts(db_session, tenant_id=tenant_a.id) == 1
+
+    def test_count_scoped_by_employee(self, db_session):
+        tenant = _make_tenant(db_session)
+        insurer = _make_health_insurer(db_session)
+        emp_a = _make_employee(db_session, tenant.id, insurer.id, employee_number="EMP001")
+        emp_b = _make_employee(db_session, tenant.id, insurer.id, employee_number="EMP002")
+
+        create_contract(db_session, _make_payload(tenant.id, emp_a.id, contract_number="PZ-A"))
+        create_contract(db_session, _make_payload(tenant.id, emp_b.id, contract_number="PZ-B"))
+
+        assert count_contracts(db_session, employee_id=emp_a.id) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +483,19 @@ class TestUpdateContract:
         assert updated is not None
         assert updated.job_title == created.job_title
 
+    def test_update_contract_number_duplicate_raises(self, db_session):
+        """Changing contract_number to an existing one raises ValueError."""
+        tenant, employee = _setup_prerequisites(db_session)
+        create_contract(db_session, _make_payload(tenant.id, employee.id, contract_number="PZ-001"))
+        c2 = create_contract(db_session, _make_payload(tenant.id, employee.id, contract_number="PZ-002"))
+
+        with pytest.raises(ValueError, match="contract_number='PZ-001' already exists"):
+            update_contract(
+                db_session,
+                c2.id,
+                ContractUpdate(contract_number="PZ-001"),
+            )
+
     def test_update_termination(self, db_session):
         """Update contract with termination fields."""
         tenant, employee = _setup_prerequisites(db_session)
@@ -477,6 +533,63 @@ class TestDeleteContract:
 
         assert deleted is True
         assert get_contract(db_session, created.id) is None
+
+    def test_delete_with_payroll_dependency_raises(self, db_session):
+        """Deleting a contract that has payroll records must raise ValueError."""
+        from app.models.payroll import Payroll
+
+        tenant, employee = _setup_prerequisites(db_session)
+        contract = create_contract(db_session, _make_payload(tenant.id, employee.id))
+
+        # Insert a dependent payroll record
+        payroll = Payroll(
+            tenant_id=tenant.id,
+            employee_id=employee.id,
+            contract_id=contract.id,
+            period_year=2024,
+            period_month=1,
+            status="draft",
+            base_wage=Decimal("2500.00"),
+            overtime_hours=Decimal("0"),
+            overtime_amount=Decimal("0"),
+            bonus_amount=Decimal("0"),
+            supplement_amount=Decimal("0"),
+            gross_wage=Decimal("2500.00"),
+            sp_assessment_base=Decimal("2500.00"),
+            sp_nemocenske=Decimal("35.00"),
+            sp_starobne=Decimal("100.00"),
+            sp_invalidne=Decimal("75.00"),
+            sp_nezamestnanost=Decimal("25.00"),
+            sp_employee_total=Decimal("235.00"),
+            zp_assessment_base=Decimal("2500.00"),
+            zp_employee=Decimal("100.00"),
+            partial_tax_base=Decimal("2165.00"),
+            nczd_applied=Decimal("457.89"),
+            tax_base=Decimal("1707.11"),
+            tax_advance=Decimal("323.35"),
+            child_bonus=Decimal("0"),
+            tax_after_bonus=Decimal("323.35"),
+            net_wage=Decimal("1841.65"),
+            sp_employer_nemocenske=Decimal("35.00"),
+            sp_employer_starobne=Decimal("350.00"),
+            sp_employer_invalidne=Decimal("75.00"),
+            sp_employer_nezamestnanost=Decimal("25.00"),
+            sp_employer_garancne=Decimal("6.25"),
+            sp_employer_rezervny=Decimal("119.25"),
+            sp_employer_kurzarbeit=Decimal("15.00"),
+            sp_employer_urazove=Decimal("20.00"),
+            sp_employer_total=Decimal("645.50"),
+            zp_employer=Decimal("250.00"),
+            total_employer_cost=Decimal("3395.50"),
+        )
+        db_session.add(payroll)
+        db_session.flush()
+
+        with pytest.raises(ValueError, match="payroll record"):
+            delete_contract(db_session, contract.id)
+
+        # Contract should still exist after failed delete
+        assert get_contract(db_session, contract.id) is not None
 
     def test_delete_nonexistent_returns_false(self, db_session):
         result = delete_contract(db_session, uuid4())

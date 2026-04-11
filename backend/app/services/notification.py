@@ -122,6 +122,9 @@ def update_notification(
     update_data = payload.model_dump(exclude_unset=True)
 
     # Never accept client-supplied read_at — always server-controlled.
+    # Strip any client-supplied value before applying is_read logic.
+    update_data.pop("read_at", None)
+
     # Set read_at server-side when is_read transitions to True; clear on False.
     if "is_read" in update_data:
         if update_data["is_read"] and not notification.is_read:

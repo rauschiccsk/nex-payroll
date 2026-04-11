@@ -4,6 +4,8 @@ import inspect
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from app.models.notification import Notification
 from app.models.tenant import Tenant
@@ -770,6 +772,94 @@ class TestUpdateNotification:
         assert updated is not None
         assert updated.message == "Upravena sprava"
 
+    def test_update_is_read_sets_read_at_automatically(self, db_session):
+        """Setting is_read=True must auto-set read_at server-side."""
+        tenant, user = _setup_prerequisites(db_session)
+        created = create_notification(
+            db_session,
+            _make_notification_payload(tenant.id, user.id),
+        )
+        assert created.read_at is None
+
+        updated = update_notification(
+            db_session,
+            created.id,
+            NotificationUpdate(is_read=True),
+        )
+
+        assert updated.is_read is True
+        assert updated.read_at is not None
+
+    def test_update_is_read_false_clears_read_at(self, db_session):
+        """Setting is_read=False must clear read_at."""
+        tenant, user = _setup_prerequisites(db_session)
+        created = create_notification(
+            db_session,
+            _make_notification_payload(tenant.id, user.id),
+        )
+        # First mark as read
+        update_notification(
+            db_session,
+            created.id,
+            NotificationUpdate(is_read=True),
+        )
+        assert created.read_at is not None
+
+        # Then mark as unread
+        updated = update_notification(
+            db_session,
+            created.id,
+            NotificationUpdate(is_read=False),
+        )
+
+        assert updated.is_read is False
+        assert updated.read_at is None
+
+    def test_update_client_supplied_read_at_is_ignored(self, db_session):
+        """Client-supplied read_at must be stripped — server controls it."""
+        tenant, user = _setup_prerequisites(db_session)
+        created = create_notification(
+            db_session,
+            _make_notification_payload(tenant.id, user.id),
+        )
+
+        from datetime import UTC, datetime
+
+        fake_time = datetime(2020, 1, 1, tzinfo=UTC)
+        updated = update_notification(
+            db_session,
+            created.id,
+            NotificationUpdate(read_at=fake_time),
+        )
+
+        # read_at must remain None since is_read was never set to True
+        assert updated.read_at is None
+        assert updated.is_read is False
+
+    def test_update_already_read_does_not_change_read_at(self, db_session):
+        """Sending is_read=True on an already-read notification keeps original read_at."""
+        tenant, user = _setup_prerequisites(db_session)
+        created = create_notification(
+            db_session,
+            _make_notification_payload(tenant.id, user.id),
+        )
+        # First mark as read
+        first_update = update_notification(
+            db_session,
+            created.id,
+            NotificationUpdate(is_read=True),
+        )
+        original_read_at = first_update.read_at
+
+        # Mark as read again — should not change read_at
+        second_update = update_notification(
+            db_session,
+            created.id,
+            NotificationUpdate(is_read=True),
+        )
+
+        assert second_update.read_at == original_read_at
+
 
 # ---------------------------------------------------------------------------
 # delete
@@ -794,3 +884,44 @@ class TestDeleteNotification:
     def test_delete_nonexistent_raises_value_error(self, db_session):
         with pytest.raises(ValueError, match="not found"):
             delete_notification(db_session, uuid4())
+
+
+# ---------------------------------------------------------------------------
+# FK RESTRICT delete tests
+# ---------------------------------------------------------------------------
+
+
+class TestFKRestrictNotification:
+    """FK RESTRICT enforcement: raw SQL DELETE on parent must fail when child exists."""
+
+    def test_delete_tenant_blocked_by_notification(self, db_session):
+        """Deleting a tenant that has notifications must raise due to RESTRICT FK."""
+        tenant, user = _setup_prerequisites(db_session)
+        create_notification(
+            db_session,
+            _make_notification_payload(tenant.id, user.id),
+        )
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM public.tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+            db_session.flush()
+
+    def test_delete_user_blocked_by_notification(self, db_session):
+        """Deleting a user that has notifications must raise due to RESTRICT FK."""
+        tenant, user = _setup_prerequisites(db_session)
+        create_notification(
+            db_session,
+            _make_notification_payload(tenant.id, user.id),
+        )
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM users WHERE id = :id"),
+                {"id": str(user.id)},
+            )
+            db_session.flush()

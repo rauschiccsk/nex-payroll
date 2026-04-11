@@ -378,6 +378,21 @@ class PayrollUpdate(BaseModel):
     approved_at: datetime | None = Field(default=None)
     approved_by: UUID | None = Field(default=None)
 
+    @model_validator(mode="after")
+    def _validate_gross_wage_components(self) -> "PayrollUpdate":
+        """Validate gross wage equals sum of components when all are provided."""
+        fields = [self.base_wage, self.overtime_amount, self.bonus_amount, self.supplement_amount, self.gross_wage]
+        # Only validate when gross_wage and all component fields are present
+        if all(f is not None for f in fields):
+            expected = self.base_wage + self.overtime_amount + self.bonus_amount + self.supplement_amount
+            if self.gross_wage != expected:
+                msg = (
+                    f"Gross wage ({self.gross_wage}) must equal "
+                    f"base_wage + overtime_amount + bonus_amount + supplement_amount ({expected})"
+                )
+                raise ValueError(msg)
+        return self
+
 
 # ---------------------------------------------------------------------------
 # PayrollRead

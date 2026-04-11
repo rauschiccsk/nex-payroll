@@ -1,11 +1,10 @@
 """Service layer for AuditLog entity.
 
-Provides read operations and internal create over the public.audit_log table.
+Provides read and create operations over the public.audit_log table.
+Audit log entries are immutable — no update or delete operations exist.
 All functions are synchronous (def, not async def) and accept a
 SQLAlchemy Session.  They flush but never commit — the caller
 (typically a FastAPI endpoint / unit-of-work) owns the transaction.
-
-Audit log entries are immutable — no update or delete operations.
 """
 
 from uuid import UUID

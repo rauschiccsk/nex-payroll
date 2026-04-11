@@ -9,6 +9,7 @@ import pytest
 from app.models.contract import Contract
 from app.models.employee import Employee
 from app.models.health_insurer import HealthInsurer
+from app.models.pay_slip import PaySlip
 from app.models.payroll import Payroll
 from app.models.tenant import Tenant
 from app.schemas.payroll import PayrollCreate, PayrollUpdate
@@ -898,6 +899,29 @@ class TestDeletePayroll:
 
         assert result is True
         assert get_payroll(db_session, created.id) is None
+
+    def test_delete_with_pay_slips_raises_value_error(self, db_session):
+        """Deleting a payroll that has pay slip(s) must raise ValueError."""
+        ctx = _setup_prerequisites(db_session)
+        created = create_payroll(
+            db_session,
+            _make_payroll_payload(ctx["tenant"].id, ctx["employee"].id, ctx["contract"].id),
+        )
+
+        # Create a PaySlip referencing this payroll
+        pay_slip = PaySlip(
+            tenant_id=ctx["tenant"].id,
+            payroll_id=created.id,
+            employee_id=ctx["employee"].id,
+            period_year=2025,
+            period_month=1,
+            pdf_path="/opt/nex-payroll-src/data/payslips/test/2025/01/EMP-001.pdf",
+        )
+        db_session.add(pay_slip)
+        db_session.flush()
+
+        with pytest.raises(ValueError, match="pay slip"):
+            delete_payroll(db_session, created.id)
 
     def test_delete_nonexistent_raises_value_error(self, db_session):
         with pytest.raises(ValueError, match="not found"):

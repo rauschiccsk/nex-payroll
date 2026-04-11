@@ -79,7 +79,6 @@ def _leave_payload(tenant_id: str, employee_id: str, **overrides) -> dict:
         "start_date": "2025-07-01",
         "end_date": "2025-07-14",
         "business_days": 10,
-        "status": "pending",
     }
     defaults.update(overrides)
     return defaults
@@ -133,7 +132,10 @@ class TestListLeaves:
 
     def test_filter_by_status(self, client: TestClient):
         tid, eid = _setup_tenant_and_employee(client)
-        client.post(BASE_URL, json=_leave_payload(tid, eid, status="approved"))
+        created = client.post(BASE_URL, json=_leave_payload(tid, eid)).json()
+        # Approve via PATCH (status is not settable at creation)
+        client.patch(f"{BASE_URL}/{created['id']}", json={"status": "approved"})
+
         resp = client.get(BASE_URL, params={"status": "approved"})
         assert resp.json()["total"] == 1
 

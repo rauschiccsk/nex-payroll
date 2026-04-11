@@ -4,6 +4,8 @@ from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from app.models.employee import Employee
 from app.models.health_insurer import HealthInsurer
@@ -114,10 +116,7 @@ def _make_leave_payload(tenant_id, employee_id, **overrides) -> LeaveCreate:
         "start_date": date(2025, 7, 1),
         "end_date": date(2025, 7, 14),
         "business_days": 10,
-        "status": "pending",
         "note": None,
-        "approved_by": None,
-        "approved_at": None,
     }
     defaults.update(overrides)
     return LeaveCreate(**defaults)
@@ -167,24 +166,32 @@ class TestCreateLeave:
 
         assert result.note == "Rodinná dovolenka"
 
-    def test_create_with_approval(self, db_session):
+    def test_create_defaults_to_pending_status(self, db_session):
+        """New leave always starts as 'pending' — status is not settable at creation."""
         tenant, employee = _setup_prerequisites(db_session)
-        approver = _make_user(db_session, tenant.id)
-        now = datetime(2025, 7, 1, 10, 0, 0, tzinfo=UTC)
-
-        payload = _make_leave_payload(
-            tenant.id,
-            employee.id,
-            status="approved",
-            approved_by=approver.id,
-            approved_at=now,
-        )
+        payload = _make_leave_payload(tenant.id, employee.id)
 
         result = create_leave(db_session, payload)
 
-        assert result.status == "approved"
-        assert result.approved_by == approver.id
-        assert result.approved_at == now
+        assert result.status == "pending"
+        assert result.approved_by is None
+        assert result.approved_at is None
+
+    def test_create_with_invalid_tenant_raises_value_error(self, db_session):
+        """create_leave must reject a non-existent tenant_id."""
+        _setup_prerequisites(db_session)  # need employee FK to exist
+        payload = _make_leave_payload(uuid4(), uuid4())
+
+        with pytest.raises(ValueError, match="not found"):
+            create_leave(db_session, payload)
+
+    def test_create_with_invalid_employee_raises_value_error(self, db_session):
+        """create_leave must reject a non-existent employee_id."""
+        tenant, _employee = _setup_prerequisites(db_session)
+        payload = _make_leave_payload(tenant.id, uuid4())
+
+        with pytest.raises(ValueError, match="not found"):
+            create_leave(db_session, payload)
 
     def test_create_sick_leave_type(self, db_session):
         tenant, employee = _setup_prerequisites(db_session)
@@ -269,11 +276,11 @@ class TestListLeaves:
 
         create_leave(
             db_session,
-            _make_leave_payload(tenant.id, employee.id, start_date=date(2025, 7, 1)),
+            _make_leave_payload(tenant.id, employee.id, start_date=date(2025, 7, 1), end_date=date(2025, 7, 14)),
         )
         create_leave(
             db_session,
-            _make_leave_payload(tenant.id, employee.id, start_date=date(2025, 8, 1)),
+            _make_leave_payload(tenant.id, employee.id, start_date=date(2025, 8, 1), end_date=date(2025, 8, 14)),
         )
 
         result = list_leaves(db_session)
@@ -336,19 +343,20 @@ class TestListLeaves:
             _make_leave_payload(
                 tenant.id,
                 employee.id,
-                status="pending",
                 start_date=date(2025, 7, 1),
+                end_date=date(2025, 7, 14),
             ),
         )
-        create_leave(
+        approved_leave = create_leave(
             db_session,
             _make_leave_payload(
                 tenant.id,
                 employee.id,
-                status="approved",
                 start_date=date(2025, 8, 1),
+                end_date=date(2025, 8, 14),
             ),
         )
+        update_leave(db_session, approved_leave.id, LeaveUpdate(status="approved"))
 
         result = list_leaves(db_session, status="pending")
         assert len(result) == 1
@@ -462,11 +470,11 @@ class TestCountLeaves:
 
         create_leave(
             db_session,
-            _make_leave_payload(tenant.id, emp_a.id, start_date=date(2025, 7, 1)),
+            _make_leave_payload(tenant.id, emp_a.id, start_date=date(2025, 7, 1), end_date=date(2025, 7, 14)),
         )
         create_leave(
             db_session,
-            _make_leave_payload(tenant.id, emp_a.id, start_date=date(2025, 8, 1)),
+            _make_leave_payload(tenant.id, emp_a.id, start_date=date(2025, 8, 1), end_date=date(2025, 8, 14)),
         )
         create_leave(db_session, _make_leave_payload(tenant.id, emp_b.id))
 
@@ -478,12 +486,13 @@ class TestCountLeaves:
 
         create_leave(
             db_session,
-            _make_leave_payload(tenant.id, employee.id, status="pending", start_date=date(2025, 7, 1)),
+            _make_leave_payload(tenant.id, employee.id, start_date=date(2025, 7, 1), end_date=date(2025, 7, 14)),
         )
-        create_leave(
+        approved_leave = create_leave(
             db_session,
-            _make_leave_payload(tenant.id, employee.id, status="approved", start_date=date(2025, 8, 1)),
+            _make_leave_payload(tenant.id, employee.id, start_date=date(2025, 8, 1), end_date=date(2025, 8, 14)),
         )
+        update_leave(db_session, approved_leave.id, LeaveUpdate(status="approved"))
 
         assert count_leaves(db_session, status="pending") == 1
         assert count_leaves(db_session, status="approved") == 1
@@ -609,3 +618,56 @@ class TestDeleteLeave:
     def test_delete_nonexistent_raises_value_error(self, db_session):
         with pytest.raises(ValueError, match="not found"):
             delete_leave(db_session, uuid4())
+
+
+# ---------------------------------------------------------------------------
+# FK RESTRICT enforcement (raw SQL — per Model Generation Checklist #16)
+# ---------------------------------------------------------------------------
+
+
+class TestFKRestrictLeave:
+    """Verify that RESTRICT foreign keys prevent parent deletion when leaves exist.
+
+    Uses raw SQL ``text("DELETE FROM ...")`` pattern — ORM ``session.delete()``
+    would set FK to NULL (failing NOT NULL before FK check) which is a
+    different error path.
+    """
+
+    def test_cannot_delete_tenant_with_leave(self, db_session):
+        """FK tenant_id RESTRICT: deleting tenant must fail while leaves reference it."""
+        tenant, employee = _setup_prerequisites(db_session)
+        create_leave(db_session, _make_leave_payload(tenant.id, employee.id))
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM public.tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+            db_session.flush()
+
+    def test_cannot_delete_employee_with_leave(self, db_session):
+        """FK employee_id RESTRICT: deleting employee must fail while leaves reference it."""
+        tenant, employee = _setup_prerequisites(db_session)
+        create_leave(db_session, _make_leave_payload(tenant.id, employee.id))
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM employees WHERE id = :id"),
+                {"id": str(employee.id)},
+            )
+            db_session.flush()
+
+    def test_cannot_delete_approver_user_with_leave(self, db_session):
+        """FK approved_by RESTRICT: deleting approver user must fail while leaves reference it."""
+        tenant, employee = _setup_prerequisites(db_session)
+        approver = _make_user(db_session, tenant.id)
+        leave = create_leave(db_session, _make_leave_payload(tenant.id, employee.id))
+        # Set approved_by via update
+        update_leave(db_session, leave.id, LeaveUpdate(approved_by=approver.id))
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM users WHERE id = :id"),
+                {"id": str(approver.id)},
+            )
+            db_session.flush()

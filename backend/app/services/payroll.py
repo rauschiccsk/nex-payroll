@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.pay_slip import PaySlip
 from app.models.payroll import Payroll
 from app.schemas.payroll import PayrollCreate, PayrollUpdate
 
@@ -221,6 +222,13 @@ def delete_payroll(db: Session, payroll_id: UUID) -> bool:
     payroll = db.get(Payroll, payroll_id)
     if payroll is None:
         raise ValueError(f"Payroll with id={payroll_id} not found")
+
+    # Check FK dependencies — PaySlip references payroll
+    pay_slip_count = db.execute(
+        select(func.count()).select_from(PaySlip).where(PaySlip.payroll_id == payroll_id)
+    ).scalar_one()
+    if pay_slip_count > 0:
+        raise ValueError(f"Cannot delete payroll id={payroll_id}: {pay_slip_count} pay slip(s) depend on it")
 
     db.delete(payroll)
     db.flush()
