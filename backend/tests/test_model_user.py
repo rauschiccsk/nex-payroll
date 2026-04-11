@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 
 import pytest
-from sqlalchemy import Boolean, String, inspect
+from sqlalchemy import Boolean, String, inspect, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
@@ -408,6 +408,45 @@ class TestUserConstraints:
         db_session.add(u)
         with pytest.raises((IntegrityError, ProgrammingError)):
             db_session.flush()
+        db_session.rollback()
+
+    def test_fk_tenant_restrict_delete(self, db_session, tenant):
+        """Deleting a tenant with users must be rejected (RESTRICT).
+
+        Uses raw SQL per FK RESTRICT Test Pattern — ORM session.delete()
+        sets FK to NULL first (NOT NULL failure before FK check).
+        """
+        u = _make_user(tenant, username="restrict_test", email="restrict@example.com")
+        db_session.add(u)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+        db_session.rollback()
+
+    def test_fk_employee_restrict_delete(self, db_session, tenant, employee):
+        """Deleting an employee linked to a user must be rejected (RESTRICT).
+
+        Uses raw SQL per FK RESTRICT Test Pattern.
+        """
+        u = _make_user(
+            tenant,
+            username="emp_restrict",
+            email="emp_restrict@example.com",
+            role="employee",
+            employee_id=employee.id,
+        )
+        db_session.add(u)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM employees WHERE id = :id"),
+                {"id": str(employee.id)},
+            )
         db_session.rollback()
 
 

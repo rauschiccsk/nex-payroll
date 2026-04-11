@@ -7,6 +7,7 @@ All endpoints use def (NEVER async def) per DESIGN.md.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -16,14 +17,7 @@ from app.schemas.statutory_deadline import (
     StatutoryDeadlineRead,
     StatutoryDeadlineUpdate,
 )
-from app.services.statutory_deadline import (
-    count_statutory_deadlines,
-    create_statutory_deadline,
-    delete_statutory_deadline,
-    get_statutory_deadline,
-    list_statutory_deadlines,
-    update_statutory_deadline,
-)
+from app.services import statutory_deadline as statutory_deadline_service
 
 router = APIRouter(tags=["Statutory Deadlines"])
 
@@ -35,8 +29,8 @@ def list_deadlines(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of statutory deadlines."""
-    items = list_statutory_deadlines(db, skip=skip, limit=limit)
-    total = count_statutory_deadlines(db)
+    items = statutory_deadline_service.list_statutory_deadlines(db, skip=skip, limit=limit)
+    total = statutory_deadline_service.count_statutory_deadlines(db)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -46,7 +40,7 @@ def get_deadline(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single statutory deadline by ID."""
-    deadline = get_statutory_deadline(db, deadline_id)
+    deadline = statutory_deadline_service.get_statutory_deadline(db, deadline_id)
     if deadline is None:
         raise HTTPException(status_code=404, detail="Statutory deadline not found")
     return deadline
@@ -58,8 +52,15 @@ def create_deadline(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Create a new statutory deadline."""
-    deadline = create_statutory_deadline(db, payload)
-    db.commit()
+    try:
+        deadline = statutory_deadline_service.create_statutory_deadline(db, payload)
+        db.commit()
+    except (IntegrityError, ProgrammingError):
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Statutory deadline with code '{payload.code}' already exists",
+        ) from None
     db.refresh(deadline)
     return deadline
 
@@ -71,7 +72,14 @@ def update_deadline(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Update an existing statutory deadline."""
-    deadline = update_statutory_deadline(db, deadline_id, payload)
+    try:
+        deadline = statutory_deadline_service.update_statutory_deadline(db, deadline_id, payload)
+    except (IntegrityError, ProgrammingError):
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Statutory deadline with this code already exists",
+        ) from None
     if deadline is None:
         raise HTTPException(status_code=404, detail="Statutory deadline not found")
     db.commit()
@@ -85,7 +93,7 @@ def delete_deadline(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete a statutory deadline by ID."""
-    deleted = delete_statutory_deadline(db, deadline_id)
+    deleted = statutory_deadline_service.delete_statutory_deadline(db, deadline_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Statutory deadline not found")
     db.commit()

@@ -28,6 +28,7 @@ if not os.environ.get("PAYROLL_ENCRYPTION_KEY") and not os.environ.get("FERNET_K
 # so that Base.metadata is fully populated for create_all/drop_all.
 import app.models as _models  # noqa: F401
 from app.models.base import Base
+from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Database URL resolution
@@ -97,6 +98,9 @@ def _setup_database():
         with engine.connect() as conn:
             conn.execute(text("CREATE SCHEMA IF NOT EXISTS shared"))
             conn.commit()
+        # Drop first to remove any seed data left by Alembic migrations,
+        # then recreate clean tables for test isolation.
+        Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
     except Exception:
         # DB not available — non-DB tests will still pass;

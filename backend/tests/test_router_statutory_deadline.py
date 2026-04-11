@@ -14,17 +14,22 @@ from fastapi.testclient import TestClient
 
 BASE_URL = "/api/v1/statutory-deadlines"
 
+_counter = 0
+
 
 def _create_deadline_payload(**overrides):
     """Return a valid StatutoryDeadlineCreate dict with optional overrides."""
+    global _counter  # noqa: PLW0603
+    _counter += 1
     defaults = {
-        "deadline_type": "sp_monthly",
+        "code": f"SP_MONTHLY_{_counter}",
+        "name": "Mesacny vykaz SP",
+        "deadline_type": "monthly",
         "institution": "Socialna poistovna",
         "day_of_month": 20,
         "description": "Mesacny vykaz poistneho a prispevkov",
         "valid_from": "2025-01-01",
         "valid_to": None,
-        "is_active": True,
     }
     defaults.update(overrides)
     return defaults
@@ -41,13 +46,12 @@ class TestCreateStatutoryDeadline:
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 201
         data = resp.json()
-        assert data["deadline_type"] == "sp_monthly"
+        assert data["deadline_type"] == "monthly"
         assert data["institution"] == "Socialna poistovna"
         assert data["day_of_month"] == 20
         assert data["description"] == "Mesacny vykaz poistneho a prispevkov"
         assert data["valid_from"] == "2025-01-01"
         assert data["valid_to"] is None
-        assert data["is_active"] is True
         assert "id" in data
         assert "created_at" in data
 
@@ -57,31 +61,34 @@ class TestCreateStatutoryDeadline:
         assert resp.status_code == 201
         assert resp.json()["valid_to"] == "2025-12-31"
 
-    def test_create_inactive(self, client: TestClient):
-        payload = _create_deadline_payload(is_active=False)
+    def test_create_with_business_days_rule(self, client: TestClient):
+        payload = _create_deadline_payload(business_days_rule=True)
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 201
-        assert resp.json()["is_active"] is False
+        assert resp.json()["business_days_rule"] is True
 
-    def test_create_zp_monthly(self, client: TestClient):
+    def test_create_annual(self, client: TestClient):
         payload = _create_deadline_payload(
-            deadline_type="zp_monthly",
-            institution="VsZP",
+            deadline_type="annual",
+            institution="Danovy urad",
+            month_of_year=4,
         )
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 201
-        assert resp.json()["deadline_type"] == "zp_monthly"
+        data = resp.json()
+        assert data["deadline_type"] == "annual"
+        assert data["month_of_year"] == 4
 
-    def test_create_tax_advance(self, client: TestClient):
+    def test_create_one_time(self, client: TestClient):
         payload = _create_deadline_payload(
-            deadline_type="tax_advance",
+            deadline_type="one_time",
             institution="Danovy urad",
             day_of_month=25,
         )
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 201
         data = resp.json()
-        assert data["deadline_type"] == "tax_advance"
+        assert data["deadline_type"] == "one_time"
         assert data["day_of_month"] == 25
 
     def test_create_missing_required_field(self, client: TestClient):
@@ -96,15 +103,15 @@ class TestCreateStatutoryDeadline:
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 422
 
-    def test_create_missing_day_of_month(self, client: TestClient):
+    def test_create_missing_code(self, client: TestClient):
         payload = _create_deadline_payload()
-        del payload["day_of_month"]
+        del payload["code"]
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 422
 
-    def test_create_missing_description(self, client: TestClient):
+    def test_create_missing_name(self, client: TestClient):
         payload = _create_deadline_payload()
-        del payload["description"]
+        del payload["name"]
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 422
 
@@ -152,11 +159,11 @@ class TestListStatutoryDeadlines:
         data = resp.json()
         assert data["total"] >= 1
         assert len(data["items"]) >= 1
-        assert data["items"][0]["deadline_type"] == "sp_monthly"
+        assert data["items"][0]["deadline_type"] == "monthly"
 
     def test_list_pagination_skip(self, client: TestClient):
         # Create 3 deadlines with different types
-        for dtype in ["sp_monthly", "zp_monthly", "tax_advance"]:
+        for dtype in ["monthly", "annual", "one_time"]:
             client.post(
                 BASE_URL,
                 json=_create_deadline_payload(
@@ -173,7 +180,7 @@ class TestListStatutoryDeadlines:
         assert data["limit"] == 2
 
     def test_list_pagination_limit(self, client: TestClient):
-        for i, dtype in enumerate(["sp_monthly", "zp_monthly", "tax_advance", "sp_annual", "zp_annual"]):
+        for i, dtype in enumerate(["monthly", "annual", "one_time", "monthly", "annual"]):
             client.post(
                 BASE_URL,
                 json=_create_deadline_payload(
@@ -214,7 +221,7 @@ class TestGetStatutoryDeadline:
         assert resp.status_code == 200
         data = resp.json()
         assert data["id"] == deadline_id
-        assert data["deadline_type"] == "sp_monthly"
+        assert data["deadline_type"] == "monthly"
 
     def test_get_not_found(self, client: TestClient):
         fake_id = str(uuid.uuid4())
@@ -245,7 +252,7 @@ class TestUpdateStatutoryDeadline:
         data = resp.json()
         assert data["institution"] == "Updated Institution"
         # Other fields unchanged
-        assert data["deadline_type"] == "sp_monthly"
+        assert data["deadline_type"] == "monthly"
 
     def test_update_multiple_fields(self, client: TestClient):
         create_resp = client.post(BASE_URL, json=_create_deadline_payload())
@@ -254,14 +261,14 @@ class TestUpdateStatutoryDeadline:
         resp = client.patch(
             f"{BASE_URL}/{deadline_id}",
             json={
-                "deadline_type": "zp_monthly",
+                "deadline_type": "annual",
                 "institution": "VsZP",
                 "day_of_month": 8,
             },
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["deadline_type"] == "zp_monthly"
+        assert data["deadline_type"] == "annual"
         assert data["institution"] == "VsZP"
         assert data["day_of_month"] == 8
 
@@ -285,16 +292,16 @@ class TestUpdateStatutoryDeadline:
         assert resp.status_code == 200
         assert resp.json()["valid_to"] == "2025-12-31"
 
-    def test_update_is_active(self, client: TestClient):
+    def test_update_business_days_rule(self, client: TestClient):
         create_resp = client.post(BASE_URL, json=_create_deadline_payload())
         deadline_id = create_resp.json()["id"]
 
         resp = client.patch(
             f"{BASE_URL}/{deadline_id}",
-            json={"is_active": False},
+            json={"business_days_rule": True},
         )
         assert resp.status_code == 200
-        assert resp.json()["is_active"] is False
+        assert resp.json()["business_days_rule"] is True
 
     def test_update_invalid_deadline_type(self, client: TestClient):
         create_resp = client.post(BASE_URL, json=_create_deadline_payload())

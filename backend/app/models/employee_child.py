@@ -30,13 +30,14 @@ class EmployeeChild(UUIDMixin, TimestampMixin, Base):
             "tenant_id",
             "employee_id",
         ),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )

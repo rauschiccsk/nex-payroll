@@ -54,27 +54,28 @@ class Leave(UUIDMixin, TimestampMixin, Base):
             "tenant_id",
             "status",
         ),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     employee_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to employee",
     )
 
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=True,
         comment="User who approved/rejected the leave request",
     )

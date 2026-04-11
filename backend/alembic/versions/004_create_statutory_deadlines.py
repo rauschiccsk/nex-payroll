@@ -20,50 +20,102 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Create shared.statutory_deadlines table with CHECK constraint and indexes."""
+    """Create shared.statutory_deadlines table with CHECK constraint, indexes, and seed data."""
     op.create_table(
         "statutory_deadlines",
         sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
         sa.Column(
-            "deadline_type",
-            sa.String(length=30),
+            "code",
+            sa.String(length=50),
             nullable=False,
-            comment="Type: sp_monthly, zp_monthly, tax_advance, tax_reconciliation, sp_annual, zp_annual",
+            comment="Unique code identifier (e.g. SP_MONTHLY, ZP_MONTHLY)",
+        ),
+        sa.Column(
+            "name",
+            sa.String(length=200),
+            nullable=False,
+            comment="Human-readable name",
+        ),
+        sa.Column(
+            "description",
+            sa.Text(),
+            nullable=True,
+            comment="Optional longer description (Slovak)",
+        ),
+        sa.Column(
+            "deadline_type",
+            sa.String(length=20),
+            nullable=False,
+            comment="Type: monthly, annual, one_time",
+        ),
+        sa.Column(
+            "day_of_month",
+            sa.Integer(),
+            nullable=True,
+            comment="Day of month the deadline falls on (NULL if not applicable)",
+        ),
+        sa.Column(
+            "month_of_year",
+            sa.Integer(),
+            nullable=True,
+            comment="Month of year for annual deadlines (1-12, NULL for monthly)",
+        ),
+        sa.Column(
+            "business_days_rule",
+            sa.Boolean(),
+            server_default=sa.text("false"),
+            nullable=False,
+            comment="If true, deadline shifts to next business day",
         ),
         sa.Column(
             "institution",
             sa.String(length=100),
             nullable=False,
-            comment="Target institution (e.g. Sociálna poisťovňa, VšZP, DÚ)",
-        ),
-        sa.Column(
-            "day_of_month",
-            sa.Integer(),
-            nullable=False,
-            comment="Day of month the deadline falls on",
-        ),
-        sa.Column(
-            "description",
-            sa.Text(),
-            nullable=False,
-            comment="Human-readable description (Slovak)",
+            comment="Target institution (e.g. Socialna poistovna, VsZP, DU)",
         ),
         sa.Column("valid_from", sa.Date(), nullable=False),
         sa.Column("valid_to", sa.Date(), nullable=True),
-        sa.Column("is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False),
-        sa.Column("created_at", sa.TIMESTAMP(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
         sa.CheckConstraint(
-            "deadline_type IN ("
-            "'sp_monthly', 'zp_monthly', 'tax_advance', "
-            "'tax_reconciliation', 'sp_annual', 'zp_annual')",
+            "deadline_type IN ('monthly', 'annual', 'one_time')",
             name="ck_statutory_deadlines_deadline_type",
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("code", name="uq_statutory_deadlines_code"),
         schema="shared",
     )
     with op.batch_alter_table("statutory_deadlines", schema="shared") as batch_op:
         batch_op.create_index("ix_statutory_deadlines_deadline_type", ["deadline_type"], unique=False)
         batch_op.create_index("ix_statutory_deadlines_valid_from", ["valid_from"], unique=False)
+
+    # Seed data per DESIGN.md Section 5.18
+    op.execute(
+        sa.text(
+            """
+            INSERT INTO shared.statutory_deadlines
+                (code, name, deadline_type, day_of_month, month_of_year,
+                 business_days_rule, institution, valid_from)
+            VALUES
+                ('SP_MONTHLY', 'Mesačný výkaz SP', 'monthly', 20, NULL,
+                 false, 'Sociálna poisťovňa', '2025-01-01'),
+                ('ZP_MONTHLY', 'Mesačný prehľad ZP', 'monthly', 3, NULL,
+                 true, 'Zdravotná poisťovňa', '2025-01-01'),
+                ('TAX_MONTHLY', 'Preddavok dane', 'monthly', NULL, NULL,
+                 false, 'Daňový úrad', '2025-01-01'),
+                ('TAX_ANNUAL', 'Hlásenie o dani (ročné)', 'annual', 30, 4,
+                 false, 'Daňový úrad', '2025-01-01'),
+                ('CERT_ANNUAL', 'Potvrdenie o príjmoch', 'annual', 10, 3,
+                 false, 'Zamestnávateľ', '2025-01-01'),
+                ('ELDP_ANNUAL', 'ELDP', 'annual', 30, 4,
+                 false, 'Sociálna poisťovňa', '2025-01-01')
+            """
+        )
+    )
 
 
 def downgrade() -> None:

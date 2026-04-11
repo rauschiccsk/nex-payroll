@@ -137,8 +137,12 @@ class TestAuditLogIndexes:
     def test_tenant_created_index_columns(self):
         indexes = AuditLog.__table__.indexes
         target = next(idx for idx in indexes if idx.name == "ix_audit_log_tenant_created")
-        col_names = [col.name for col in target.columns]
-        assert col_names == ["tenant_id", "created_at"]
+        # First expression is tenant_id column, second is desc(created_at)
+        expressions = list(target.expressions)
+        assert expressions[0].name == "tenant_id"
+        # Second expression must be a DESC UnaryExpression on created_at
+        desc_expr = expressions[1]
+        assert str(desc_expr) == "created_at DESC"
 
 
 class TestAuditLogConstraints:

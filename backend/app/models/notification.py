@@ -57,20 +57,21 @@ class Notification(UUIDMixin, TimestampMixin, Base):
             "tenant_id",
             text("created_at DESC"),
         ),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to target user",
     )

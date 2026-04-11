@@ -60,14 +60,14 @@ class Contract(UUIDMixin, TimestampMixin, Base):
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     employee_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to employee",
     )

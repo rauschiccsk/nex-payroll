@@ -22,42 +22,69 @@ class TestStatutoryDeadlineCreate:
 
     def test_valid_minimal(self):
         schema = StatutoryDeadlineCreate(
-            deadline_type="sp_monthly",
+            code="SP_MONTHLY",
+            name="Mesačný výkaz SP",
+            deadline_type="monthly",
             institution="Sociálna poisťovňa",
-            day_of_month=20,
-            description="Mesačný výkaz poistného a príspevkov",
             valid_from=date(2025, 1, 1),
         )
-        assert schema.deadline_type == "sp_monthly"
+        assert schema.code == "SP_MONTHLY"
+        assert schema.name == "Mesačný výkaz SP"
+        assert schema.deadline_type == "monthly"
         assert schema.institution == "Sociálna poisťovňa"
-        assert schema.day_of_month == 20
-        assert schema.description == "Mesačný výkaz poistného a príspevkov"
         assert schema.valid_from == date(2025, 1, 1)
         assert schema.valid_to is None
-        assert schema.is_active is True
+        assert schema.day_of_month is None
+        assert schema.month_of_year is None
+        assert schema.business_days_rule is False
+        assert schema.description is None
 
     def test_valid_full(self):
         schema = StatutoryDeadlineCreate(
-            deadline_type="tax_advance",
+            code="TAX_ANNUAL",
+            name="Hlásenie o dani (ročné)",
+            description="Ročné hlásenie o dani z príjmov",
+            deadline_type="annual",
             institution="Daňový úrad",
-            day_of_month=25,
-            description="Preddavok na daň z príjmov",
+            day_of_month=30,
+            month_of_year=4,
+            business_days_rule=True,
             valid_from=date(2025, 1, 1),
             valid_to=date(2025, 12, 31),
-            is_active=False,
         )
-        assert schema.deadline_type == "tax_advance"
+        assert schema.deadline_type == "annual"
         assert schema.institution == "Daňový úrad"
-        assert schema.day_of_month == 25
+        assert schema.day_of_month == 30
+        assert schema.month_of_year == 4
+        assert schema.business_days_rule is True
         assert schema.valid_to == date(2025, 12, 31)
-        assert schema.is_active is False
+
+    def test_missing_required_code(self):
+        with pytest.raises(ValidationError) as exc_info:
+            StatutoryDeadlineCreate(
+                name="Test",
+                deadline_type="monthly",
+                institution="Sociálna poisťovňa",
+                valid_from=date(2025, 1, 1),
+            )
+        assert "code" in str(exc_info.value)
+
+    def test_missing_required_name(self):
+        with pytest.raises(ValidationError) as exc_info:
+            StatutoryDeadlineCreate(
+                code="SP_MONTHLY",
+                deadline_type="monthly",
+                institution="Sociálna poisťovňa",
+                valid_from=date(2025, 1, 1),
+            )
+        assert "name" in str(exc_info.value)
 
     def test_missing_required_deadline_type(self):
         with pytest.raises(ValidationError) as exc_info:
             StatutoryDeadlineCreate(
+                code="SP_MONTHLY",
+                name="Test",
                 institution="Sociálna poisťovňa",
-                day_of_month=20,
-                description="Mesačný výkaz",
                 valid_from=date(2025, 1, 1),
             )
         assert "deadline_type" in str(exc_info.value)
@@ -65,40 +92,20 @@ class TestStatutoryDeadlineCreate:
     def test_missing_required_institution(self):
         with pytest.raises(ValidationError) as exc_info:
             StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
-                day_of_month=20,
-                description="Mesačný výkaz",
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="monthly",
                 valid_from=date(2025, 1, 1),
             )
         assert "institution" in str(exc_info.value)
 
-    def test_missing_required_day_of_month(self):
-        with pytest.raises(ValidationError) as exc_info:
-            StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
-                institution="Sociálna poisťovňa",
-                description="Mesačný výkaz",
-                valid_from=date(2025, 1, 1),
-            )
-        assert "day_of_month" in str(exc_info.value)
-
-    def test_missing_required_description(self):
-        with pytest.raises(ValidationError) as exc_info:
-            StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
-                institution="Sociálna poisťovňa",
-                day_of_month=20,
-                valid_from=date(2025, 1, 1),
-            )
-        assert "description" in str(exc_info.value)
-
     def test_missing_required_valid_from(self):
         with pytest.raises(ValidationError) as exc_info:
             StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="monthly",
                 institution="Sociálna poisťovňa",
-                day_of_month=20,
-                description="Mesačný výkaz",
             )
         assert "valid_from" in str(exc_info.value)
 
@@ -106,10 +113,11 @@ class TestStatutoryDeadlineCreate:
         """day_of_month=0 must be rejected (ge=1)."""
         with pytest.raises(ValidationError) as exc_info:
             StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="monthly",
                 institution="Sociálna poisťovňa",
                 day_of_month=0,
-                description="Mesačný výkaz",
                 valid_from=date(2025, 1, 1),
             )
         assert "day_of_month" in str(exc_info.value)
@@ -118,10 +126,11 @@ class TestStatutoryDeadlineCreate:
         """day_of_month=32 must be rejected (le=31)."""
         with pytest.raises(ValidationError) as exc_info:
             StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="monthly",
                 institution="Sociálna poisťovňa",
                 day_of_month=32,
-                description="Mesačný výkaz",
                 valid_from=date(2025, 1, 1),
             )
         assert "day_of_month" in str(exc_info.value)
@@ -129,10 +138,11 @@ class TestStatutoryDeadlineCreate:
     def test_day_of_month_boundary_valid_min(self):
         """day_of_month=1 must be accepted (ge=1)."""
         schema = StatutoryDeadlineCreate(
-            deadline_type="sp_monthly",
+            code="SP_MONTHLY",
+            name="Test",
+            deadline_type="monthly",
             institution="Sociálna poisťovňa",
             day_of_month=1,
-            description="Mesačný výkaz",
             valid_from=date(2025, 1, 1),
         )
         assert schema.day_of_month == 1
@@ -140,51 +150,69 @@ class TestStatutoryDeadlineCreate:
     def test_day_of_month_boundary_valid_max(self):
         """day_of_month=31 must be accepted (le=31)."""
         schema = StatutoryDeadlineCreate(
-            deadline_type="sp_monthly",
+            code="SP_MONTHLY",
+            name="Test",
+            deadline_type="monthly",
             institution="Sociálna poisťovňa",
             day_of_month=31,
-            description="Mesačný výkaz",
             valid_from=date(2025, 1, 1),
         )
         assert schema.day_of_month == 31
 
+    def test_month_of_year_boundary_zero(self):
+        """month_of_year=0 must be rejected (ge=1)."""
+        with pytest.raises(ValidationError):
+            StatutoryDeadlineCreate(
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="annual",
+                institution="Test",
+                month_of_year=0,
+                valid_from=date(2025, 1, 1),
+            )
+
+    def test_month_of_year_boundary_13(self):
+        """month_of_year=13 must be rejected (le=12)."""
+        with pytest.raises(ValidationError):
+            StatutoryDeadlineCreate(
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="annual",
+                institution="Test",
+                month_of_year=13,
+                valid_from=date(2025, 1, 1),
+            )
+
     def test_institution_max_length(self):
         with pytest.raises(ValidationError):
             StatutoryDeadlineCreate(
-                deadline_type="sp_monthly",
+                code="SP_MONTHLY",
+                name="Test",
+                deadline_type="monthly",
                 institution="x" * 101,
-                day_of_month=20,
-                description="Mesačný výkaz",
                 valid_from=date(2025, 1, 1),
             )
 
     def test_invalid_deadline_type(self):
         with pytest.raises(ValidationError) as exc_info:
             StatutoryDeadlineCreate(
+                code="SP_MONTHLY",
+                name="Test",
                 deadline_type="invalid_type",
                 institution="Sociálna poisťovňa",
-                day_of_month=20,
-                description="Mesačný výkaz",
                 valid_from=date(2025, 1, 1),
             )
         assert "deadline_type" in str(exc_info.value)
 
     def test_all_valid_deadline_types(self):
-        """All 6 deadline types defined in the model must be accepted."""
-        valid_types = [
-            "sp_monthly",
-            "zp_monthly",
-            "tax_advance",
-            "tax_reconciliation",
-            "sp_annual",
-            "zp_annual",
-        ]
+        """All 3 deadline types defined in the model must be accepted."""
+        valid_types = ["monthly", "annual", "one_time"]
         for dtype in valid_types:
             schema = StatutoryDeadlineCreate(
+                code=f"TEST_{dtype.upper()}",
+                name="Test",
                 deadline_type=dtype,
                 institution="Test",
-                day_of_month=15,
-                description="Test",
                 valid_from=date(2025, 1, 1),
             )
             assert schema.deadline_type == dtype
@@ -200,21 +228,24 @@ class TestStatutoryDeadlineUpdate:
 
     def test_empty_update(self):
         schema = StatutoryDeadlineUpdate()
+        assert schema.code is None
+        assert schema.name is None
         assert schema.deadline_type is None
         assert schema.institution is None
         assert schema.day_of_month is None
+        assert schema.month_of_year is None
+        assert schema.business_days_rule is None
         assert schema.description is None
         assert schema.valid_from is None
         assert schema.valid_to is None
-        assert schema.is_active is None
 
     def test_partial_update(self):
         schema = StatutoryDeadlineUpdate(
             day_of_month=25,
-            is_active=False,
+            business_days_rule=True,
         )
         assert schema.day_of_month == 25
-        assert schema.is_active is False
+        assert schema.business_days_rule is True
         assert schema.deadline_type is None
         assert schema.institution is None
 
@@ -252,20 +283,24 @@ class TestStatutoryDeadlineRead:
         uid = uuid4()
         schema = StatutoryDeadlineRead(
             id=uid,
-            deadline_type="sp_monthly",
+            code="SP_MONTHLY",
+            name="Mesačný výkaz SP",
+            description="Mesačný výkaz poistného a príspevkov",
+            deadline_type="monthly",
             institution="Sociálna poisťovňa",
             day_of_month=20,
-            description="Mesačný výkaz poistného a príspevkov",
+            month_of_year=None,
+            business_days_rule=False,
             valid_from=date(2025, 1, 1),
             valid_to=None,
-            is_active=True,
             created_at=now,
         )
         assert schema.id == uid
-        assert schema.deadline_type == "sp_monthly"
+        assert schema.code == "SP_MONTHLY"
+        assert schema.deadline_type == "monthly"
         assert schema.institution == "Sociálna poisťovňa"
         assert schema.day_of_month == 20
-        assert schema.is_active is True
+        assert schema.business_days_rule is False
         assert schema.created_at == now
 
     def test_from_attributes_orm_mode(self):
@@ -274,18 +309,21 @@ class TestStatutoryDeadlineRead:
         class FakeORM:
             def __init__(self):
                 self.id = uuid4()
-                self.deadline_type = "zp_monthly"
+                self.code = "ZP_MONTHLY"
+                self.name = "Mesačný prehľad ZP"
+                self.description = "Mesačný výkaz ZP"
+                self.deadline_type = "monthly"
                 self.institution = "VšZP"
                 self.day_of_month = 3
-                self.description = "Mesačný výkaz ZP"
+                self.month_of_year = None
+                self.business_days_rule = True
                 self.valid_from = date(2025, 1, 1)
                 self.valid_to = date(2025, 12, 31)
-                self.is_active = True
                 self.created_at = datetime(2025, 1, 1, 0, 0, 0)
 
         orm_obj = FakeORM()
         schema = StatutoryDeadlineRead.model_validate(orm_obj)
-        assert schema.deadline_type == "zp_monthly"
+        assert schema.deadline_type == "monthly"
         assert schema.institution == "VšZP"
         assert schema.day_of_month == 3
         assert schema.valid_to == date(2025, 12, 31)
@@ -294,19 +332,22 @@ class TestStatutoryDeadlineRead:
         uid = uuid4()
         data = {
             "id": uid,
-            "deadline_type": "tax_advance",
+            "code": "TAX_MONTHLY",
+            "name": "Preddavok dane",
+            "description": "Preddavok na daň z príjmov",
+            "deadline_type": "monthly",
             "institution": "Daňový úrad",
             "day_of_month": 25,
-            "description": "Preddavok na daň z príjmov",
+            "month_of_year": None,
+            "business_days_rule": False,
             "valid_from": date(2025, 1, 1),
             "valid_to": None,
-            "is_active": True,
             "created_at": datetime(2025, 6, 1, 12, 0, 0),
         }
         schema = StatutoryDeadlineRead(**data)
         dumped = schema.model_dump()
         assert dumped["id"] == uid
-        assert dumped["deadline_type"] == "tax_advance"
+        assert dumped["code"] == "TAX_MONTHLY"
+        assert dumped["deadline_type"] == "monthly"
         assert dumped["institution"] == "Daňový úrad"
         assert dumped["day_of_month"] == 25
-        assert dumped["is_active"] is True

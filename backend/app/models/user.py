@@ -59,20 +59,21 @@ class User(UUIDMixin, TimestampMixin, Base):
             name="ck_users_role",
         ),
         Index("ix_users_tenant_role", "tenant_id", "role"),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     employee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=True,
         comment="Optional link to employee record (required for role='employee')",
     )

@@ -65,13 +65,12 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           poetry run python scripts/wait_for_db.py
 
-      - name: Ensure test database exists
+      - name: Recreate test database (clean state for migrations)
         run: |
-          docker exec ${{ env.DB_CONTAINER }} psql -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} -tc \
-            "SELECT 1 FROM pg_database WHERE datname = '${{ env.POSTGRES_TEST_DB }}'" \
-            | grep -q 1 \
-            || docker exec ${{ env.DB_CONTAINER }} psql -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} \
-              -c "CREATE DATABASE ${{ env.POSTGRES_TEST_DB }} OWNER ${{ env.POSTGRES_USER }};"
+          docker exec ${{ env.DB_CONTAINER }} psql -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} \
+            -c "DROP DATABASE IF EXISTS ${{ env.POSTGRES_TEST_DB }};"
+          docker exec ${{ env.DB_CONTAINER }} psql -U ${{ env.POSTGRES_USER }} -d ${{ env.POSTGRES_DB }} \
+            -c "CREATE DATABASE ${{ env.POSTGRES_TEST_DB }} OWNER ${{ env.POSTGRES_USER }};"
 
       - name: Run Alembic migrations on test DB
         working-directory: backend

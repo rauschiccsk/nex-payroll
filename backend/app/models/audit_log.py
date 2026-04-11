@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Index, String
+from sqlalchemy import TIMESTAMP, CheckConstraint, ForeignKey, Index, String, desc
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -40,7 +40,7 @@ class AuditLog(UUIDMixin, Base):
         Index(
             "ix_audit_log_tenant_created",
             "tenant_id",
-            "created_at",
+            desc("created_at"),
             postgresql_using="btree",
         ),
         {"schema": "public"},
@@ -48,7 +48,7 @@ class AuditLog(UUIDMixin, Base):
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to tenant (public.tenants.id)",
     )

@@ -6,6 +6,7 @@ from uuid import uuid4
 from app.models.statutory_deadline import StatutoryDeadline
 from app.schemas.statutory_deadline import StatutoryDeadlineCreate, StatutoryDeadlineUpdate
 from app.services.statutory_deadline import (
+    count_statutory_deadlines,
     create_statutory_deadline,
     delete_statutory_deadline,
     get_statutory_deadline,
@@ -17,20 +18,44 @@ from app.services.statutory_deadline import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+_counter = 0
+
 
 def _make_payload(**overrides) -> StatutoryDeadlineCreate:
     """Build a valid StatutoryDeadlineCreate with sensible defaults."""
+    global _counter  # noqa: PLW0603
+    _counter += 1
     defaults = {
-        "deadline_type": "sp_monthly",
+        "code": f"SP_MONTHLY_{_counter}",
+        "name": "Mesačný výkaz SP",
+        "deadline_type": "monthly",
         "institution": "Sociálna poisťovňa",
         "day_of_month": 20,
         "description": "Mesačný výkaz poistného a príspevkov",
         "valid_from": date(2025, 1, 1),
         "valid_to": None,
-        "is_active": True,
     }
     defaults.update(overrides)
     return StatutoryDeadlineCreate(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# count
+# ---------------------------------------------------------------------------
+
+
+class TestCountStatutoryDeadlines:
+    """Tests for count_statutory_deadlines."""
+
+    def test_count_empty(self, db_session):
+        assert count_statutory_deadlines(db_session) == 0
+
+    def test_count_after_inserts(self, db_session):
+        create_statutory_deadline(db_session, _make_payload())
+        create_statutory_deadline(db_session, _make_payload())
+        create_statutory_deadline(db_session, _make_payload())
+
+        assert count_statutory_deadlines(db_session) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -47,13 +72,12 @@ class TestCreateStatutoryDeadline:
 
         assert isinstance(result, StatutoryDeadline)
         assert result.id is not None
-        assert result.deadline_type == "sp_monthly"
+        assert result.deadline_type == "monthly"
         assert result.institution == "Sociálna poisťovňa"
         assert result.day_of_month == 20
         assert result.description == "Mesačný výkaz poistného a príspevkov"
         assert result.valid_from == date(2025, 1, 1)
         assert result.valid_to is None
-        assert result.is_active is True
 
     def test_create_with_valid_to(self, db_session):
         payload = _make_payload(valid_to=date(2025, 12, 31))
@@ -61,24 +85,26 @@ class TestCreateStatutoryDeadline:
 
         assert result.valid_to == date(2025, 12, 31)
 
-    def test_create_inactive(self, db_session):
-        payload = _make_payload(is_active=False)
+    def test_create_with_business_days_rule(self, db_session):
+        payload = _make_payload(business_days_rule=True)
         result = create_statutory_deadline(db_session, payload)
 
-        assert result.is_active is False
+        assert result.business_days_rule is True
 
-    def test_create_tax_advance_type(self, db_session):
+    def test_create_annual_type(self, db_session):
         payload = _make_payload(
-            deadline_type="tax_advance",
+            deadline_type="annual",
             institution="Daňový úrad",
-            day_of_month=25,
-            description="Preddavok na daň z príjmov",
+            day_of_month=30,
+            month_of_year=4,
+            description="Ročné hlásenie o dani",
         )
         result = create_statutory_deadline(db_session, payload)
 
-        assert result.deadline_type == "tax_advance"
+        assert result.deadline_type == "annual"
         assert result.institution == "Daňový úrad"
-        assert result.day_of_month == 25
+        assert result.day_of_month == 30
+        assert result.month_of_year == 4
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +143,8 @@ class TestListStatutoryDeadlines:
         assert result == []
 
     def test_list_returns_all(self, db_session):
-        create_statutory_deadline(db_session, _make_payload(deadline_type="sp_monthly"))
-        create_statutory_deadline(db_session, _make_payload(deadline_type="zp_monthly"))
+        create_statutory_deadline(db_session, _make_payload(deadline_type="monthly"))
+        create_statutory_deadline(db_session, _make_payload(deadline_type="annual"))
 
         result = list_statutory_deadlines(db_session)
 
@@ -128,11 +154,11 @@ class TestListStatutoryDeadlines:
         """Deadlines with the same type are ordered by valid_from DESC."""
         create_statutory_deadline(
             db_session,
-            _make_payload(deadline_type="sp_monthly", valid_from=date(2024, 1, 1)),
+            _make_payload(deadline_type="monthly", valid_from=date(2024, 1, 1)),
         )
         create_statutory_deadline(
             db_session,
-            _make_payload(deadline_type="sp_monthly", valid_from=date(2025, 1, 1)),
+            _make_payload(deadline_type="monthly", valid_from=date(2025, 1, 1)),
         )
 
         result = list_statutory_deadlines(db_session)
@@ -144,7 +170,10 @@ class TestListStatutoryDeadlines:
         for i in range(3):
             create_statutory_deadline(
                 db_session,
-                _make_payload(deadline_type=f"sp_{'annual' if i == 0 else 'monthly'}", valid_from=date(2025, i + 1, 1)),
+                _make_payload(
+                    deadline_type="annual" if i == 0 else "monthly",
+                    valid_from=date(2025, i + 1, 1),
+                ),
             )
 
         result = list_statutory_deadlines(db_session, skip=1)
@@ -155,7 +184,10 @@ class TestListStatutoryDeadlines:
         for i in range(3):
             create_statutory_deadline(
                 db_session,
-                _make_payload(deadline_type=f"sp_{'annual' if i == 0 else 'monthly'}", valid_from=date(2025, i + 1, 1)),
+                _make_payload(
+                    deadline_type="annual" if i == 0 else "monthly",
+                    valid_from=date(2025, i + 1, 1),
+                ),
             )
 
         result = list_statutory_deadlines(db_session, limit=2)
@@ -167,7 +199,7 @@ class TestListStatutoryDeadlines:
             create_statutory_deadline(
                 db_session,
                 _make_payload(
-                    deadline_type="sp_monthly",
+                    deadline_type="monthly",
                     valid_from=date(2020 + i, 1, 1),
                 ),
             )
@@ -197,7 +229,7 @@ class TestUpdateStatutoryDeadline:
         assert updated is not None
         assert updated.day_of_month == 25
         # unchanged fields stay the same
-        assert updated.deadline_type == "sp_monthly"
+        assert updated.deadline_type == "monthly"
 
     def test_update_multiple_fields(self, db_session):
         created = create_statutory_deadline(db_session, _make_payload())
@@ -237,17 +269,17 @@ class TestUpdateStatutoryDeadline:
         assert updated is not None
         assert updated.day_of_month == created.day_of_month
 
-    def test_update_is_active(self, db_session):
-        created = create_statutory_deadline(db_session, _make_payload(is_active=True))
+    def test_update_business_days_rule(self, db_session):
+        created = create_statutory_deadline(db_session, _make_payload())
 
         updated = update_statutory_deadline(
             db_session,
             created.id,
-            StatutoryDeadlineUpdate(is_active=False),
+            StatutoryDeadlineUpdate(business_days_rule=True),
         )
 
         assert updated is not None
-        assert updated.is_active is False
+        assert updated.business_days_rule is True
 
 
 # ---------------------------------------------------------------------------

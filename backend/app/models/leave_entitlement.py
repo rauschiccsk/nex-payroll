@@ -35,20 +35,21 @@ class LeaveEntitlement(UUIDMixin, TimestampMixin, Base):
             "year",
             name="uq_leave_entitlements_tenant_employee_year",
         ),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     employee_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to employee",
     )

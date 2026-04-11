@@ -53,13 +53,14 @@ class Employee(UUIDMixin, TimestampMixin, Base):
         ),
         Index("ix_employees_tenant_status", "tenant_id", "status"),
         Index("ix_employees_tenant_last_name", "tenant_id", "last_name"),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
@@ -168,7 +169,7 @@ class Employee(UUIDMixin, TimestampMixin, Base):
 
     health_insurer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("shared.health_insurers.id"),
+        ForeignKey("shared.health_insurers.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to health insurance company",
     )

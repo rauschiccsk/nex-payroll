@@ -22,6 +22,21 @@ class TestTenantSchema:
 
         assert issubclass(Tenant, Base)
 
+    def test_inherits_uuid_mixin(self):
+        from app.models.base import UUIDMixin
+
+        assert issubclass(Tenant, UUIDMixin)
+
+    def test_inherits_timestamp_mixin(self):
+        from app.models.base import TimestampMixin
+
+        assert issubclass(Tenant, TimestampMixin)
+
+    def test_extend_existing(self):
+        """Table args must include extend_existing=True."""
+        table_opts = Tenant.__table_args__[-1]
+        assert table_opts.get("extend_existing") is True
+
 
 class TestTenantColumns:
     """Verify all columns have correct types, nullability, and defaults."""

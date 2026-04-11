@@ -10,40 +10,59 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 _DEADLINE_TYPE = Literal[
-    "sp_monthly",
-    "zp_monthly",
-    "tax_advance",
-    "tax_reconciliation",
-    "sp_annual",
-    "zp_annual",
+    "monthly",
+    "annual",
+    "one_time",
 ]
 
 
 class StatutoryDeadlineCreate(BaseModel):
     """Schema for creating a new statutory deadline."""
 
+    code: str = Field(
+        ...,
+        max_length=50,
+        examples=["SP_MONTHLY"],
+        description="Unique code identifier (e.g. SP_MONTHLY, ZP_MONTHLY)",
+    )
+    name: str = Field(
+        ...,
+        max_length=200,
+        examples=["Mesačný výkaz SP"],
+        description="Human-readable name",
+    )
+    description: str | None = Field(
+        default=None,
+        description="Optional longer description (Slovak)",
+    )
     deadline_type: _DEADLINE_TYPE = Field(
         ...,
-        description="Deadline category: sp_monthly, zp_monthly, tax_advance, tax_reconciliation, sp_annual, zp_annual",
-        examples=["sp_monthly"],
+        description="Deadline category: monthly, annual, one_time",
+        examples=["monthly"],
+    )
+    day_of_month: int | None = Field(
+        default=None,
+        ge=1,
+        le=31,
+        examples=[20],
+        description="Day of month the deadline falls on (NULL if not applicable)",
+    )
+    month_of_year: int | None = Field(
+        default=None,
+        ge=1,
+        le=12,
+        examples=[4],
+        description="Month of year for annual deadlines (1-12, NULL for monthly)",
+    )
+    business_days_rule: bool = Field(
+        default=False,
+        description="If true, deadline shifts to next business day",
     )
     institution: str = Field(
         ...,
         max_length=100,
         examples=["Sociálna poisťovňa"],
         description="Target institution (e.g. Sociálna poisťovňa, VšZP, DÚ)",
-    )
-    day_of_month: int = Field(
-        ...,
-        ge=1,
-        le=31,
-        examples=[20],
-        description="Day of month the deadline falls on",
-    )
-    description: str = Field(
-        ...,
-        examples=["Mesačný výkaz poistného a príspevkov"],
-        description="Human-readable description (Slovak)",
     )
     valid_from: date = Field(
         ...,
@@ -53,10 +72,6 @@ class StatutoryDeadlineCreate(BaseModel):
         default=None,
         description="End of validity period (inclusive); null if open-ended",
     )
-    is_active: bool = Field(
-        default=True,
-        description="Whether the deadline is currently active",
-    )
 
 
 class StatutoryDeadlineUpdate(BaseModel):
@@ -65,28 +80,41 @@ class StatutoryDeadlineUpdate(BaseModel):
     All fields optional — only supplied fields are updated.
     """
 
-    deadline_type: _DEADLINE_TYPE | None = Field(
+    code: str | None = Field(
+        default=None,
+        max_length=50,
+    )
+    name: str | None = Field(
+        default=None,
+        max_length=200,
+    )
+    description: str | None = Field(
         default=None,
     )
-    institution: str | None = Field(
+    deadline_type: _DEADLINE_TYPE | None = Field(
         default=None,
-        max_length=100,
     )
     day_of_month: int | None = Field(
         default=None,
         ge=1,
         le=31,
     )
-    description: str | None = Field(
+    month_of_year: int | None = Field(
         default=None,
+        ge=1,
+        le=12,
+    )
+    business_days_rule: bool | None = Field(
+        default=None,
+    )
+    institution: str | None = Field(
+        default=None,
+        max_length=100,
     )
     valid_from: date | None = Field(
         default=None,
     )
     valid_to: date | None = Field(
-        default=None,
-    )
-    is_active: bool | None = Field(
         default=None,
     )
 
@@ -97,11 +125,14 @@ class StatutoryDeadlineRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    code: str
+    name: str
+    description: str | None
     deadline_type: _DEADLINE_TYPE
+    day_of_month: int | None
+    month_of_year: int | None
+    business_days_rule: bool
     institution: str
-    day_of_month: int
-    description: str
     valid_from: date
     valid_to: date | None
-    is_active: bool
     created_at: datetime

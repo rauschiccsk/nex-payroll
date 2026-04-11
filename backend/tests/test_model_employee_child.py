@@ -264,6 +264,23 @@ class TestEmployeeChildConstraints:
             )
         db_session.rollback()
 
+    def test_fk_tenant_restrict_delete(self, db_session, tenant, employee):
+        """Deleting a tenant with employee children must be rejected (RESTRICT).
+
+        Uses raw SQL per FK RESTRICT Test Pattern — ORM session.delete()
+        sets FK to NULL first (NOT NULL failure before FK check).
+        """
+        child = _make_child(tenant, employee)
+        db_session.add(child)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+        db_session.rollback()
+
     def test_not_null_first_name(self, db_session, tenant, employee):
         """first_name cannot be NULL."""
         child = _make_child(tenant, employee, first_name=None)

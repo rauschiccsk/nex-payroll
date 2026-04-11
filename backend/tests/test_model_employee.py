@@ -85,6 +85,22 @@ class TestEmployeeSchema:
 
         assert issubclass(Employee, Base)
 
+    def test_inherits_uuid_mixin(self):
+        from app.models.base import UUIDMixin
+
+        assert issubclass(Employee, UUIDMixin)
+
+    def test_inherits_timestamp_mixin(self):
+        from app.models.base import TimestampMixin
+
+        assert issubclass(Employee, TimestampMixin)
+
+    def test_extend_existing_enabled(self):
+        table_args = Employee.__table_args__
+        dict_args = [a for a in table_args if isinstance(a, dict)]
+        assert len(dict_args) == 1
+        assert dict_args[0].get("extend_existing") is True
+
 
 class TestEmployeeColumns:
     """Verify all columns have correct types, nullability, and defaults."""
@@ -580,3 +596,33 @@ class TestEmployeeDB:
         db_session.add_all([emp1, emp2])
         db_session.flush()
         assert emp1.id != emp2.id
+
+
+class TestEmployeeFKRestrict:
+    """FK RESTRICT enforcement tests — must use raw SQL per ICC standards."""
+
+    def test_fk_restrict_tenant_delete(self, db_session, tenant, health_insurer):
+        """Deleting a tenant with employees must be blocked by RESTRICT."""
+        emp = _make_employee(tenant, health_insurer)
+        db_session.add(emp)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM public.tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+            db_session.flush()
+
+    def test_fk_restrict_health_insurer_delete(self, db_session, tenant, health_insurer):
+        """Deleting a health insurer referenced by an employee must be blocked."""
+        emp = _make_employee(tenant, health_insurer)
+        db_session.add(emp)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM shared.health_insurers WHERE id = :id"),
+                {"id": str(health_insurer.id)},
+            )
+            db_session.flush()

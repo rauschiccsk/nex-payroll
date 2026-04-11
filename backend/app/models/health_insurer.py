@@ -28,7 +28,7 @@ class HealthInsurer(UUIDMixin, Base):
     __tablename__ = "health_insurers"
     __table_args__ = (
         UniqueConstraint("code", name="uq_health_insurers_code"),
-        {"schema": "shared"},
+        {"schema": "shared", "extend_existing": True},
     )
 
     code: Mapped[str] = mapped_column(

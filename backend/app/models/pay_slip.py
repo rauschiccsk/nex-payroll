@@ -50,27 +50,28 @@ class PaySlip(UUIDMixin, TimestampMixin, Base):
             "period_year",
             "period_month",
         ),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     payroll_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("payrolls.id"),
+        ForeignKey("payrolls.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to the approved payroll record",
     )
 
     employee_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to the employee",
     )

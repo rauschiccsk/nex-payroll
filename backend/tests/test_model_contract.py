@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import Boolean, Date, Numeric, String, inspect
+from sqlalchemy import Boolean, Date, Numeric, String, inspect, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 
@@ -367,6 +367,34 @@ class TestContractConstraints:
         )
         db_session.add(c)
         with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.flush()
+        db_session.rollback()
+
+    def test_restrict_delete_tenant(self, db_session, tenant, employee):
+        """Deleting a tenant that has contracts must be rejected (RESTRICT)."""
+        c = _make_contract(tenant, employee, contract_number="RESTRICT-T01")
+        db_session.add(c)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM public.tenants WHERE id = :id"),
+                {"id": str(tenant.id)},
+            )
+            db_session.flush()
+        db_session.rollback()
+
+    def test_restrict_delete_employee(self, db_session, tenant, employee):
+        """Deleting an employee that has contracts must be rejected (RESTRICT)."""
+        c = _make_contract(tenant, employee, contract_number="RESTRICT-E01")
+        db_session.add(c)
+        db_session.flush()
+
+        with pytest.raises((IntegrityError, ProgrammingError)):
+            db_session.execute(
+                text("DELETE FROM employees WHERE id = :id"),
+                {"id": str(employee.id)},
+            )
             db_session.flush()
         db_session.rollback()
 

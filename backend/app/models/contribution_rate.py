@@ -28,7 +28,7 @@ class ContributionRate(UUIDMixin, Base):
             "payer IN ('employee', 'employer')",
             name="ck_contribution_rates_payer",
         ),
-        {"schema": "shared"},
+        {"schema": "shared", "extend_existing": True},
     )
 
     rate_type: Mapped[str] = mapped_column(
@@ -78,6 +78,6 @@ class ContributionRate(UUIDMixin, Base):
     def __repr__(self) -> str:
         return (
             f"<ContributionRate(rate_type={self.rate_type!r}, "
-            f"payer={self.payer!r}, rate={self.rate_percent}%, "
-            f"valid_from={self.valid_from})>"
+            f"fund={self.fund!r}, payer={self.payer!r}, "
+            f"rate={self.rate_percent}%, valid_from={self.valid_from})>"
         )

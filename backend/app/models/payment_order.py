@@ -47,27 +47,28 @@ class PaymentOrder(UUIDMixin, TimestampMixin, Base):
             "period_month",
             "payment_type",
         ),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("public.tenants.id"),
+        ForeignKey("public.tenants.id", ondelete="RESTRICT"),
         nullable=False,
         comment="Reference to owning tenant",
     )
 
     employee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("employees.id"),
+        ForeignKey("employees.id", ondelete="RESTRICT"),
         nullable=True,
         comment="Reference to employee (for net_wage type)",
     )
 
     health_insurer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("shared.health_insurers.id"),
+        ForeignKey("shared.health_insurers.id", ondelete="RESTRICT"),
         nullable=True,
         comment="Reference to health insurer (for zp types)",
     )

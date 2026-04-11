@@ -146,6 +146,7 @@ class TestContributionRateRepr:
 
         result = repr(rate)
         assert "sp_employee_nemocenske" in result
+        assert "nemocenske_poistenie" in result
         assert "employee" in result
         assert "1.4000" in result
         assert "2025-01-01" in result

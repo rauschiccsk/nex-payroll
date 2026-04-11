@@ -29,7 +29,7 @@ class TaxBracket(UUIDMixin, Base):
     __tablename__ = "tax_brackets"
     __table_args__ = (
         Index("ix_tax_brackets_valid_from_bracket_order", "valid_from", "bracket_order"),
-        {"schema": "shared"},
+        {"schema": "shared", "extend_existing": True},
     )
 
     bracket_order: Mapped[int] = mapped_column(
