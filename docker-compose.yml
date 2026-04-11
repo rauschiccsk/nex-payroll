@@ -12,6 +12,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
+    networks:
+      - nex-payroll-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nex_payroll}"]
       interval: 10s
@@ -34,6 +36,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - nex-payroll-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9172/health"]
       interval: 30s
@@ -52,6 +56,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - nex-payroll-net
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9173/"]
       interval: 30s
@@ -61,3 +67,7 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  nex-payroll-net:
+    driver: bridge

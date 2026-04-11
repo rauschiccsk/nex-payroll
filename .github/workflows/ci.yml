@@ -6,10 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   COMPOSE_PROJECT: nex-payroll
   DB_CONTAINER: nex-payroll-db
-  BACKEND_CONTAINER: nex-payroll-backend
   POSTGRES_USER: nex_payroll
   POSTGRES_DB: nex_payroll
   POSTGRES_TEST_DB: nex_payroll_test
@@ -18,7 +21,7 @@ env:
 
 jobs:
   lint:
-    name: Lint
+    name: Backend Lint
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +31,7 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           pip install --break-system-packages poetry
-          poetry install --no-interaction
+          poetry install --no-interaction --no-root
 
       - name: Run ruff check
         working-directory: backend
@@ -43,12 +46,9 @@ jobs:
           poetry run ruff format --check .
 
   test:
-    name: Test
+    name: Backend Test
     runs-on: self-hosted
     needs: lint
-    env:
-      DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll
-      TEST_DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll_test
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +57,13 @@ jobs:
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           pip install --break-system-packages poetry
-          poetry install --no-interaction
+          poetry install --no-interaction --no-root
+
+      - name: Wait for database
+        working-directory: backend
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run python scripts/wait_for_db.py
 
       - name: Ensure test database exists
         run: |
@@ -70,13 +76,15 @@ jobs:
       - name: Run Alembic migrations on test DB
         working-directory: backend
         env:
-          DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll_test
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           poetry run alembic upgrade head
 
       - name: Run tests with coverage
         working-directory: backend
+        env:
+          TEST_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           poetry run pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=90
@@ -130,7 +138,7 @@ jobs:
         run: npm run build
 
   build:
-    name: Build Docker Image
+    name: Build Docker Images
     runs-on: self-hosted
     needs: [test, frontend-build]
     steps:
@@ -140,6 +148,11 @@ jobs:
         run: |
           docker build -t nex-payroll-backend:${{ github.sha }} ./backend
           docker tag nex-payroll-backend:${{ github.sha }} nex-payroll-backend:latest
+
+      - name: Build frontend Docker image
+        run: |
+          docker build -t nex-payroll-frontend:${{ github.sha }} ./frontend
+          docker tag nex-payroll-frontend:${{ github.sha }} nex-payroll-frontend:latest
 
       - name: Verify backend Docker image
         run: docker run --rm nex-payroll-backend:latest python -c "import app; print('OK')"
@@ -152,14 +165,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Alembic migrations
+      - name: Install backend dependencies
         working-directory: backend
-        env:
-          DATABASE_URL: postgresql+pg8000://nex_payroll:changeme@localhost:9174/nex_payroll
         run: |
           export PATH="$HOME/.local/bin:$PATH"
           pip install --break-system-packages poetry
-          poetry install --no-interaction
+          poetry install --no-interaction --no-root
+
+      - name: Wait for database
+        working-directory: backend
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry run python scripts/wait_for_db.py
+
+      - name: Run Alembic migrations
+        working-directory: backend
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
           poetry run alembic upgrade head
 
       - name: Deploy with Docker Compose

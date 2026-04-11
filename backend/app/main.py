@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import __version__
 from app.core.config import settings
 from app.routers.audit_log import router as audit_log_router
 from app.routers.contracts import router as contracts_router
@@ -21,9 +22,9 @@ from app.routers.tenants import router as tenants_router
 from app.routers.users import router as users_router
 
 app = FastAPI(
-    title="NEX Payroll",
-    description="Payroll management system",
-    version="0.1.0",
+    title=settings.app_name,
+    description="Payroll management system for Slovak businesses",
+    version=__version__,
 )
 
 app.add_middleware(
@@ -107,4 +108,4 @@ app.include_router(
 @app.get("/health")
 def health_check():
     """Public. Service health check."""
-    return {"status": "healthy"}
+    return {"status": "healthy", "version": __version__, "app": settings.app_name}

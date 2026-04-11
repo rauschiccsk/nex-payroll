@@ -42,11 +42,27 @@ select = ["E", "F", "I", "W", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-v --tb=short --strict-markers"
+addopts = "-v --tb=short --strict-markers --cov=app --cov-report=term-missing --cov-config=pyproject.toml"
 markers = [
     "db: test requires database connection",
 ]
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:pkg_resources",
+]
+
+[tool.coverage.run]
+source = ["app"]
+omit = [
+    "app/__main__.py",
+    "app/**/migrations/*",
+]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
 ]

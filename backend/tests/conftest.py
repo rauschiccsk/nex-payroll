@@ -24,25 +24,10 @@ from sqlalchemy.orm import Session
 if not os.environ.get("PAYROLL_ENCRYPTION_KEY") and not os.environ.get("FERNET_KEY"):
     os.environ["PAYROLL_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
-# Import Base and all models so metadata is fully populated
-from app.models import Base  # noqa: F401
-from app.models.audit_log import AuditLog  # noqa: F401
-from app.models.contract import Contract  # noqa: F401
-from app.models.contribution_rate import ContributionRate  # noqa: F401
-from app.models.employee import Employee  # noqa: F401
-from app.models.employee_child import EmployeeChild  # noqa: F401
-from app.models.health_insurer import HealthInsurer  # noqa: F401
-from app.models.leave import Leave  # noqa: F401
-from app.models.leave_entitlement import LeaveEntitlement  # noqa: F401
-from app.models.monthly_report import MonthlyReport  # noqa: F401
-from app.models.notification import Notification  # noqa: F401
-from app.models.pay_slip import PaySlip  # noqa: F401
-from app.models.payment_order import PaymentOrder  # noqa: F401
-from app.models.payroll import Payroll  # noqa: F401
-from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
-from app.models.tax_bracket import TaxBracket  # noqa: F401
-from app.models.tenant import Tenant  # noqa: F401
-from app.models.user import User  # noqa: F401
+# Import Base and trigger all model registrations via app.models.__init__
+# so that Base.metadata is fully populated for create_all/drop_all.
+import app.models as _models  # noqa: F401
+from app.models.base import Base
 
 # ---------------------------------------------------------------------------
 # Database URL resolution
