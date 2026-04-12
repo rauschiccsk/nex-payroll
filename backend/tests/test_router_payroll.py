@@ -4,7 +4,7 @@ Verifies:
 - GET /api/v1/payroll (list with pagination and filters)
 - GET /api/v1/payroll/{payroll_id} (single payroll)
 - POST /api/v1/payroll (create)
-- PUT /api/v1/payroll/{payroll_id} (update)
+- PATCH /api/v1/payroll/{payroll_id} (partial update)
 - DELETE /api/v1/payroll/{payroll_id} (delete)
 - Error handling: 404, 409, 422
 """
@@ -356,18 +356,18 @@ class TestCreatePayroll:
 
 
 # ---------------------------------------------------------------------------
-# PUT /api/v1/payroll/{payroll_id} — update
+# PATCH /api/v1/payroll/{payroll_id} — partial update
 # ---------------------------------------------------------------------------
 
 
 class TestUpdatePayroll:
-    """Tests for the update endpoint."""
+    """Tests for the partial-update endpoint."""
 
     def test_update_single_field(self, client, db_session, prerequisites):
         tenant, _insurer, employee, contract = prerequisites
         payroll = _make_payroll(db_session, tenant.id, employee.id, contract.id)
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/payroll/{payroll.id}",
             json={"status": "calculated"},
         )
@@ -375,18 +375,18 @@ class TestUpdatePayroll:
         assert resp.json()["status"] == "calculated"
 
     def test_update_nonexistent_returns_404(self, client):
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/payroll/{uuid4()}",
             json={"status": "calculated"},
         )
         assert resp.status_code == 404
 
-    def test_update_invalid_status_returns_409(self, client, db_session, prerequisites):
-        """Invalid status value should return 409, not 404."""
+    def test_update_invalid_status_returns_422(self, client, db_session, prerequisites):
+        """Invalid status value should return 422."""
         tenant, _insurer, employee, contract = prerequisites
         payroll = _make_payroll(db_session, tenant.id, employee.id, contract.id)
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/payroll/{payroll.id}",
             json={"status": "invalid_status"},
         )

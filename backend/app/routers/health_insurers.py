@@ -18,14 +18,7 @@ from app.schemas.health_insurer import (
     HealthInsurerUpdate,
 )
 from app.schemas.pagination import PaginatedResponse
-from app.services.health_insurer import (
-    count_health_insurers,
-    create_health_insurer,
-    delete_health_insurer,
-    get_health_insurer,
-    list_health_insurers,
-    update_health_insurer,
-)
+from app.services import health_insurer as health_insurer_service
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +29,12 @@ router = APIRouter(tags=["Health Insurers"])
 def list_insurers(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Max records to return"),
+    is_active: bool | None = Query(None, description="Filter by active status"),
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Return a paginated list of health insurers."""
-    items = list_health_insurers(db, skip=skip, limit=limit)
-    total = count_health_insurers(db)
+    """Return a paginated list of health insurers with optional filters."""
+    items = health_insurer_service.list_health_insurers(db, skip=skip, limit=limit, is_active=is_active)
+    total = health_insurer_service.count_health_insurers(db, is_active=is_active)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -50,7 +44,7 @@ def get_insurer(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single health insurer by ID."""
-    insurer = get_health_insurer(db, insurer_id)
+    insurer = health_insurer_service.get_health_insurer(db, insurer_id)
     if insurer is None:
         raise HTTPException(status_code=404, detail="Health insurer not found")
     return insurer
@@ -63,7 +57,7 @@ def create_insurer(
 ):
     """Create a new health insurer."""
     try:
-        insurer = create_health_insurer(db, payload)
+        insurer = health_insurer_service.create_health_insurer(db, payload)
         db.commit()
     except (IntegrityError, ProgrammingError):
         db.rollback()
@@ -83,12 +77,12 @@ def update_insurer(
 ):
     """Update an existing health insurer."""
     try:
-        insurer = update_health_insurer(db, insurer_id, payload)
+        insurer = health_insurer_service.update_health_insurer(db, insurer_id, payload)
     except (IntegrityError, ProgrammingError):
         db.rollback()
         raise HTTPException(
             status_code=409,
-            detail=f"Health insurer with code '{payload.code}' already exists",
+            detail="Health insurer with duplicate code or name already exists",
         ) from None
     if insurer is None:
         raise HTTPException(status_code=404, detail="Health insurer not found")
@@ -103,7 +97,7 @@ def delete_insurer(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete a health insurer by ID."""
-    deleted = delete_health_insurer(db, insurer_id)
+    deleted = health_insurer_service.delete_health_insurer(db, insurer_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Health insurer not found")
     db.commit()

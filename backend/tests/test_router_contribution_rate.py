@@ -151,6 +151,35 @@ class TestListContributionRates:
         resp = client.get(BASE_URL, params={"limit": 101})
         assert resp.status_code == 422
 
+    def test_list_filter_by_rate_type(self, client: TestClient):
+        client.post(BASE_URL, json=_create_rate_payload(rate_type="sp_employee_nemocenske"))
+        client.post(BASE_URL, json=_create_rate_payload(rate_type="zp_employee", fund="zdravotne"))
+        resp = client.get(BASE_URL, params={"rate_type": "zp_employee"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert all(item["rate_type"] == "zp_employee" for item in data["items"])
+
+    def test_list_filter_by_payer(self, client: TestClient):
+        client.post(BASE_URL, json=_create_rate_payload(payer="employee"))
+        client.post(BASE_URL, json=_create_rate_payload(payer="employer", rate_type="sp_employer_nemocenske"))
+        resp = client.get(BASE_URL, params={"payer": "employer"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert all(item["payer"] == "employer" for item in data["items"])
+
+    def test_list_filter_combined(self, client: TestClient):
+        client.post(BASE_URL, json=_create_rate_payload(rate_type="sp_emp_a", payer="employee"))
+        client.post(BASE_URL, json=_create_rate_payload(rate_type="sp_emp_a", payer="employer"))
+        client.post(BASE_URL, json=_create_rate_payload(rate_type="zp_emp_b", payer="employee"))
+        resp = client.get(BASE_URL, params={"rate_type": "sp_emp_a", "payer": "employee"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["rate_type"] == "sp_emp_a"
+        assert data["items"][0]["payer"] == "employee"
+
 
 # ---------------------------------------------------------------------------
 # GET detail

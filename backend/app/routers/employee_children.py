@@ -24,6 +24,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Employee Children"])
 
 
+# ---------------------------------------------------------------------------
+# Error-mapping helper (DRY — shared across create/update/delete)
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map *ValueError* message to the appropriate HTTP status code.
+
+    Pattern (per Router Generation Checklist):
+      "not found"                          → 404
+      "duplicate" / "conflict" / "already exists" → 409
+      "invalid" / "constraint" / "foreign key"    → 422
+      anything else                        → 409 (business-rule violation)
+    """
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("invalid", "constraint", "foreign key")):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET  /employee-children          — paginated list
+# ---------------------------------------------------------------------------
+
+
 @router.get("", response_model=PaginatedResponse[EmployeeChildRead])
 def list_employee_children_endpoint(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -48,6 +78,11 @@ def list_employee_children_endpoint(
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# GET  /employee-children/{id}     — detail
+# ---------------------------------------------------------------------------
+
+
 @router.get("/{child_id}", response_model=EmployeeChildRead)
 def get_employee_child_endpoint(
     child_id: UUID,
@@ -60,6 +95,11 @@ def get_employee_child_endpoint(
     return child
 
 
+# ---------------------------------------------------------------------------
+# POST /employee-children          — create
+# ---------------------------------------------------------------------------
+
+
 @router.post("", response_model=EmployeeChildRead, status_code=201)
 def create_employee_child_endpoint(
     payload: EmployeeChildCreate,
@@ -69,10 +109,15 @@ def create_employee_child_endpoint(
     try:
         child = employee_child_service.create_employee_child(db, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(child)
     return child
+
+
+# ---------------------------------------------------------------------------
+# PATCH /employee-children/{id}    — partial update
+# ---------------------------------------------------------------------------
 
 
 @router.patch("/{child_id}", response_model=EmployeeChildRead)
@@ -81,16 +126,21 @@ def update_employee_child_endpoint(
     payload: EmployeeChildUpdate,
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Update an existing employee child record."""
+    """Update an existing employee child record (partial — only supplied fields change)."""
     try:
         child = employee_child_service.update_employee_child(db, child_id, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     if child is None:
         raise HTTPException(status_code=404, detail="Employee child not found")
     db.commit()
     db.refresh(child)
     return child
+
+
+# ---------------------------------------------------------------------------
+# DELETE /employee-children/{id}   — hard delete
+# ---------------------------------------------------------------------------
 
 
 @router.delete("/{child_id}", status_code=204)
@@ -102,7 +152,7 @@ def delete_employee_child_endpoint(
     try:
         deleted = employee_child_service.delete_employee_child(db, child_id)
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     if not deleted:
         raise HTTPException(status_code=404, detail="Employee child not found")
     db.commit()

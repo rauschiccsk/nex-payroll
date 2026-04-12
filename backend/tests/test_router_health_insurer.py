@@ -134,6 +134,27 @@ class TestListHealthInsurers:
         assert len(data["items"]) <= 2
         assert data["total"] == 5
 
+    def test_list_filter_is_active(self, client: TestClient):
+        """Filter by is_active returns only matching insurers."""
+        client.post(BASE_URL, json=_create_insurer_payload(code="51", is_active=True))
+        client.post(
+            BASE_URL,
+            json=_create_insurer_payload(code="52", name="Inactive Ins", is_active=False),
+        )
+        # Only active
+        resp = client.get(BASE_URL, params={"is_active": True})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert all(item["is_active"] is True for item in data["items"])
+        assert data["total"] >= 1
+
+        # Only inactive
+        resp2 = client.get(BASE_URL, params={"is_active": False})
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+        assert all(item["is_active"] is False for item in data2["items"])
+        assert data2["total"] >= 1
+
     def test_list_invalid_skip(self, client: TestClient):
         resp = client.get(BASE_URL, params={"skip": -1})
         assert resp.status_code == 422

@@ -24,16 +24,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Monthly Reports"])
 
 
+# ---------------------------------------------------------------------------
+# Error-mapping helper (DRY — shared across create/update/delete)
+# ---------------------------------------------------------------------------
+
+
 def _raise_for_value_error(exc: ValueError) -> None:
-    """Map ValueError message to the appropriate HTTP status code."""
+    """Map *ValueError* message to the appropriate HTTP status code.
+
+    Pattern (per Router Generation Checklist):
+      "not found"                          -> 404
+      "duplicate" / "conflict" / "already exists" -> 409
+      "invalid" / "constraint" / "foreign key"    -> 422
+      anything else                        -> 409 (business-rule violation)
+    """
     msg = str(exc).lower()
     if "not found" in msg:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if "duplicate" in msg or "conflict" in msg or "already exists" in msg:
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    if "invalid" in msg or "constraint" in msg or "foreign key" in msg:
+    if any(kw in msg for kw in ("invalid", "constraint", "foreign key")):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET  /monthly-reports          — paginated list
+# ---------------------------------------------------------------------------
 
 
 @router.get("", response_model=PaginatedResponse[MonthlyReportRead])
@@ -48,28 +66,30 @@ def list_monthly_reports_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of monthly reports."""
-    try:
-        items = monthly_report_service.list_monthly_reports(
-            db,
-            tenant_id=tenant_id,
-            report_type=report_type,
-            status=status,
-            period_year=period_year,
-            period_month=period_month,
-            skip=skip,
-            limit=limit,
-        )
-        total = monthly_report_service.count_monthly_reports(
-            db,
-            tenant_id=tenant_id,
-            report_type=report_type,
-            status=status,
-            period_year=period_year,
-            period_month=period_month,
-        )
-    except ValueError as exc:
-        _raise_for_value_error(exc)
+    items = monthly_report_service.list_monthly_reports(
+        db,
+        tenant_id=tenant_id,
+        report_type=report_type,
+        status=status,
+        period_year=period_year,
+        period_month=period_month,
+        skip=skip,
+        limit=limit,
+    )
+    total = monthly_report_service.count_monthly_reports(
+        db,
+        tenant_id=tenant_id,
+        report_type=report_type,
+        status=status,
+        period_year=period_year,
+        period_month=period_month,
+    )
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# GET  /monthly-reports/{id}     — detail
+# ---------------------------------------------------------------------------
 
 
 @router.get("/{report_id}", response_model=MonthlyReportRead)
@@ -82,6 +102,11 @@ def get_monthly_report_endpoint(
     if report is None:
         raise HTTPException(status_code=404, detail="Monthly report not found")
     return report
+
+
+# ---------------------------------------------------------------------------
+# POST /monthly-reports          — create
+# ---------------------------------------------------------------------------
 
 
 @router.post("", response_model=MonthlyReportRead, status_code=201)
@@ -99,13 +124,18 @@ def create_monthly_report_endpoint(
     return report
 
 
+# ---------------------------------------------------------------------------
+# PATCH /monthly-reports/{id}    — partial update
+# ---------------------------------------------------------------------------
+
+
 @router.patch("/{report_id}", response_model=MonthlyReportRead)
 def update_monthly_report_endpoint(
     report_id: UUID,
     payload: MonthlyReportUpdate,
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Update an existing monthly report record."""
+    """Update an existing monthly report record (partial — only supplied fields change)."""
     try:
         report = monthly_report_service.update_monthly_report(db, report_id, payload)
     except ValueError as exc:
@@ -113,6 +143,11 @@ def update_monthly_report_endpoint(
     db.commit()
     db.refresh(report)
     return report
+
+
+# ---------------------------------------------------------------------------
+# DELETE /monthly-reports/{id}   — hard delete
+# ---------------------------------------------------------------------------
 
 
 @router.delete("/{report_id}", status_code=204)

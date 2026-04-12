@@ -17,18 +17,41 @@ from app.schemas.payment_order import (
     PaymentOrderRead,
     PaymentOrderUpdate,
 )
-from app.services.payment_order import (
-    count_payment_orders,
-    create_payment_order,
-    delete_payment_order,
-    get_payment_order,
-    list_payment_orders,
-    update_payment_order,
-)
+from app.services import payment_order as payment_order_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Payment Orders"])
+
+
+# ---------------------------------------------------------------------------
+# Error-mapping helper (DRY — shared across create/update/delete)
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map *ValueError* message to the appropriate HTTP status code.
+
+    Pattern (per Router Generation Checklist):
+      "not found"                          -> 404
+      "duplicate" / "conflict" / "already exists" -> 409
+      "invalid" / "constraint" / "foreign key"    -> 422
+      anything else                        -> 409 (business-rule violation)
+    """
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("invalid", "constraint", "foreign key")):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET  /payment-orders              — paginated list
+# ---------------------------------------------------------------------------
 
 
 @router.get("", response_model=PaginatedResponse[PaymentOrderRead])
@@ -44,7 +67,7 @@ def list_payment_orders_endpoint(
 ):
     """Return a paginated list of payment orders."""
     try:
-        items = list_payment_orders(
+        items = payment_order_service.list_payment_orders(
             db,
             tenant_id=tenant_id,
             payment_type=payment_type,
@@ -54,7 +77,7 @@ def list_payment_orders_endpoint(
             skip=skip,
             limit=limit,
         )
-        total = count_payment_orders(
+        total = payment_order_service.count_payment_orders(
             db,
             tenant_id=tenant_id,
             payment_type=payment_type,
@@ -63,8 +86,13 @@ def list_payment_orders_endpoint(
             period_month=period_month,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# GET  /payment-orders/{id}         — detail
+# ---------------------------------------------------------------------------
 
 
 @router.get("/{order_id}", response_model=PaymentOrderRead)
@@ -73,10 +101,15 @@ def get_payment_order_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a single payment order by ID."""
-    order = get_payment_order(db, order_id)
+    order = payment_order_service.get_payment_order(db, order_id)
     if order is None:
         raise HTTPException(status_code=404, detail="Payment order not found")
     return order
+
+
+# ---------------------------------------------------------------------------
+# POST /payment-orders              — create
+# ---------------------------------------------------------------------------
 
 
 @router.post("", response_model=PaymentOrderRead, status_code=201)
@@ -86,34 +119,38 @@ def create_payment_order_endpoint(
 ):
     """Create a new payment order record."""
     try:
-        order = create_payment_order(db, payload)
+        order = payment_order_service.create_payment_order(db, payload)
     except ValueError as exc:
-        msg = str(exc)
-        if "not found" in msg.lower():
-            raise HTTPException(status_code=422, detail=msg) from exc
-        raise HTTPException(status_code=409, detail=msg) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(order)
     return order
 
 
-@router.put("/{order_id}", response_model=PaymentOrderRead)
+# ---------------------------------------------------------------------------
+# PATCH /payment-orders/{id}        — partial update
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{order_id}", response_model=PaymentOrderRead)
 def update_payment_order_endpoint(
     order_id: UUID,
     payload: PaymentOrderUpdate,
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Update an existing payment order record."""
+    """Update an existing payment order record (partial — only supplied fields change)."""
     try:
-        order = update_payment_order(db, order_id, payload)
+        order = payment_order_service.update_payment_order(db, order_id, payload)
     except ValueError as exc:
-        msg = str(exc)
-        if "not found" in msg.lower():
-            raise HTTPException(status_code=404, detail=msg) from exc
-        raise HTTPException(status_code=409, detail=msg) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(order)
     return order
+
+
+# ---------------------------------------------------------------------------
+# DELETE /payment-orders/{id}       — hard delete
+# ---------------------------------------------------------------------------
 
 
 @router.delete("/{order_id}", status_code=204)
@@ -123,7 +160,7 @@ def delete_payment_order_endpoint(
 ):
     """Delete a payment order by ID."""
     try:
-        delete_payment_order(db, order_id)
+        payment_order_service.delete_payment_order(db, order_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()

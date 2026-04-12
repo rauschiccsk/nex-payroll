@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/pay-slips         (list, paginated)
   GET    /api/v1/pay-slips/{id}    (detail)
   POST   /api/v1/pay-slips         (create)
-  PUT    /api/v1/pay-slips/{id}    (update)
+  PATCH  /api/v1/pay-slips/{id}    (partial update)
   DELETE /api/v1/pay-slips/{id}    (delete)
 """
 
@@ -22,7 +22,7 @@ from app.models.health_insurer import HealthInsurer
 from app.models.payroll import Payroll
 from app.models.tenant import Tenant
 
-BASE_URL = "/api/v1/pay-slips"
+BASE_URL = "/api/v1/payslips"
 
 # Minimal payroll amounts for creating a valid payroll record
 _PAYROLL_AMOUNTS = {
@@ -256,7 +256,7 @@ class TestUpdatePaySlip:
     def test_update_success(self, client: TestClient, db_session: Session):
         tid, eid, pid = _setup_payroll(db_session)
         created = client.post(BASE_URL, json=_pay_slip_payload(tid, eid, pid)).json()
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{created['id']}",
             json={"pdf_path": "/data/updated.pdf", "file_size_bytes": 99999},
         )
@@ -266,7 +266,7 @@ class TestUpdatePaySlip:
         assert data["file_size_bytes"] == 99999
 
     def test_update_not_found(self, client: TestClient):
-        resp = client.put(f"{BASE_URL}/{uuid.uuid4()}", json={"pdf_path": "/x.pdf"})
+        resp = client.patch(f"{BASE_URL}/{uuid.uuid4()}", json={"pdf_path": "/x.pdf"})
         assert resp.status_code == 404
 
 

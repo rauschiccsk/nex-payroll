@@ -212,6 +212,28 @@ class TestListContracts:
         assert data["total"] == 1
         assert data["items"][0]["employee_id"] == str(employee.id)
 
+    def test_list_filter_by_is_current(self, client, db_session, prerequisites):
+        tenant, _insurer, employee = prerequisites
+        _make_contract(db_session, tenant.id, employee.id, contract_number="PZ-001", is_current=True)
+        _make_contract(
+            db_session,
+            tenant.id,
+            employee.id,
+            contract_number="PZ-002",
+            is_current=False,
+            start_date=date(2022, 1, 1),
+        )
+
+        resp_current = client.get("/api/v1/contracts?is_current=true")
+        assert resp_current.status_code == 200
+        assert resp_current.json()["total"] == 1
+        assert resp_current.json()["items"][0]["contract_number"] == "PZ-001"
+
+        resp_old = client.get("/api/v1/contracts?is_current=false")
+        assert resp_old.status_code == 200
+        assert resp_old.json()["total"] == 1
+        assert resp_old.json()["items"][0]["contract_number"] == "PZ-002"
+
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/contracts/{contract_id} — detail

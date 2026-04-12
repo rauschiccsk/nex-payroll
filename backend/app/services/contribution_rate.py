@@ -15,12 +15,32 @@ from app.models.contribution_rate import ContributionRate
 from app.schemas.contribution_rate import ContributionRateCreate, ContributionRateUpdate
 
 
-def count_contribution_rates(db: Session) -> int:
-    """Return the total number of contribution rates.
+def _apply_filters(
+    stmt,
+    *,
+    rate_type: str | None = None,
+    payer: str | None = None,
+):
+    """Apply optional filters to a ContributionRate query."""
+    if rate_type is not None:
+        stmt = stmt.where(ContributionRate.rate_type == rate_type)
+    if payer is not None:
+        stmt = stmt.where(ContributionRate.payer == payer)
+    return stmt
+
+
+def count_contribution_rates(
+    db: Session,
+    *,
+    rate_type: str | None = None,
+    payer: str | None = None,
+) -> int:
+    """Return the total number of contribution rates (with optional filters).
 
     Useful for building ``PaginatedResponse`` in the router layer.
     """
     stmt = select(func.count()).select_from(ContributionRate)
+    stmt = _apply_filters(stmt, rate_type=rate_type, payer=payer)
     return db.execute(stmt).scalar_one()
 
 
@@ -29,18 +49,19 @@ def list_contribution_rates(
     *,
     skip: int = 0,
     limit: int = 100,
+    rate_type: str | None = None,
+    payer: str | None = None,
 ) -> list[ContributionRate]:
     """Return a paginated list of contribution rates.
 
     Ordered by ``rate_type`` then ``valid_from`` descending so the
     most-recent version of each rate comes first.
+    Supports optional filtering by ``rate_type`` and ``payer``.
     """
-    stmt = (
-        select(ContributionRate)
-        .order_by(ContributionRate.rate_type, ContributionRate.valid_from.desc())
-        .offset(skip)
-        .limit(limit)
-    )
+    stmt = select(ContributionRate)
+    stmt = _apply_filters(stmt, rate_type=rate_type, payer=payer)
+    stmt = stmt.order_by(ContributionRate.rate_type, ContributionRate.valid_from.desc())
+    stmt = stmt.offset(skip).limit(limit)
     return list(db.execute(stmt).scalars().all())
 
 

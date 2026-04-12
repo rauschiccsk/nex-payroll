@@ -13,7 +13,10 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.audit_log import AuditLog
+from app.models.employee import Employee
 from app.models.tenant import Tenant
+from app.models.user import User
 from app.schemas.tenant import TenantCreate, TenantUpdate
 
 
@@ -38,12 +41,14 @@ def _generate_schema_name(name: str, ico: str) -> str:
     return f"tenant_{slug}_{ico}"
 
 
-def count_tenants(db: Session) -> int:
-    """Return the total number of tenants.
+def count_tenants(db: Session, *, is_active: bool | None = None) -> int:
+    """Return the total number of tenants, optionally filtered by active status.
 
     Useful for building ``PaginatedResponse`` in the router layer.
     """
     stmt = select(func.count()).select_from(Tenant)
+    if is_active is not None:
+        stmt = stmt.where(Tenant.is_active == is_active)
     return db.execute(stmt).scalar_one()
 
 
@@ -52,9 +57,12 @@ def list_tenants(
     *,
     skip: int = 0,
     limit: int = 50,
+    is_active: bool | None = None,
 ) -> list[Tenant]:
-    """Return a paginated list of tenants ordered by name."""
+    """Return a paginated list of tenants ordered by name, optionally filtered."""
     stmt = select(Tenant).order_by(Tenant.name).offset(skip).limit(limit)
+    if is_active is not None:
+        stmt = stmt.where(Tenant.is_active == is_active)
     return list(db.execute(stmt).scalars().all())
 
 
@@ -128,11 +136,27 @@ def update_tenant(
 def delete_tenant(db: Session, tenant_id: UUID) -> bool:
     """Delete a tenant by primary key.
 
-    Returns ``True`` if the row was deleted, ``False`` if not found.
+    Returns ``True`` if the row was deleted.
+
+    Raises:
+        ValueError: If dependent records (users, employees, audit logs) exist.
     """
     tenant = db.get(Tenant, tenant_id)
     if tenant is None:
         return False
+
+    # Check FK dependencies before deletion
+    user_count = db.scalar(select(func.count()).select_from(User).where(User.tenant_id == tenant_id))
+    if user_count:
+        raise ValueError(f"Cannot delete tenant: {user_count} dependent user(s) exist")
+
+    employee_count = db.scalar(select(func.count()).select_from(Employee).where(Employee.tenant_id == tenant_id))
+    if employee_count:
+        raise ValueError(f"Cannot delete tenant: {employee_count} dependent employee(s) exist")
+
+    audit_count = db.scalar(select(func.count()).select_from(AuditLog).where(AuditLog.tenant_id == tenant_id))
+    if audit_count:
+        raise ValueError(f"Cannot delete tenant: {audit_count} dependent audit log(s) exist")
 
     db.delete(tenant)
     db.flush()

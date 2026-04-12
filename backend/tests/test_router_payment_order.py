@@ -4,7 +4,7 @@ Covers all CRUD endpoints:
   GET    /api/v1/payment-orders            (list, paginated)
   GET    /api/v1/payment-orders/{id}       (detail)
   POST   /api/v1/payment-orders            (create)
-  PUT    /api/v1/payment-orders/{id}       (update)
+  PATCH  /api/v1/payment-orders/{id}       (update)
   DELETE /api/v1/payment-orders/{id}       (delete)
 """
 
@@ -12,7 +12,7 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-BASE_URL = "/api/v1/payment-orders"
+BASE_URL = "/api/v1/payments"
 TENANT_URL = "/api/v1/tenants"
 
 
@@ -131,7 +131,7 @@ class TestListPaymentOrders:
 
     def test_invalid_payment_type_filter(self, client: TestClient):
         resp = client.get(BASE_URL, params={"payment_type": "invalid"})
-        assert resp.status_code == 400
+        assert resp.status_code == 422
 
 
 # -- GET DETAIL -------------------------------------------------------------
@@ -211,7 +211,7 @@ class TestUpdatePaymentOrder:
         payload = _order_payload(tenant["id"])
         created = client.post(BASE_URL, json=payload).json()
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{created['id']}",
             json={"status": "exported", "amount": "999.99"},
         )
@@ -223,7 +223,7 @@ class TestUpdatePaymentOrder:
         assert data["recipient_name"] == "Socialna poistovna"
 
     def test_update_not_found(self, client: TestClient):
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{uuid.uuid4()}",
             json={"status": "paid"},
         )

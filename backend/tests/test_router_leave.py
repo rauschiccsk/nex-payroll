@@ -142,6 +142,25 @@ class TestListLeaves:
         resp = client.get(BASE_URL, params={"status": "rejected"})
         assert resp.json()["total"] == 0
 
+    def test_filter_by_leave_type(self, client: TestClient):
+        tid, eid = _setup_tenant_and_employee(client)
+        client.post(BASE_URL, json=_leave_payload(tid, eid, leave_type="annual"))
+        client.post(
+            BASE_URL,
+            json=_leave_payload(
+                tid, eid, leave_type="sick_employer", start_date="2025-08-01", end_date="2025-08-05", business_days=3
+            ),
+        )
+
+        resp = client.get(BASE_URL, params={"leave_type": "annual"})
+        assert resp.json()["total"] == 1
+
+        resp = client.get(BASE_URL, params={"leave_type": "sick_employer"})
+        assert resp.json()["total"] == 1
+
+        resp = client.get(BASE_URL, params={"leave_type": "maternity"})
+        assert resp.json()["total"] == 0
+
 
 # ── GET DETAIL ─────────────────────────────────────────────────────────
 

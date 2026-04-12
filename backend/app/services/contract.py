@@ -16,21 +16,27 @@ from app.models.payroll import Payroll
 from app.schemas.contract import ContractCreate, ContractUpdate
 
 
+def _apply_filters(stmt, *, tenant_id, employee_id, is_current):
+    """Apply common list/count filters to a select statement."""
+    if tenant_id is not None:
+        stmt = stmt.where(Contract.tenant_id == tenant_id)
+    if employee_id is not None:
+        stmt = stmt.where(Contract.employee_id == employee_id)
+    if is_current is not None:
+        stmt = stmt.where(Contract.is_current == is_current)
+    return stmt
+
+
 def count_contracts(
     db: Session,
     *,
     tenant_id: UUID | None = None,
     employee_id: UUID | None = None,
+    is_current: bool | None = None,
 ) -> int:
-    """Return total number of contracts, optionally filtered by tenant/employee."""
+    """Return total number of contracts, optionally filtered."""
     stmt = select(func.count()).select_from(Contract)
-
-    if tenant_id is not None:
-        stmt = stmt.where(Contract.tenant_id == tenant_id)
-
-    if employee_id is not None:
-        stmt = stmt.where(Contract.employee_id == employee_id)
-
+    stmt = _apply_filters(stmt, tenant_id=tenant_id, employee_id=employee_id, is_current=is_current)
     result = db.execute(stmt).scalar_one()
     return int(result)
 
@@ -40,6 +46,7 @@ def list_contracts(
     *,
     tenant_id: UUID | None = None,
     employee_id: UUID | None = None,
+    is_current: bool | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> list[Contract]:
@@ -47,15 +54,10 @@ def list_contracts(
 
     When *tenant_id* is provided the result is scoped to that tenant.
     When *employee_id* is provided the result is further scoped to that employee.
+    When *is_current* is provided only current/non-current contracts are returned.
     """
     stmt = select(Contract).order_by(Contract.start_date.desc())
-
-    if tenant_id is not None:
-        stmt = stmt.where(Contract.tenant_id == tenant_id)
-
-    if employee_id is not None:
-        stmt = stmt.where(Contract.employee_id == employee_id)
-
+    stmt = _apply_filters(stmt, tenant_id=tenant_id, employee_id=employee_id, is_current=is_current)
     stmt = stmt.offset(skip).limit(limit)
     return list(db.execute(stmt).scalars().all())
 

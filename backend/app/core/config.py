@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     secret_key: str = "changeme-generate-a-real-secret-key"
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:9173"]
+    cors_origins: list[str] = [
+        "http://localhost:9173",
+        "http://localhost:5173",
+    ]
 
     # Application
     app_name: str = "NEX Payroll"

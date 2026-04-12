@@ -219,7 +219,7 @@ class TestUpdateLeaveEntitlement:
         payload = _create_entitlement_payload(tenant_id, employee_id)
         created = client.post(BASE_URL, json=payload).json()
 
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{created['id']}",
             json={"used_days": 5, "remaining_days": 20},
         )
@@ -231,7 +231,7 @@ class TestUpdateLeaveEntitlement:
         assert data["total_days"] == 25
 
     def test_update_not_found(self, client: TestClient):
-        resp = client.put(
+        resp = client.patch(
             f"{BASE_URL}/{uuid.uuid4()}",
             json={"used_days": 1},
         )

@@ -27,6 +27,7 @@ def list_leaves_endpoint(
     tenant_id: UUID | None = Query(None, description="Filter by tenant"),  # noqa: B008
     employee_id: UUID | None = Query(None, description="Filter by employee"),  # noqa: B008
     status: str | None = Query(None, description="Filter by status (pending, approved, rejected, cancelled)"),  # noqa: B008
+    leave_type: str | None = Query(None, description="Filter by leave type"),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Return a paginated list of leave records."""
@@ -35,6 +36,7 @@ def list_leaves_endpoint(
         tenant_id=tenant_id,
         employee_id=employee_id,
         status=status,
+        leave_type=leave_type,
         skip=skip,
         limit=limit,
     )
@@ -43,6 +45,7 @@ def list_leaves_endpoint(
         tenant_id=tenant_id,
         employee_id=employee_id,
         status=status,
+        leave_type=leave_type,
     )
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 

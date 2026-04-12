@@ -1,10 +1,11 @@
 """Pydantic v2 schemas for AuditLog entity.
 
-Used for internal create validation (AuditLogCreate) and response
-serialisation (AuditLogRead).
+Used for create validation (AuditLogCreate), partial update
+(AuditLogUpdate), and response serialisation (AuditLogRead).
 
-Audit log entries are immutable — no Update schema exists.
-AuditLogCreate is used internally by the system, not exposed via API.
+AuditLogUpdate intentionally restricts mutable fields to metadata only
+(old_values, new_values, ip_address).  Core identity fields (tenant_id,
+action, entity_type, entity_id) are immutable after creation.
 """
 
 from datetime import datetime
@@ -15,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuditLogCreate(BaseModel):
-    """Schema for creating a new audit log entry (internal use only)."""
+    """Schema for creating a new audit log entry."""
 
     tenant_id: UUID = Field(
         ...,
@@ -54,6 +55,18 @@ class AuditLogCreate(BaseModel):
         examples=["192.168.1.1"],
         description="Client IP address (IPv4 or IPv6)",
     )
+
+
+class AuditLogUpdate(BaseModel):
+    """Schema for partial update of an audit log entry.
+
+    Only metadata fields are mutable.  Core identity fields
+    (tenant_id, action, entity_type, entity_id) cannot be changed.
+    """
+
+    old_values: dict[str, Any] | None = None
+    new_values: dict[str, Any] | None = None
+    ip_address: str | None = Field(default=None, max_length=45)
 
 
 class AuditLogRead(BaseModel):

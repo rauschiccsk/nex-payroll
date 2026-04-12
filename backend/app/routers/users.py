@@ -24,6 +24,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Users"])
 
 
+# ---------------------------------------------------------------------------
+# Error-mapping helper (DRY — shared across create/update/delete)
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map *ValueError* message to the appropriate HTTP status code.
+
+    Pattern (per Router Generation Checklist):
+      "not found"                          → 404
+      "duplicate" / "conflict" / "already exists" → 409
+      "invalid" / "constraint" / "foreign key"    → 422
+      anything else                        → 409 (business-rule violation)
+    """
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("invalid", "constraint", "foreign key")):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET list — paginated
+# ---------------------------------------------------------------------------
+
+
 @router.get("", response_model=PaginatedResponse[UserRead])
 def list_users_endpoint(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -51,6 +81,11 @@ def list_users_endpoint(
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
+# ---------------------------------------------------------------------------
+# GET detail
+# ---------------------------------------------------------------------------
+
+
 @router.get("/{user_id}", response_model=UserRead)
 def get_user_endpoint(
     user_id: UUID,
@@ -63,6 +98,11 @@ def get_user_endpoint(
     return user
 
 
+# ---------------------------------------------------------------------------
+# POST — create
+# ---------------------------------------------------------------------------
+
+
 @router.post("", response_model=UserRead, status_code=201)
 def create_user_endpoint(
     payload: UserCreate,
@@ -72,15 +112,15 @@ def create_user_endpoint(
     try:
         user = user_service.create_user(db, payload)
     except ValueError as exc:
-        msg = str(exc).lower()
-        if "not found" in msg:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if "duplicate" in msg or "already exists" in msg or "conflict" in msg:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     db.commit()
     db.refresh(user)
     return user
+
+
+# ---------------------------------------------------------------------------
+# PATCH — partial update
+# ---------------------------------------------------------------------------
 
 
 @router.patch("/{user_id}", response_model=UserRead)
@@ -89,16 +129,11 @@ def update_user_endpoint(
     payload: UserUpdate,
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Update an existing user."""
+    """Update an existing user (partial)."""
     try:
         user = user_service.update_user(db, user_id, payload)
     except ValueError as exc:
-        msg = str(exc).lower()
-        if "not found" in msg:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        if "duplicate" in msg or "already exists" in msg or "conflict" in msg:
-            raise HTTPException(status_code=409, detail=str(exc)) from exc
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        _raise_for_value_error(exc)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     db.commit()
@@ -106,12 +141,17 @@ def update_user_endpoint(
     return user
 
 
+# ---------------------------------------------------------------------------
+# DELETE — soft-delete
+# ---------------------------------------------------------------------------
+
+
 @router.delete("/{user_id}", status_code=204)
 def delete_user_endpoint(
     user_id: UUID,
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Delete a user by ID."""
+    """Soft-delete a user by setting is_active=False."""
     deleted = user_service.delete_user(db, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="User not found")

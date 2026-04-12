@@ -15,12 +15,19 @@ from app.models.health_insurer import HealthInsurer
 from app.schemas.health_insurer import HealthInsurerCreate, HealthInsurerUpdate
 
 
-def count_health_insurers(db: Session) -> int:
+def count_health_insurers(
+    db: Session,
+    *,
+    is_active: bool | None = None,
+) -> int:
     """Return the total number of health insurers.
 
     Useful for building ``PaginatedResponse`` in the router layer.
+    Optionally filter by *is_active* status.
     """
     stmt = select(func.count()).select_from(HealthInsurer)
+    if is_active is not None:
+        stmt = stmt.where(HealthInsurer.is_active == is_active)
     return db.execute(stmt).scalar_one()
 
 
@@ -29,12 +36,17 @@ def list_health_insurers(
     *,
     skip: int = 0,
     limit: int = 100,
+    is_active: bool | None = None,
 ) -> list[HealthInsurer]:
     """Return a paginated list of health insurers.
 
     Ordered by ``code`` ascending (24, 25, 27 …).
+    Optionally filter by *is_active* status.
     """
-    stmt = select(HealthInsurer).order_by(HealthInsurer.code).offset(skip).limit(limit)
+    stmt = select(HealthInsurer).order_by(HealthInsurer.code)
+    if is_active is not None:
+        stmt = stmt.where(HealthInsurer.is_active == is_active)
+    stmt = stmt.offset(skip).limit(limit)
     return list(db.execute(stmt).scalars().all())
 
 

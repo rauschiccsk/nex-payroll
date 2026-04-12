@@ -33,6 +33,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
+    max_age=600,
 )
 
 app.include_router(
@@ -77,11 +79,11 @@ app.include_router(
 )
 app.include_router(
     payment_orders_router,
-    prefix="/api/v1/payment-orders",
+    prefix="/api/v1/payments",
 )
 app.include_router(
     pay_slips_router,
-    prefix="/api/v1/pay-slips",
+    prefix="/api/v1/payslips",
 )
 app.include_router(
     payroll_router,

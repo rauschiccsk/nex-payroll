@@ -8,6 +8,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -24,15 +25,41 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Tenants"])
 
 
+# ---------------------------------------------------------------------------
+# Error-mapping helper (DRY — shared across create/update/delete)
+# ---------------------------------------------------------------------------
+
+
+def _raise_for_value_error(exc: ValueError) -> None:
+    """Map *ValueError* message to the appropriate HTTP status code.
+
+    Pattern (per Router Generation Checklist):
+      "not found"                          → 404
+      "duplicate" / "conflict" / "already exists" → 409
+      "invalid" / "constraint" / "foreign key"    → 422
+      anything else                        → 409 (business-rule violation)
+    """
+    msg = str(exc).lower()
+    if "not found" in msg:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if any(kw in msg for kw in ("invalid", "constraint", "foreign key")):
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.get("", response_model=PaginatedResponse[TenantRead])
 def list_tenants_endpoint(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Max records to return"),
+    is_active: bool | None = Query(None, description="Filter by active status"),
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Return a paginated list of tenants."""
-    items = tenant_service.list_tenants(db, skip=skip, limit=limit)
-    total = tenant_service.count_tenants(db)
+    """Return a paginated list of tenants with optional filters."""
+    items = tenant_service.list_tenants(db, skip=skip, limit=limit, is_active=is_active)
+    total = tenant_service.count_tenants(db, is_active=is_active)
     return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -56,9 +83,15 @@ def create_tenant_endpoint(
     """Create a new tenant."""
     try:
         tenant = tenant_service.create_tenant(db, payload)
+        db.commit()
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    db.commit()
+        _raise_for_value_error(exc)
+    except (IntegrityError, ProgrammingError):
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail=f"Tenant with ico='{payload.ico}' already exists",
+        ) from None
     db.refresh(tenant)
     return tenant
 
@@ -69,15 +102,23 @@ def update_tenant_endpoint(
     payload: TenantUpdate,
     db: Session = Depends(get_db),  # noqa: B008
 ):
-    """Update an existing tenant."""
+    """Update an existing tenant (partial)."""
     try:
         tenant = tenant_service.update_tenant(db, tenant_id, payload)
+        if tenant is None:
+            raise HTTPException(status_code=404, detail="Tenant not found")
+        db.commit()
+        db.refresh(tenant)
+    except HTTPException:
+        raise
     except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    if tenant is None:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-    db.commit()
-    db.refresh(tenant)
+        _raise_for_value_error(exc)
+    except (IntegrityError, ProgrammingError):
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Tenant with duplicate ico already exists",
+        ) from None
     return tenant
 
 
@@ -87,7 +128,16 @@ def delete_tenant_endpoint(
     db: Session = Depends(get_db),  # noqa: B008
 ):
     """Delete a tenant by ID."""
-    deleted = tenant_service.delete_tenant(db, tenant_id)
+    try:
+        deleted = tenant_service.delete_tenant(db, tenant_id)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+    except (IntegrityError, ProgrammingError):
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete tenant: dependent records exist",
+        ) from None
     if not deleted:
         raise HTTPException(status_code=404, detail="Tenant not found")
     db.commit()

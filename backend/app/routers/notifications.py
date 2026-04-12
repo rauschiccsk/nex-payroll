@@ -65,15 +65,17 @@ def get_notification_endpoint(
     return notification
 
 
-def _raise_for_value_error(exc: ValueError) -> None:
-    """Map ValueError message text to the appropriate HTTP status code."""
+def _classify_value_error(exc: ValueError) -> int:
+    """Map ValueError message text to an HTTP status code per Router Generation Checklist."""
     msg = str(exc).lower()
     if "not found" in msg:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if any(kw in msg for kw in ("duplicate", "conflict", "already exists")):
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    # invalid, constraint, foreign key, or anything else → 422
-    raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return 404
+    if "duplicate" in msg or "conflict" in msg or "already exists" in msg:
+        return 409
+    if "invalid" in msg or "constraint" in msg or "foreign key" in msg:
+        return 422
+    # Fallback — treat as conflict (dependency / business-rule violation)
+    return 409
 
 
 @router.post("", response_model=NotificationRead, status_code=201)
@@ -85,7 +87,7 @@ def create_notification_endpoint(
     try:
         notification = notification_service.create_notification(db, payload)
     except ValueError as exc:
-        _raise_for_value_error(exc)
+        raise HTTPException(status_code=_classify_value_error(exc), detail=str(exc)) from exc
     db.commit()
     db.refresh(notification)
     return notification
@@ -101,7 +103,7 @@ def update_notification_endpoint(
     try:
         notification = notification_service.update_notification(db, notification_id, payload)
     except ValueError as exc:
-        _raise_for_value_error(exc)
+        raise HTTPException(status_code=_classify_value_error(exc), detail=str(exc)) from exc
     db.commit()
     db.refresh(notification)
     return notification
@@ -116,5 +118,5 @@ def delete_notification_endpoint(
     try:
         notification_service.delete_notification(db, notification_id)
     except ValueError as exc:
-        _raise_for_value_error(exc)
+        raise HTTPException(status_code=_classify_value_error(exc), detail=str(exc)) from exc
     db.commit()

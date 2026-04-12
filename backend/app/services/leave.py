@@ -23,6 +23,7 @@ def count_leaves(
     tenant_id: UUID | None = None,
     employee_id: UUID | None = None,
     status: str | None = None,
+    leave_type: str | None = None,
 ) -> int:
     """Return the total number of leaves matching the given filters.
 
@@ -39,6 +40,9 @@ def count_leaves(
     if status is not None:
         stmt = stmt.where(Leave.status == status)
 
+    if leave_type is not None:
+        stmt = stmt.where(Leave.leave_type == leave_type)
+
     return db.execute(stmt).scalar_one()
 
 
@@ -48,6 +52,7 @@ def list_leaves(
     tenant_id: UUID | None = None,
     employee_id: UUID | None = None,
     status: str | None = None,
+    leave_type: str | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> list[Leave]:
@@ -56,6 +61,7 @@ def list_leaves(
     When *tenant_id* is provided the result is scoped to that tenant.
     When *employee_id* is provided the result is further scoped to that employee.
     When *status* is provided the result is filtered to that status.
+    When *leave_type* is provided the result is filtered to that leave type.
     """
     stmt = select(Leave).order_by(Leave.start_date.desc())
 
@@ -67,6 +73,9 @@ def list_leaves(
 
     if status is not None:
         stmt = stmt.where(Leave.status == status)
+
+    if leave_type is not None:
+        stmt = stmt.where(Leave.leave_type == leave_type)
 
     stmt = stmt.offset(skip).limit(limit)
     return list(db.execute(stmt).scalars().all())

@@ -136,6 +136,33 @@ class TestCreateStatutoryDeadline:
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 422
 
+    def test_create_duplicate_code_conflict(self, client: TestClient):
+        payload = _create_deadline_payload(code="UNIQUE_DUP_TEST")
+        resp1 = client.post(BASE_URL, json=payload)
+        assert resp1.status_code == 201
+
+        payload2 = _create_deadline_payload(code="UNIQUE_DUP_TEST")
+        resp2 = client.post(BASE_URL, json=payload2)
+        assert resp2.status_code == 409
+        assert "already exists" in resp2.json()["detail"]
+
+    def test_create_valid_to_before_valid_from(self, client: TestClient):
+        payload = _create_deadline_payload(valid_from="2025-06-01", valid_to="2025-01-01")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
+    def test_create_monthly_missing_day_of_month(self, client: TestClient):
+        payload = _create_deadline_payload(deadline_type="monthly")
+        payload.pop("day_of_month", None)
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
+    def test_create_annual_missing_month_of_year(self, client: TestClient):
+        payload = _create_deadline_payload(deadline_type="annual")
+        payload.pop("month_of_year", None)
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # GET list — Paginated
@@ -316,6 +343,20 @@ class TestUpdateStatutoryDeadline:
             json={"deadline_type": "invalid"},
         )
         assert resp.status_code == 422
+
+    def test_update_duplicate_code_conflict(self, client: TestClient):
+        resp1 = client.post(BASE_URL, json=_create_deadline_payload(code="PATCH_A"))
+        resp2 = client.post(BASE_URL, json=_create_deadline_payload(code="PATCH_B"))
+        assert resp1.status_code == 201
+        assert resp2.status_code == 201
+        deadline_b_id = resp2.json()["id"]
+
+        resp = client.patch(
+            f"{BASE_URL}/{deadline_b_id}",
+            json={"code": "PATCH_A"},
+        )
+        assert resp.status_code == 409
+        assert "already exists" in resp.json()["detail"]
 
 
 # ---------------------------------------------------------------------------

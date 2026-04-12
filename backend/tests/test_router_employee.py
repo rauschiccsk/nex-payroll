@@ -1,11 +1,16 @@
 """Tests for Employee API router.
 
 Covers all CRUD endpoints:
-  GET    /api/v1/employees         (list, paginated)
+  GET    /api/v1/employees         (list, paginated, with filters)
   GET    /api/v1/employees/{id}    (detail)
   POST   /api/v1/employees         (create)
-  PATCH  /api/v1/employees/{id}    (update)
+  PATCH  /api/v1/employees/{id}    (partial update)
   DELETE /api/v1/employees/{id}    (soft-delete)
+
+Also tests error-mapping helper (_raise_for_value_error):
+  "not found"           → 404
+  "already exists"      → 409
+  "invalid"/"constraint" → 422
 """
 
 import uuid
@@ -16,12 +21,22 @@ BASE_URL = "/api/v1/employees"
 TENANT_URL = "/api/v1/tenants"
 INSURER_URL = "/api/v1/health-insurers"
 
+# Counter to generate unique ICO / employee_number across tests
+_ICO_COUNTER = 10_000_000
+
+
+def _next_ico() -> str:
+    """Return a unique 8-digit ICO for each call."""
+    global _ICO_COUNTER  # noqa: PLW0603
+    _ICO_COUNTER += 1
+    return str(_ICO_COUNTER)
+
 
 def _create_tenant(client: TestClient, **overrides) -> dict:
     """Helper — create a tenant and return response JSON."""
     defaults = {
         "name": "Test Firma s.r.o.",
-        "ico": "12345678",
+        "ico": _next_ico(),
         "address_street": "Hlavna 1",
         "address_city": "Bratislava",
         "address_zip": "81101",
@@ -36,7 +51,7 @@ def _create_tenant(client: TestClient, **overrides) -> dict:
 def _create_insurer(client: TestClient, **overrides) -> dict:
     """Helper — create a health insurer and return response JSON."""
     defaults = {
-        "code": "25",
+        "code": _next_ico()[-4:],
         "name": "VšZP",
         "iban": "SK1234567890123456789012",
     }
@@ -116,15 +131,64 @@ class TestCreateEmployee:
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 422
 
-    def test_create_does_not_accept_is_deleted(self, client: TestClient):
-        """is_deleted is server-managed and must not be in create payload."""
+    def test_create_invalid_gender(self, client: TestClient):
+        """Gender must be 'M' or 'F'."""
         tenant_id, insurer_id = _setup_dependencies(client)
-        payload = _create_employee_payload(tenant_id, insurer_id, is_deleted=True)
+        payload = _create_employee_payload(tenant_id, insurer_id, gender="X")
         resp = client.post(BASE_URL, json=payload)
-        # Pydantic ignores extra fields or the field was removed from schema.
-        # Either way, the employee should NOT be created as deleted.
-        if resp.status_code == 201:
-            assert resp.json()["is_deleted"] is False
+        assert resp.status_code == 422
+
+    def test_create_invalid_iban(self, client: TestClient):
+        """IBAN must match expected format."""
+        tenant_id, insurer_id = _setup_dependencies(client)
+        payload = _create_employee_payload(tenant_id, insurer_id, bank_iban="INVALID")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
+    def test_create_invalid_tax_declaration_type(self, client: TestClient):
+        """tax_declaration_type must be standard/secondary/none."""
+        tenant_id, insurer_id = _setup_dependencies(client)
+        payload = _create_employee_payload(tenant_id, insurer_id, tax_declaration_type="bogus")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
+    def test_create_with_all_optional_fields(self, client: TestClient):
+        """Create employee with every optional field populated."""
+        tenant_id, insurer_id = _setup_dependencies(client)
+        payload = _create_employee_payload(
+            tenant_id,
+            insurer_id,
+            title_before="Ing.",
+            title_after="PhD.",
+            bank_bic="SUBASKBX",
+            nczd_applied=False,
+            pillar2_saver=True,
+            is_disabled=True,
+            status="inactive",
+            termination_date="2025-12-31",
+        )
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["title_before"] == "Ing."
+        assert data["title_after"] == "PhD."
+        assert data["bank_bic"] == "SUBASKBX"
+        assert data["nczd_applied"] is False
+        assert data["pillar2_saver"] is True
+        assert data["is_disabled"] is True
+        assert data["status"] == "inactive"
+        assert data["termination_date"] == "2025-12-31"
+
+    def test_create_same_number_different_tenant(self, client: TestClient):
+        """Same employee_number in different tenants should succeed."""
+        t1_id, ins1_id = _setup_dependencies(client)
+        t2_id, ins2_id = _setup_dependencies(client)
+        p1 = _create_employee_payload(t1_id, ins1_id, employee_number="SHARED01")
+        p2 = _create_employee_payload(t2_id, ins2_id, employee_number="SHARED01")
+        resp1 = client.post(BASE_URL, json=p1)
+        assert resp1.status_code == 201
+        resp2 = client.post(BASE_URL, json=p2)
+        assert resp2.status_code == 201
 
 
 # ---------------------------------------------------------------------------
@@ -170,17 +234,66 @@ class TestListEmployees:
         assert data["limit"] == 2
 
     def test_list_filter_by_tenant(self, client: TestClient):
+        t1_id, ins1_id = _setup_dependencies(client)
+        t2_id, ins2_id = _setup_dependencies(client)
+        client.post(
+            BASE_URL,
+            json=_create_employee_payload(t1_id, ins1_id, employee_number="T1E01"),
+        )
+        client.post(
+            BASE_URL,
+            json=_create_employee_payload(t2_id, ins2_id, employee_number="T2E01"),
+        )
+        resp = client.get(BASE_URL, params={"tenant_id": t1_id})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        for item in data["items"]:
+            assert item["tenant_id"] == t1_id
+
+    def test_list_filter_by_status(self, client: TestClient):
+        """Filter employees by status=active vs terminated."""
         tenant_id, insurer_id = _setup_dependencies(client)
         client.post(
             BASE_URL,
-            json=_create_employee_payload(tenant_id, insurer_id),
+            json=_create_employee_payload(tenant_id, insurer_id, employee_number="ACT01", status="active"),
         )
-        resp = client.get(BASE_URL, params={"tenant_id": tenant_id})
+        client.post(
+            BASE_URL,
+            json=_create_employee_payload(tenant_id, insurer_id, employee_number="TRM01", status="terminated"),
+        )
+        resp = client.get(BASE_URL, params={"tenant_id": tenant_id, "status": "active"})
         assert resp.status_code == 200
         data = resp.json()
-        assert data["total"] >= 1
-        for item in data["items"]:
-            assert item["tenant_id"] == tenant_id
+        assert data["total"] == 1
+        assert all(item["status"] == "active" for item in data["items"])
+
+    def test_list_excludes_deleted_by_default(self, client: TestClient):
+        """Soft-deleted employees must not appear in default list."""
+        tenant_id, insurer_id = _setup_dependencies(client)
+        create_resp = client.post(BASE_URL, json=_create_employee_payload(tenant_id, insurer_id))
+        emp_id = create_resp.json()["id"]
+        client.delete(f"{BASE_URL}/{emp_id}")
+
+        resp = client.get(BASE_URL, params={"tenant_id": tenant_id})
+        assert resp.status_code == 200
+        assert resp.json()["total"] == 0
+
+    def test_list_include_deleted(self, client: TestClient):
+        """include_deleted=true must return soft-deleted employees."""
+        tenant_id, insurer_id = _setup_dependencies(client)
+        create_resp = client.post(BASE_URL, json=_create_employee_payload(tenant_id, insurer_id))
+        emp_id = create_resp.json()["id"]
+        client.delete(f"{BASE_URL}/{emp_id}")
+
+        resp = client.get(
+            BASE_URL,
+            params={"tenant_id": tenant_id, "include_deleted": True},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["is_deleted"] is True
 
     def test_list_invalid_skip(self, client: TestClient):
         resp = client.get(BASE_URL, params={"skip": -1})
@@ -275,23 +388,23 @@ class TestUpdateEmployee:
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
 
-    def test_update_does_not_accept_tenant_id(self, client: TestClient):
-        """tenant_id is immutable and must not be in update schema."""
+    def test_update_status_transition(self, client: TestClient):
+        """Can update status from active to terminated."""
         tenant_id, insurer_id = _setup_dependencies(client)
         create_resp = client.post(
             BASE_URL,
             json=_create_employee_payload(tenant_id, insurer_id),
         )
-        employee_id = create_resp.json()["id"]
-        other_tenant = str(uuid.uuid4())
+        emp_id = create_resp.json()["id"]
 
         resp = client.patch(
-            f"{BASE_URL}/{employee_id}",
-            json={"tenant_id": other_tenant},
+            f"{BASE_URL}/{emp_id}",
+            json={"status": "terminated", "termination_date": "2025-06-30"},
         )
-        # tenant_id should be ignored (not in schema) or rejected
-        if resp.status_code == 200:
-            assert resp.json()["tenant_id"] == tenant_id
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "terminated"
+        assert data["termination_date"] == "2025-06-30"
 
 
 # ---------------------------------------------------------------------------

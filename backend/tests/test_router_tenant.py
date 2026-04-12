@@ -1,10 +1,10 @@
 """Tests for Tenant API router.
 
 Covers all CRUD endpoints:
-  GET    /api/v1/tenants         (list, paginated)
+  GET    /api/v1/tenants         (list, paginated, with is_active filter)
   GET    /api/v1/tenants/{id}    (detail)
   POST   /api/v1/tenants         (create)
-  PUT    /api/v1/tenants/{id}    (update)
+  PATCH  /api/v1/tenants/{id}    (partial update)
   DELETE /api/v1/tenants/{id}    (delete)
 """
 
@@ -98,6 +98,41 @@ class TestCreateTenant:
         resp = client.post(BASE_URL, json=payload)
         assert resp.status_code == 422
 
+    def test_create_invalid_ico_format(self, client: TestClient):
+        """IČO must be exactly 8 digits."""
+        payload = _create_tenant_payload(ico="1234")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
+    def test_create_invalid_iban(self, client: TestClient):
+        """IBAN must match expected format."""
+        payload = _create_tenant_payload(bank_iban="INVALID")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
+    def test_create_schema_name_auto_generated(self, client: TestClient):
+        """schema_name should be auto-generated from name + ico."""
+        payload = _create_tenant_payload(name="Test Company", ico="99887766")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert "schema_name" in data
+        assert "99887766" in data["schema_name"]
+        assert data["schema_name"].startswith("tenant_")
+
+    def test_create_with_director_role(self, client: TestClient):
+        """Allow creating tenant with director default_role."""
+        payload = _create_tenant_payload(ico="55667788", default_role="director")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 201
+        assert resp.json()["default_role"] == "director"
+
+    def test_create_invalid_default_role(self, client: TestClient):
+        """Only director/accountant/employee are valid roles."""
+        payload = _create_tenant_payload(default_role="superadmin")
+        resp = client.post(BASE_URL, json=payload)
+        assert resp.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # GET list — Paginated
@@ -167,6 +202,38 @@ class TestListTenants:
         resp = client.get(BASE_URL, params={"limit": 101})
         assert resp.status_code == 422
 
+    def test_list_filter_is_active_true(self, client: TestClient):
+        """Filter tenants by is_active=true."""
+        client.post(BASE_URL, json=_create_tenant_payload(ico="30000001", is_active=True))
+        client.post(BASE_URL, json=_create_tenant_payload(ico="30000002", is_active=False))
+
+        resp = client.get(BASE_URL, params={"is_active": True})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert all(item["is_active"] is True for item in data["items"])
+
+    def test_list_filter_is_active_false(self, client: TestClient):
+        """Filter tenants by is_active=false."""
+        client.post(BASE_URL, json=_create_tenant_payload(ico="40000001", is_active=True))
+        client.post(BASE_URL, json=_create_tenant_payload(ico="40000002", is_active=False))
+
+        resp = client.get(BASE_URL, params={"is_active": False})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert all(item["is_active"] is False for item in data["items"])
+
+    def test_list_no_filter_returns_all(self, client: TestClient):
+        """Without is_active filter, return all tenants."""
+        client.post(BASE_URL, json=_create_tenant_payload(ico="50000001", is_active=True))
+        client.post(BASE_URL, json=_create_tenant_payload(ico="50000002", is_active=False))
+
+        resp = client.get(BASE_URL)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+
 
 # ---------------------------------------------------------------------------
 # GET detail
@@ -196,10 +263,10 @@ class TestGetTenant:
 
 
 # ---------------------------------------------------------------------------
-# PUT — Update
+# PATCH — Partial Update
 # ---------------------------------------------------------------------------
 class TestUpdateTenant:
-    """PUT /api/v1/tenants/{tenant_id}"""
+    """PATCH /api/v1/tenants/{tenant_id}"""
 
     def test_update_single_field(self, client: TestClient):
         create_resp = client.post(BASE_URL, json=_create_tenant_payload())
@@ -245,6 +312,23 @@ class TestUpdateTenant:
         assert resp.status_code == 409
         assert "already exists" in resp.json()["detail"]
 
+    def test_update_empty_body(self, client: TestClient):
+        """PATCH with empty body should return current state unchanged."""
+        create_resp = client.post(BASE_URL, json=_create_tenant_payload())
+        tenant_id = create_resp.json()["id"]
+
+        resp = client.patch(f"{BASE_URL}/{tenant_id}", json={})
+        assert resp.status_code == 200
+        assert resp.json()["ico"] == "12345678"
+
+    def test_update_invalid_ico_format(self, client: TestClient):
+        """PATCH with invalid IČO format should return 422."""
+        create_resp = client.post(BASE_URL, json=_create_tenant_payload())
+        tenant_id = create_resp.json()["id"]
+
+        resp = client.patch(f"{BASE_URL}/{tenant_id}", json={"ico": "ABC"})
+        assert resp.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # DELETE
@@ -271,3 +355,39 @@ class TestDeleteTenant:
     def test_delete_invalid_uuid(self, client: TestClient):
         resp = client.delete(f"{BASE_URL}/not-a-uuid")
         assert resp.status_code == 422
+
+    def test_delete_with_dependent_user(self, client: TestClient, db_session):
+        """DELETE should return 409 when tenant has dependent users."""
+        from app.models.user import User
+
+        # Create a tenant via API
+        create_resp = client.post(BASE_URL, json=_create_tenant_payload())
+        assert create_resp.status_code == 201
+        tenant_id = create_resp.json()["id"]
+
+        # Insert a dependent user directly via session
+        user = User(
+            tenant_id=tenant_id,
+            username="testuser",
+            email="test@example.com",
+            password_hash="fakehash",
+            role="accountant",
+        )
+        db_session.add(user)
+        db_session.flush()
+
+        # Attempt to delete tenant should fail with 409
+        resp = client.delete(f"{BASE_URL}/{tenant_id}")
+        assert resp.status_code == 409
+        assert "dependent" in resp.json()["detail"].lower()
+
+    def test_delete_idempotent(self, client: TestClient):
+        """Deleting same tenant twice should return 404 the second time."""
+        create_resp = client.post(BASE_URL, json=_create_tenant_payload())
+        tenant_id = create_resp.json()["id"]
+
+        resp1 = client.delete(f"{BASE_URL}/{tenant_id}")
+        assert resp1.status_code == 204
+
+        resp2 = client.delete(f"{BASE_URL}/{tenant_id}")
+        assert resp2.status_code == 404
