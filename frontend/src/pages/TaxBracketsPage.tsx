@@ -41,12 +41,12 @@ const EMPTY_FORM: FormState = {
 function toCreatePayload(form: FormState): TaxBracketCreate {
   return {
     bracket_order: Number(form.bracket_order),
-    min_amount: Number(form.min_amount),
-    max_amount: form.max_amount ? Number(form.max_amount) : null,
-    rate_percent: Number(form.rate_percent),
-    nczd_annual: Number(form.nczd_annual),
-    nczd_monthly: Number(form.nczd_monthly),
-    nczd_reduction_threshold: Number(form.nczd_reduction_threshold),
+    min_amount: form.min_amount,
+    max_amount: form.max_amount || null,
+    rate_percent: form.rate_percent,
+    nczd_annual: form.nczd_annual,
+    nczd_monthly: form.nczd_monthly,
+    nczd_reduction_threshold: form.nczd_reduction_threshold,
     nczd_reduction_formula: form.nczd_reduction_formula,
     valid_from: form.valid_from,
     valid_to: form.valid_to || null,
@@ -56,12 +56,12 @@ function toCreatePayload(form: FormState): TaxBracketCreate {
 function toUpdatePayload(form: FormState): TaxBracketUpdate {
   return {
     bracket_order: Number(form.bracket_order),
-    min_amount: Number(form.min_amount),
-    max_amount: form.max_amount ? Number(form.max_amount) : null,
-    rate_percent: Number(form.rate_percent),
-    nczd_annual: Number(form.nczd_annual),
-    nczd_monthly: Number(form.nczd_monthly),
-    nczd_reduction_threshold: Number(form.nczd_reduction_threshold),
+    min_amount: form.min_amount,
+    max_amount: form.max_amount || null,
+    rate_percent: form.rate_percent,
+    nczd_annual: form.nczd_annual,
+    nczd_monthly: form.nczd_monthly,
+    nczd_reduction_threshold: form.nczd_reduction_threshold,
     nczd_reduction_formula: form.nczd_reduction_formula,
     valid_from: form.valid_from,
     valid_to: form.valid_to || null,
@@ -88,13 +88,17 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('sk-SK')
 }
 
-function formatCurrency(val: number | null): string {
+function formatCurrency(val: string | null): string {
   if (val == null) return '\u2014'
-  return val.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20AC'
+  const num = parseFloat(val)
+  if (isNaN(num)) return val
+  return num.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' \u20AC'
 }
 
-function formatPercent(val: number): string {
-  return val.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %'
+function formatPercent(val: string): string {
+  const num = parseFloat(val)
+  if (isNaN(num)) return val + ' %'
+  return num.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' %'
 }
 
 // -- Component ---------------------------------------------------------------

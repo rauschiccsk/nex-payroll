@@ -21,7 +21,7 @@ export interface PaymentOrderCreate {
   recipient_name: string;
   recipient_iban: string;
   recipient_bic?: string | null;
-  amount: number;
+  amount: string;
   variable_symbol?: string | null;
   specific_symbol?: string | null;
   constant_symbol?: string | null;
@@ -35,7 +35,7 @@ export interface PaymentOrderUpdate {
   recipient_name?: string | null;
   recipient_iban?: string | null;
   recipient_bic?: string | null;
-  amount?: number | null;
+  amount?: string | null;
   variable_symbol?: string | null;
   specific_symbol?: string | null;
   constant_symbol?: string | null;
@@ -54,7 +54,7 @@ export interface PaymentOrderRead {
   recipient_name: string;
   recipient_iban: string;
   recipient_bic: string | null;
-  amount: number;
+  amount: string;
   variable_symbol: string | null;
   specific_symbol: string | null;
   constant_symbol: string | null;

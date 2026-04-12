@@ -86,7 +86,7 @@ function toCreatePayload(form: FormState): PaymentOrderCreate {
     recipient_name: form.recipient_name,
     recipient_iban: form.recipient_iban,
     recipient_bic: form.recipient_bic || null,
-    amount: Number(form.amount),
+    amount: form.amount,
     variable_symbol: form.variable_symbol || null,
     specific_symbol: form.specific_symbol || null,
     constant_symbol: form.constant_symbol || null,
@@ -105,7 +105,7 @@ function toUpdatePayload(form: FormState, original: PaymentOrderRead): PaymentOr
     payload.recipient_iban = form.recipient_iban || null
   const origBic = original.recipient_bic ?? ''
   if (form.recipient_bic !== origBic) payload.recipient_bic = form.recipient_bic || null
-  if (Number(form.amount) !== original.amount) payload.amount = Number(form.amount)
+  if (form.amount !== original.amount) payload.amount = form.amount
   const origVs = original.variable_symbol ?? ''
   if (form.variable_symbol !== origVs) payload.variable_symbol = form.variable_symbol || null
   const origSs = original.specific_symbol ?? ''
@@ -152,8 +152,10 @@ function formatPeriod(year: number, month: number): string {
   return `${String(month).padStart(2, '0')}/${year}`
 }
 
-function formatAmount(amount: number): string {
-  return amount.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function formatAmount(amount: string): string {
+  const num = parseFloat(amount)
+  if (isNaN(num)) return '0,00'
+  return num.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 // -- Component ---------------------------------------------------------------

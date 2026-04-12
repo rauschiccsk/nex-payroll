@@ -1,8 +1,6 @@
-// @vitest-environment jsdom
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import '@testing-library/jest-dom/vitest'
 import { MemoryRouter } from 'react-router'
 import Sidebar from '@/components/layout/Sidebar'
 

@@ -1,4 +1,4 @@
-import api from './api'
+import api, { downloadFile } from './api'
 import type { PaginatedResponse, PaginationParams } from '@/types/common'
 import type { PaySlipCreate, PaySlipRead, PaySlipUpdate } from '@/types/pay-slip'
 
@@ -34,4 +34,9 @@ export async function updatePaySlip(id: string, data: PaySlipUpdate): Promise<Pa
 
 export async function deletePaySlip(id: string): Promise<void> {
   await api.delete(`${BASE}/${id}`)
+}
+
+/** Download pay slip PDF */
+export async function downloadPaySlip(id: string, filename?: string): Promise<void> {
+  await downloadFile(`${BASE}/${id}/download`, filename ?? `payslip-${id}.pdf`)
 }

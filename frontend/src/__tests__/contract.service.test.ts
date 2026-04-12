@@ -30,8 +30,8 @@ const SAMPLE_CONTRACT = {
   contract_type: 'permanent' as const,
   job_title: 'Developer',
   wage_type: 'monthly' as const,
-  base_wage: 2500.0,
-  hours_per_week: 40.0,
+  base_wage: '2500.00',
+  hours_per_week: '40.0',
   start_date: '2025-01-01',
   end_date: null,
   probation_end_date: null,
@@ -106,7 +106,7 @@ describe('contract.service', () => {
         contract_type: 'fixed_term',
         job_title: 'Tester',
         wage_type: 'hourly',
-        base_wage: 15.0,
+        base_wage: '15.00',
         start_date: '2025-06-01',
       }
       mockedApi.post.mockResolvedValue({ data: { ...SAMPLE_CONTRACT, ...payload } })
@@ -122,7 +122,7 @@ describe('contract.service', () => {
     it('calls PATCH /api/v1/contracts/:id (not PUT)', async () => {
       const payload: ContractUpdate = {
         job_title: 'Senior Developer',
-        base_wage: 3000.0,
+        base_wage: '3000.00',
       }
       mockedApi.patch.mockResolvedValue({
         data: { ...SAMPLE_CONTRACT, ...payload },

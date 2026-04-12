@@ -77,8 +77,8 @@ function toCreatePayload(form: FormState): ContractCreate {
     contract_type: form.contract_type,
     job_title: form.job_title,
     wage_type: form.wage_type,
-    base_wage: parseFloat(form.base_wage),
-    hours_per_week: form.hours_per_week ? parseFloat(form.hours_per_week) : undefined,
+    base_wage: form.base_wage,
+    hours_per_week: form.hours_per_week || undefined,
     start_date: form.start_date,
     end_date: form.end_date || null,
     probation_end_date: form.probation_end_date || null,
@@ -94,8 +94,8 @@ function toUpdatePayload(form: FormState): ContractUpdate {
     contract_type: form.contract_type,
     job_title: form.job_title,
     wage_type: form.wage_type,
-    base_wage: parseFloat(form.base_wage),
-    hours_per_week: form.hours_per_week ? parseFloat(form.hours_per_week) : null,
+    base_wage: form.base_wage,
+    hours_per_week: form.hours_per_week || null,
     start_date: form.start_date,
     end_date: form.end_date || null,
     probation_end_date: form.probation_end_date || null,
@@ -129,8 +129,9 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('sk-SK')
 }
 
-function formatWage(amount: number, wageType: WageType): string {
-  const formatted = amount.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function formatWage(amount: string, wageType: WageType): string {
+  const num = parseFloat(amount)
+  const formatted = isNaN(num) ? amount : num.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return `${formatted} \u20AC${wageType === 'hourly' ? '/hod' : '/mes'}`
 }
 

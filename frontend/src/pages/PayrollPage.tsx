@@ -143,107 +143,97 @@ function toCreatePayload(form: FormState): PayrollCreate {
     period_year: toNum(form.period_year),
     period_month: toNum(form.period_month),
     status: form.status,
-    base_wage: toNum(form.base_wage),
-    overtime_hours: toNum(form.overtime_hours),
-    overtime_amount: toNum(form.overtime_amount),
-    bonus_amount: toNum(form.bonus_amount),
-    supplement_amount: toNum(form.supplement_amount),
-    gross_wage: toNum(form.gross_wage),
-    sp_assessment_base: toNum(form.sp_assessment_base),
-    sp_nemocenske: toNum(form.sp_nemocenske),
-    sp_starobne: toNum(form.sp_starobne),
-    sp_invalidne: toNum(form.sp_invalidne),
-    sp_nezamestnanost: toNum(form.sp_nezamestnanost),
-    sp_employee_total: toNum(form.sp_employee_total),
-    zp_assessment_base: toNum(form.zp_assessment_base),
-    zp_employee: toNum(form.zp_employee),
-    partial_tax_base: toNum(form.partial_tax_base),
-    nczd_applied: toNum(form.nczd_applied),
-    tax_base: toNum(form.tax_base),
-    tax_advance: toNum(form.tax_advance),
-    child_bonus: toNum(form.child_bonus),
-    tax_after_bonus: toNum(form.tax_after_bonus),
-    net_wage: toNum(form.net_wage),
-    sp_employer_nemocenske: toNum(form.sp_employer_nemocenske),
-    sp_employer_starobne: toNum(form.sp_employer_starobne),
-    sp_employer_invalidne: toNum(form.sp_employer_invalidne),
-    sp_employer_nezamestnanost: toNum(form.sp_employer_nezamestnanost),
-    sp_employer_garancne: toNum(form.sp_employer_garancne),
-    sp_employer_rezervny: toNum(form.sp_employer_rezervny),
-    sp_employer_kurzarbeit: toNum(form.sp_employer_kurzarbeit),
-    sp_employer_urazove: toNum(form.sp_employer_urazove),
-    sp_employer_total: toNum(form.sp_employer_total),
-    zp_employer: toNum(form.zp_employer),
-    total_employer_cost: toNum(form.total_employer_cost),
-    pillar2_amount: toNum(form.pillar2_amount),
+    base_wage: form.base_wage,
+    overtime_hours: form.overtime_hours,
+    overtime_amount: form.overtime_amount,
+    bonus_amount: form.bonus_amount,
+    supplement_amount: form.supplement_amount,
+    gross_wage: form.gross_wage,
+    sp_assessment_base: form.sp_assessment_base,
+    sp_nemocenske: form.sp_nemocenske,
+    sp_starobne: form.sp_starobne,
+    sp_invalidne: form.sp_invalidne,
+    sp_nezamestnanost: form.sp_nezamestnanost,
+    sp_employee_total: form.sp_employee_total,
+    zp_assessment_base: form.zp_assessment_base,
+    zp_employee: form.zp_employee,
+    partial_tax_base: form.partial_tax_base,
+    nczd_applied: form.nczd_applied,
+    tax_base: form.tax_base,
+    tax_advance: form.tax_advance,
+    child_bonus: form.child_bonus,
+    tax_after_bonus: form.tax_after_bonus,
+    net_wage: form.net_wage,
+    sp_employer_nemocenske: form.sp_employer_nemocenske,
+    sp_employer_starobne: form.sp_employer_starobne,
+    sp_employer_invalidne: form.sp_employer_invalidne,
+    sp_employer_nezamestnanost: form.sp_employer_nezamestnanost,
+    sp_employer_garancne: form.sp_employer_garancne,
+    sp_employer_rezervny: form.sp_employer_rezervny,
+    sp_employer_kurzarbeit: form.sp_employer_kurzarbeit,
+    sp_employer_urazove: form.sp_employer_urazove,
+    sp_employer_total: form.sp_employer_total,
+    zp_employer: form.zp_employer,
+    total_employer_cost: form.total_employer_cost,
+    pillar2_amount: form.pillar2_amount,
   }
 }
 
 function toUpdatePayload(form: FormState, original: PayrollRead): PayrollUpdate {
   const payload: PayrollUpdate = {}
   if (form.status !== original.status) payload.status = form.status
-  if (toNum(form.base_wage) !== original.base_wage) payload.base_wage = toNum(form.base_wage)
-  if (toNum(form.overtime_hours) !== original.overtime_hours)
-    payload.overtime_hours = toNum(form.overtime_hours)
-  if (toNum(form.overtime_amount) !== original.overtime_amount)
-    payload.overtime_amount = toNum(form.overtime_amount)
-  if (toNum(form.bonus_amount) !== original.bonus_amount)
-    payload.bonus_amount = toNum(form.bonus_amount)
-  if (toNum(form.supplement_amount) !== original.supplement_amount)
-    payload.supplement_amount = toNum(form.supplement_amount)
-  if (toNum(form.gross_wage) !== original.gross_wage) payload.gross_wage = toNum(form.gross_wage)
-  if (toNum(form.sp_assessment_base) !== original.sp_assessment_base)
-    payload.sp_assessment_base = toNum(form.sp_assessment_base)
-  if (toNum(form.sp_nemocenske) !== original.sp_nemocenske)
-    payload.sp_nemocenske = toNum(form.sp_nemocenske)
-  if (toNum(form.sp_starobne) !== original.sp_starobne)
-    payload.sp_starobne = toNum(form.sp_starobne)
-  if (toNum(form.sp_invalidne) !== original.sp_invalidne)
-    payload.sp_invalidne = toNum(form.sp_invalidne)
-  if (toNum(form.sp_nezamestnanost) !== original.sp_nezamestnanost)
-    payload.sp_nezamestnanost = toNum(form.sp_nezamestnanost)
-  if (toNum(form.sp_employee_total) !== original.sp_employee_total)
-    payload.sp_employee_total = toNum(form.sp_employee_total)
-  if (toNum(form.zp_assessment_base) !== original.zp_assessment_base)
-    payload.zp_assessment_base = toNum(form.zp_assessment_base)
-  if (toNum(form.zp_employee) !== original.zp_employee)
-    payload.zp_employee = toNum(form.zp_employee)
-  if (toNum(form.partial_tax_base) !== original.partial_tax_base)
-    payload.partial_tax_base = toNum(form.partial_tax_base)
-  if (toNum(form.nczd_applied) !== original.nczd_applied)
-    payload.nczd_applied = toNum(form.nczd_applied)
-  if (toNum(form.tax_base) !== original.tax_base) payload.tax_base = toNum(form.tax_base)
-  if (toNum(form.tax_advance) !== original.tax_advance)
-    payload.tax_advance = toNum(form.tax_advance)
-  if (toNum(form.child_bonus) !== original.child_bonus)
-    payload.child_bonus = toNum(form.child_bonus)
-  if (toNum(form.tax_after_bonus) !== original.tax_after_bonus)
-    payload.tax_after_bonus = toNum(form.tax_after_bonus)
-  if (toNum(form.net_wage) !== original.net_wage) payload.net_wage = toNum(form.net_wage)
-  if (toNum(form.sp_employer_nemocenske) !== original.sp_employer_nemocenske)
-    payload.sp_employer_nemocenske = toNum(form.sp_employer_nemocenske)
-  if (toNum(form.sp_employer_starobne) !== original.sp_employer_starobne)
-    payload.sp_employer_starobne = toNum(form.sp_employer_starobne)
-  if (toNum(form.sp_employer_invalidne) !== original.sp_employer_invalidne)
-    payload.sp_employer_invalidne = toNum(form.sp_employer_invalidne)
-  if (toNum(form.sp_employer_nezamestnanost) !== original.sp_employer_nezamestnanost)
-    payload.sp_employer_nezamestnanost = toNum(form.sp_employer_nezamestnanost)
-  if (toNum(form.sp_employer_garancne) !== original.sp_employer_garancne)
-    payload.sp_employer_garancne = toNum(form.sp_employer_garancne)
-  if (toNum(form.sp_employer_rezervny) !== original.sp_employer_rezervny)
-    payload.sp_employer_rezervny = toNum(form.sp_employer_rezervny)
-  if (toNum(form.sp_employer_kurzarbeit) !== original.sp_employer_kurzarbeit)
-    payload.sp_employer_kurzarbeit = toNum(form.sp_employer_kurzarbeit)
-  if (toNum(form.sp_employer_urazove) !== original.sp_employer_urazove)
-    payload.sp_employer_urazove = toNum(form.sp_employer_urazove)
-  if (toNum(form.sp_employer_total) !== original.sp_employer_total)
-    payload.sp_employer_total = toNum(form.sp_employer_total)
-  if (toNum(form.zp_employer) !== original.zp_employer)
-    payload.zp_employer = toNum(form.zp_employer)
-  if (toNum(form.total_employer_cost) !== original.total_employer_cost)
-    payload.total_employer_cost = toNum(form.total_employer_cost)
-  if (toNum(form.pillar2_amount) !== original.pillar2_amount)
-    payload.pillar2_amount = toNum(form.pillar2_amount)
+  if (form.base_wage !== original.base_wage) payload.base_wage = form.base_wage
+  if (form.overtime_hours !== original.overtime_hours) payload.overtime_hours = form.overtime_hours
+  if (form.overtime_amount !== original.overtime_amount)
+    payload.overtime_amount = form.overtime_amount
+  if (form.bonus_amount !== original.bonus_amount) payload.bonus_amount = form.bonus_amount
+  if (form.supplement_amount !== original.supplement_amount)
+    payload.supplement_amount = form.supplement_amount
+  if (form.gross_wage !== original.gross_wage) payload.gross_wage = form.gross_wage
+  if (form.sp_assessment_base !== original.sp_assessment_base)
+    payload.sp_assessment_base = form.sp_assessment_base
+  if (form.sp_nemocenske !== original.sp_nemocenske) payload.sp_nemocenske = form.sp_nemocenske
+  if (form.sp_starobne !== original.sp_starobne) payload.sp_starobne = form.sp_starobne
+  if (form.sp_invalidne !== original.sp_invalidne) payload.sp_invalidne = form.sp_invalidne
+  if (form.sp_nezamestnanost !== original.sp_nezamestnanost)
+    payload.sp_nezamestnanost = form.sp_nezamestnanost
+  if (form.sp_employee_total !== original.sp_employee_total)
+    payload.sp_employee_total = form.sp_employee_total
+  if (form.zp_assessment_base !== original.zp_assessment_base)
+    payload.zp_assessment_base = form.zp_assessment_base
+  if (form.zp_employee !== original.zp_employee) payload.zp_employee = form.zp_employee
+  if (form.partial_tax_base !== original.partial_tax_base)
+    payload.partial_tax_base = form.partial_tax_base
+  if (form.nczd_applied !== original.nczd_applied) payload.nczd_applied = form.nczd_applied
+  if (form.tax_base !== original.tax_base) payload.tax_base = form.tax_base
+  if (form.tax_advance !== original.tax_advance) payload.tax_advance = form.tax_advance
+  if (form.child_bonus !== original.child_bonus) payload.child_bonus = form.child_bonus
+  if (form.tax_after_bonus !== original.tax_after_bonus)
+    payload.tax_after_bonus = form.tax_after_bonus
+  if (form.net_wage !== original.net_wage) payload.net_wage = form.net_wage
+  if (form.sp_employer_nemocenske !== original.sp_employer_nemocenske)
+    payload.sp_employer_nemocenske = form.sp_employer_nemocenske
+  if (form.sp_employer_starobne !== original.sp_employer_starobne)
+    payload.sp_employer_starobne = form.sp_employer_starobne
+  if (form.sp_employer_invalidne !== original.sp_employer_invalidne)
+    payload.sp_employer_invalidne = form.sp_employer_invalidne
+  if (form.sp_employer_nezamestnanost !== original.sp_employer_nezamestnanost)
+    payload.sp_employer_nezamestnanost = form.sp_employer_nezamestnanost
+  if (form.sp_employer_garancne !== original.sp_employer_garancne)
+    payload.sp_employer_garancne = form.sp_employer_garancne
+  if (form.sp_employer_rezervny !== original.sp_employer_rezervny)
+    payload.sp_employer_rezervny = form.sp_employer_rezervny
+  if (form.sp_employer_kurzarbeit !== original.sp_employer_kurzarbeit)
+    payload.sp_employer_kurzarbeit = form.sp_employer_kurzarbeit
+  if (form.sp_employer_urazove !== original.sp_employer_urazove)
+    payload.sp_employer_urazove = form.sp_employer_urazove
+  if (form.sp_employer_total !== original.sp_employer_total)
+    payload.sp_employer_total = form.sp_employer_total
+  if (form.zp_employer !== original.zp_employer) payload.zp_employer = form.zp_employer
+  if (form.total_employer_cost !== original.total_employer_cost)
+    payload.total_employer_cost = form.total_employer_cost
+  if (form.pillar2_amount !== original.pillar2_amount)
+    payload.pillar2_amount = form.pillar2_amount
   return payload
 }
 
@@ -300,8 +290,9 @@ function formatPeriod(year: number, month: number): string {
   return `${String(month).padStart(2, '0')}/${year}`
 }
 
-function formatAmount(amount: number): string {
-  return amount.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function formatAmount(amount: string): string {
+  const n = parseFloat(amount) || 0
+  return n.toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 // -- Number input helper -----------------------------------------------------

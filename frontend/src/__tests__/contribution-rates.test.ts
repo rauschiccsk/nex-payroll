@@ -26,8 +26,8 @@ import type {
 const MOCK_RATE: ContributionRateRead = {
   id: '11111111-1111-1111-1111-111111111111',
   rate_type: 'sp_employee_nemocenske',
-  rate_percent: 1.4,
-  max_assessment_base: 8477.0,
+  rate_percent: '1.40',
+  max_assessment_base: '8477.00',
   payer: 'employee',
   fund: 'sick_insurance',
   valid_from: '2025-01-01',
@@ -68,8 +68,8 @@ describe('contribution-rate.service', () => {
   it('createContributionRate calls POST', async () => {
     const payload: ContributionRateCreate = {
       rate_type: 'sp_employee_starobne',
-      rate_percent: 4.0,
-      max_assessment_base: 8477.0,
+      rate_percent: '4.00',
+      max_assessment_base: '8477.00',
       payer: 'employee',
       fund: 'pension_insurance',
       valid_from: '2025-01-01',
@@ -86,9 +86,9 @@ describe('contribution-rate.service', () => {
   })
 
   it('updateContributionRate calls PATCH (not PUT)', async () => {
-    const update = { rate_percent: 1.5 }
+    const update = { rate_percent: '1.50' }
     vi.mocked(api.patch).mockResolvedValue({
-      data: { ...MOCK_RATE, rate_percent: 1.5 },
+      data: { ...MOCK_RATE, rate_percent: '1.50' },
     })
 
     const result = await updateContributionRate(MOCK_RATE.id, update)
@@ -97,7 +97,7 @@ describe('contribution-rate.service', () => {
       `/api/v1/contribution-rates/${MOCK_RATE.id}`,
       update,
     )
-    expect(result.rate_percent).toBe(1.5)
+    expect(result.rate_percent).toBe('1.50')
     // Verify PUT is NOT used
     expect(api.get).not.toHaveBeenCalled()
   })

@@ -4,12 +4,12 @@
 
 export interface TaxBracketCreate {
   bracket_order: number;
-  min_amount: number;
-  max_amount?: number | null;
-  rate_percent: number;
-  nczd_annual: number;
-  nczd_monthly: number;
-  nczd_reduction_threshold: number;
+  min_amount: string;
+  max_amount?: string | null;
+  rate_percent: string;
+  nczd_annual: string;
+  nczd_monthly: string;
+  nczd_reduction_threshold: string;
   nczd_reduction_formula: string;
   valid_from: string;
   valid_to?: string | null;
@@ -17,12 +17,12 @@ export interface TaxBracketCreate {
 
 export interface TaxBracketUpdate {
   bracket_order?: number | null;
-  min_amount?: number | null;
-  max_amount?: number | null;
-  rate_percent?: number | null;
-  nczd_annual?: number | null;
-  nczd_monthly?: number | null;
-  nczd_reduction_threshold?: number | null;
+  min_amount?: string | null;
+  max_amount?: string | null;
+  rate_percent?: string | null;
+  nczd_annual?: string | null;
+  nczd_monthly?: string | null;
+  nczd_reduction_threshold?: string | null;
   nczd_reduction_formula?: string | null;
   valid_from?: string | null;
   valid_to?: string | null;
@@ -31,12 +31,12 @@ export interface TaxBracketUpdate {
 export interface TaxBracketRead {
   id: string;
   bracket_order: number;
-  min_amount: number;
-  max_amount: number | null;
-  rate_percent: number;
-  nczd_annual: number;
-  nczd_monthly: number;
-  nczd_reduction_threshold: number;
+  min_amount: string;
+  max_amount: string | null;
+  rate_percent: string;
+  nczd_annual: string;
+  nczd_monthly: string;
+  nczd_reduction_threshold: string;
   nczd_reduction_formula: string;
   valid_from: string;
   valid_to: string | null;

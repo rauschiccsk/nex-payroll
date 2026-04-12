@@ -17,8 +17,8 @@ export interface ContractCreate {
   contract_type: ContractType;
   job_title: string;
   wage_type: WageType;
-  base_wage: number;
-  hours_per_week?: number;
+  base_wage: string;
+  hours_per_week?: string;
   start_date: string;
   end_date?: string | null;
   probation_end_date?: string | null;
@@ -32,8 +32,8 @@ export interface ContractUpdate {
   contract_type?: ContractType | null;
   job_title?: string | null;
   wage_type?: WageType | null;
-  base_wage?: number | null;
-  hours_per_week?: number | null;
+  base_wage?: string | null;
+  hours_per_week?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   probation_end_date?: string | null;
@@ -50,8 +50,8 @@ export interface ContractRead {
   contract_type: ContractType;
   job_title: string;
   wage_type: WageType;
-  base_wage: number;
-  hours_per_week: number;
+  base_wage: string;
+  hours_per_week: string;
   start_date: string;
   end_date: string | null;
   probation_end_date: string | null;

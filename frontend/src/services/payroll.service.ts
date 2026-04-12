@@ -42,3 +42,15 @@ export async function updatePayroll(id: string, data: PayrollUpdate): Promise<Pa
 export async function deletePayroll(id: string): Promise<void> {
   await api.delete(`${BASE}/${id}`)
 }
+
+/** Transition payroll to calculated status */
+export async function calculatePayroll(id: string): Promise<PayrollRead> {
+  const response = await api.post<PayrollRead>(`${BASE}/${id}/calculate`)
+  return response.data
+}
+
+/** Approve a calculated payroll */
+export async function approvePayroll(id: string): Promise<PayrollRead> {
+  const response = await api.post<PayrollRead>(`${BASE}/${id}/approve`)
+  return response.data
+}

@@ -37,3 +37,17 @@ export async function updateNotification(
 export async function deleteNotification(id: string): Promise<void> {
   await api.delete(`${BASE}/${id}`)
 }
+
+/** Mark a single notification as read */
+export async function markAsRead(id: string): Promise<NotificationRead> {
+  const response = await api.patch<NotificationRead>(`${BASE}/${id}`, { is_read: true })
+  return response.data
+}
+
+/** Get count of unread notifications for the current user */
+export async function getUnreadCount(userId: string): Promise<number> {
+  const response = await api.get<PaginatedResponse<NotificationRead>>(BASE, {
+    params: { user_id: userId, is_read: false, limit: 0 },
+  })
+  return response.data.total
+}

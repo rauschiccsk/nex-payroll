@@ -66,8 +66,8 @@ const EMPTY_FORM: FormState = {
 function toCreatePayload(form: FormState): ContributionRateCreate {
   return {
     rate_type: form.rate_type,
-    rate_percent: parseFloat(form.rate_percent),
-    max_assessment_base: form.max_assessment_base ? parseFloat(form.max_assessment_base) : null,
+    rate_percent: form.rate_percent,
+    max_assessment_base: form.max_assessment_base || null,
     payer: form.payer,
     fund: form.fund,
     valid_from: form.valid_from,
@@ -78,8 +78,8 @@ function toCreatePayload(form: FormState): ContributionRateCreate {
 function toUpdatePayload(form: FormState): ContributionRateUpdate {
   return {
     rate_type: form.rate_type,
-    rate_percent: parseFloat(form.rate_percent),
-    max_assessment_base: form.max_assessment_base ? parseFloat(form.max_assessment_base) : null,
+    rate_percent: form.rate_percent,
+    max_assessment_base: form.max_assessment_base || null,
     payer: form.payer,
     fund: form.fund,
     valid_from: form.valid_from,
@@ -104,13 +104,16 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('sk-SK')
 }
 
-function formatPercent(value: number): string {
-  return `${value.toFixed(2)} %`
+function formatPercent(value: string): string {
+  const num = parseFloat(value)
+  return isNaN(num) ? `${value} %` : `${num.toFixed(2)} %`
 }
 
-function formatCurrency(value: number | null): string {
+function formatCurrency(value: string | null): string {
   if (value == null) return '—'
-  return new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' }).format(value)
+  const num = parseFloat(value)
+  if (isNaN(num)) return value
+  return new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' }).format(num)
 }
 
 // ── Component ──────────────────────────────────────────────────
