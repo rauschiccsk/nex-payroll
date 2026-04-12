@@ -6,12 +6,16 @@ import type {
   PaymentType,
   PaymentStatus,
 } from '@/types/payment-order'
+import type { EmployeeRead } from '@/types/employee'
+import type { HealthInsurerRead } from '@/types/health-insurer'
 import {
   listPaymentOrders,
   createPaymentOrder,
   updatePaymentOrder,
   deletePaymentOrder,
 } from '@/services/payment-order.service'
+import { listEmployees } from '@/services/employee.service'
+import { listHealthInsurers } from '@/services/health-insurer.service'
 import { authStore } from '@/stores/auth.store'
 
 // -- Constants ---------------------------------------------------------------
@@ -180,6 +184,19 @@ function PaymentsPage() {
   // Delete confirm
   const [deleting, setDeleting] = useState<PaymentOrderRead | null>(null)
 
+  // Reference data for dropdowns
+  const [employees, setEmployees] = useState<EmployeeRead[]>([])
+  const [healthInsurers, setHealthInsurers] = useState<HealthInsurerRead[]>([])
+
+  useEffect(() => {
+    listEmployees({ skip: 0, limit: 1000 })
+      .then((res) => setEmployees(res.items))
+      .catch(() => {})
+    listHealthInsurers({ skip: 0, limit: 1000 })
+      .then((res) => setHealthInsurers(res.items))
+      .catch(() => {})
+  }, [])
+
   // -- Fetch -----------------------------------------------------------------
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -258,6 +275,21 @@ function PaymentsPage() {
   // -- Form field updater ----------------------------------------------------
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  // -- Helpers: resolve names ------------------------------------------------
+  function employeeName(employeeId: string | null): string {
+    if (!employeeId) return '\u2014'
+    const emp = employees.find((e) => e.id === employeeId)
+    if (emp) return `${emp.last_name} ${emp.first_name}`
+    return employeeId.slice(0, 8) + '...'
+  }
+
+  function healthInsurerName(hiId: string | null): string {
+    if (!hiId) return '\u2014'
+    const hi = healthInsurers.find((h) => h.id === hiId)
+    if (hi) return `${hi.name} (${hi.code})`
+    return hiId.slice(0, 8) + '...'
   }
 
   // -- Render ----------------------------------------------------------------
@@ -514,14 +546,18 @@ function PaymentsPage() {
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   {detail.employee_id && (
                     <div>
-                      <dt className="text-gray-500">Zamestnanec ID</dt>
-                      <dd className="font-medium text-gray-900">{detail.employee_id}</dd>
+                      <dt className="text-gray-500">Zamestnanec</dt>
+                      <dd className="font-medium text-gray-900">
+                        {employeeName(detail.employee_id)}
+                      </dd>
                     </div>
                   )}
                   {detail.health_insurer_id && (
                     <div>
-                      <dt className="text-gray-500">Zdravotná poisťovňa ID</dt>
-                      <dd className="font-medium text-gray-900">{detail.health_insurer_id}</dd>
+                      <dt className="text-gray-500">Zdravotná poisťovňa</dt>
+                      <dd className="font-medium text-gray-900">
+                        {healthInsurerName(detail.health_insurer_id)}
+                      </dd>
                     </div>
                   )}
                   <div>
@@ -754,31 +790,41 @@ function PaymentsPage() {
                 </div>
               </div>
 
-              {/* Employee + Health insurer IDs */}
+              {/* Employee + Health insurer */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Zamestnanec ID
+                    Zamestnanec
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={form.employee_id}
                     onChange={(e) => updateField('employee_id', e.target.value)}
-                    placeholder="voliteľné"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
+                  >
+                    <option value="">— Žiadny —</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.last_name} {emp.first_name} ({emp.employee_number})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Zdravotná poisťovňa ID
+                    Zdravotná poisťovňa
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={form.health_insurer_id}
                     onChange={(e) => updateField('health_insurer_id', e.target.value)}
-                    placeholder="voliteľné"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
+                  >
+                    <option value="">— Žiadna —</option>
+                    {healthInsurers.map((hi) => (
+                      <option key={hi.id} value={hi.id}>
+                        {hi.name} ({hi.code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

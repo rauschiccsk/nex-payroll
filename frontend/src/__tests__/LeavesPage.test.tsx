@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, act } from '@testing-library/react'
+import { render, screen, waitFor, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Mock services before imports
 const mockListLeaves = vi.fn()
+const mockCreateLeave = vi.fn()
+const mockUpdateLeave = vi.fn()
 const mockDeleteLeave = vi.fn()
 const mockListEmployees = vi.fn()
 
 vi.mock('@/services/leave.service', () => ({
   listLeaves: (...args: unknown[]) => mockListLeaves(...args),
   getLeave: vi.fn(),
-  createLeave: vi.fn(),
-  updateLeave: vi.fn(),
+  createLeave: (...args: unknown[]) => mockCreateLeave(...args),
+  updateLeave: (...args: unknown[]) => mockUpdateLeave(...args),
   deleteLeave: (...args: unknown[]) => mockDeleteLeave(...args),
 }))
 
@@ -80,7 +82,12 @@ const ONE_LEAVE_RESPONSE = { items: [SAMPLE_LEAVE], total: 1, skip: 0, limit: 20
 describe('LeavesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockListEmployees.mockResolvedValue({ items: [SAMPLE_EMPLOYEE], total: 1, skip: 0, limit: 1000 })
+    mockListEmployees.mockResolvedValue({
+      items: [SAMPLE_EMPLOYEE],
+      total: 1,
+      skip: 0,
+      limit: 1000,
+    })
   })
 
   it('renders the page header', async () => {
@@ -100,9 +107,11 @@ describe('LeavesPage', () => {
       render(<LeavesPage />)
     })
 
-    // Wait for async data to render
-    expect(await screen.findByText('Novak Jan')).toBeInTheDocument()
-    expect(screen.getByText('Dovolenka')).toBeInTheDocument()
+    // Wait for async data to render - use table to scope
+    const table = await screen.findByRole('table')
+    const tableScope = within(table)
+    expect(tableScope.getByText('Novak Jan')).toBeInTheDocument()
+    expect(tableScope.getByText('Dovolenka')).toBeInTheDocument()
   })
 
   it('shows empty state when no records', async () => {
@@ -129,6 +138,47 @@ describe('LeavesPage', () => {
     expect(await screen.findByText(/iadosť o nepr/i)).toBeInTheDocument()
   })
 
+  it('opens edit modal and populates form with leave data', async () => {
+    mockListLeaves.mockResolvedValue(ONE_LEAVE_RESPONSE)
+    const user = userEvent.setup()
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    // Wait for data to load in table
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Novak Jan')).toBeInTheDocument()
+
+    // Click edit button in the table
+    const editButtons = within(table).getAllByRole('button', { name: /Upravi/ })
+    await user.click(editButtons[0]!)
+
+    // Modal should show edit title
+    expect(await screen.findByText(/Upraviť neprítomnosť/i)).toBeInTheDocument()
+  })
+
+  it('opens detail modal when Detail button clicked', async () => {
+    mockListLeaves.mockResolvedValue(ONE_LEAVE_RESPONSE)
+    const user = userEvent.setup()
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Novak Jan')).toBeInTheDocument()
+
+    const detailBtn = within(table).getByRole('button', { name: 'Detail' })
+    await user.click(detailBtn)
+
+    // Detail modal shows employee name in heading and leave type
+    expect(await screen.findByText(/Nepr.*Novak/)).toBeInTheDocument()
+    // Verify the detail has Dovolenka type label
+    const detailModal = screen.getByText(/Nepr.*Novak/).closest('div')!
+    expect(detailModal).toBeInTheDocument()
+  })
+
   it('opens delete confirmation and deletes a leave', async () => {
     mockListLeaves
       .mockResolvedValueOnce(ONE_LEAVE_RESPONSE)
@@ -140,22 +190,108 @@ describe('LeavesPage', () => {
       render(<LeavesPage />)
     })
 
-    // Wait for data
-    expect(await screen.findByText('Novak Jan')).toBeInTheDocument()
+    // Wait for data in table
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('Novak Jan')).toBeInTheDocument()
 
     // Click table delete button
-    const deleteButtons = screen.getAllByRole('button', { name: /Zmaza/ })
+    const deleteButtons = within(table).getAllByRole('button', { name: /Zmaza/ })
     await user.click(deleteButtons[0]!)
 
     // Confirm dialog appears
     expect(await screen.findByText(/Potvrdi/)).toBeInTheDocument()
 
-    // Click confirm delete
+    // Click confirm delete (last Zmazat button on screen is in the confirm dialog)
     const allDeleteButtons = screen.getAllByRole('button', { name: /Zmaza/ })
     await user.click(allDeleteButtons[allDeleteButtons.length - 1]!)
 
     await waitFor(() => {
       expect(mockDeleteLeave).toHaveBeenCalledWith(SAMPLE_LEAVE.id)
     })
+  })
+
+  it('renders filter controls', async () => {
+    mockListLeaves.mockResolvedValue(EMPTY_RESPONSE)
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    expect(screen.getByTestId('filter-employee')).toBeInTheDocument()
+    expect(screen.getByTestId('filter-type')).toBeInTheDocument()
+    expect(screen.getByTestId('filter-status')).toBeInTheDocument()
+  })
+
+  it('applies status filter and resets page', async () => {
+    mockListLeaves.mockResolvedValue(EMPTY_RESPONSE)
+    const user = userEvent.setup()
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    // Change status filter
+    const statusFilter = screen.getByTestId('filter-status')
+    await user.selectOptions(statusFilter, 'approved')
+
+    await waitFor(() => {
+      const lastCall = mockListLeaves.mock.calls[mockListLeaves.mock.calls.length - 1]
+      expect(lastCall![0]).toMatchObject({ status: 'approved' })
+    })
+  })
+
+  it('applies type filter', async () => {
+    mockListLeaves.mockResolvedValue(EMPTY_RESPONSE)
+    const user = userEvent.setup()
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    const typeFilter = screen.getByTestId('filter-type')
+    await user.selectOptions(typeFilter, 'sick_employer')
+
+    await waitFor(() => {
+      const lastCall = mockListLeaves.mock.calls[mockListLeaves.mock.calls.length - 1]
+      expect(lastCall![0]).toMatchObject({ leave_type: 'sick_employer' })
+    })
+  })
+
+  it('shows and clears active filters', async () => {
+    mockListLeaves.mockResolvedValue(EMPTY_RESPONSE)
+    const user = userEvent.setup()
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    // No clear button initially
+    expect(screen.queryByRole('button', { name: /filtre/ })).not.toBeInTheDocument()
+
+    // Set a filter
+    const statusFilter = screen.getByTestId('filter-status')
+    await user.selectOptions(statusFilter, 'pending')
+
+    // Clear button appears
+    const clearBtn = await screen.findByRole('button', { name: /filtre/ })
+    expect(clearBtn).toBeInTheDocument()
+
+    // Click clear
+    await user.click(clearBtn)
+
+    // Button should disappear
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /filtre/ })).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows error message when fetch fails', async () => {
+    mockListLeaves.mockRejectedValue(new Error('Network error'))
+
+    await act(async () => {
+      render(<LeavesPage />)
+    })
+
+    expect(await screen.findByText('Network error')).toBeInTheDocument()
   })
 })

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type {
   EmployeeRead,
-  EmployeeCreate,
-  EmployeeUpdate,
   Gender,
   TaxDeclarationType,
   EmployeeStatus,
@@ -15,188 +13,25 @@ import {
   deleteEmployee,
 } from '@/services/employee.service'
 import { listHealthInsurers } from '@/services/health-insurer.service'
+import { authStore } from '@/stores/auth.store'
+import {
+  type FormState,
+  EMPTY_FORM,
+  GENDER_LABELS,
+  TAX_LABELS,
+  STATUS_LABELS,
+  STATUS_COLORS,
+  toCreatePayload,
+  toUpdatePayload,
+  employeeToForm,
+  formatDate,
+  fullName,
+  inputCls,
+  labelCls,
+} from '@/utils/employee-helpers'
 
 // -- Constants ---------------------------------------------------------------
 const PAGE_SIZE = 20
-
-// -- Form state --------------------------------------------------------------
-interface FormState {
-  tenant_id: string
-  employee_number: string
-  first_name: string
-  last_name: string
-  title_before: string
-  title_after: string
-  birth_date: string
-  birth_number: string
-  gender: Gender
-  nationality: string
-  address_street: string
-  address_city: string
-  address_zip: string
-  address_country: string
-  bank_iban: string
-  bank_bic: string
-  health_insurer_id: string
-  tax_declaration_type: TaxDeclarationType
-  nczd_applied: boolean
-  pillar2_saver: boolean
-  is_disabled: boolean
-  status: EmployeeStatus
-  hire_date: string
-  termination_date: string
-}
-
-const EMPTY_FORM: FormState = {
-  tenant_id: '',
-  employee_number: '',
-  first_name: '',
-  last_name: '',
-  title_before: '',
-  title_after: '',
-  birth_date: '',
-  birth_number: '',
-  gender: 'M',
-  nationality: 'SK',
-  address_street: '',
-  address_city: '',
-  address_zip: '',
-  address_country: 'SK',
-  bank_iban: '',
-  bank_bic: '',
-  health_insurer_id: '',
-  tax_declaration_type: 'standard',
-  nczd_applied: true,
-  pillar2_saver: false,
-  is_disabled: false,
-  status: 'active',
-  hire_date: '',
-  termination_date: '',
-}
-
-// -- Labels ------------------------------------------------------------------
-const GENDER_LABELS: Record<Gender, string> = {
-  M: 'Muž',
-  F: 'Žena',
-}
-
-const TAX_LABELS: Record<TaxDeclarationType, string> = {
-  standard: 'Štandardné',
-  secondary: 'Vedľajšie',
-  none: 'Žiadne',
-}
-
-const STATUS_LABELS: Record<EmployeeStatus, string> = {
-  active: 'Aktívny',
-  inactive: 'Neaktívny',
-  terminated: 'Ukončený',
-}
-
-const STATUS_COLORS: Record<EmployeeStatus, string> = {
-  active: 'bg-green-100 text-green-800',
-  inactive: 'bg-yellow-100 text-yellow-800',
-  terminated: 'bg-red-100 text-red-800',
-}
-
-// -- Helpers -----------------------------------------------------------------
-function toCreatePayload(form: FormState): EmployeeCreate {
-  return {
-    tenant_id: form.tenant_id,
-    employee_number: form.employee_number,
-    first_name: form.first_name,
-    last_name: form.last_name,
-    title_before: form.title_before || null,
-    title_after: form.title_after || null,
-    birth_date: form.birth_date,
-    birth_number: form.birth_number,
-    gender: form.gender,
-    nationality: form.nationality || 'SK',
-    address_street: form.address_street,
-    address_city: form.address_city,
-    address_zip: form.address_zip,
-    address_country: form.address_country || 'SK',
-    bank_iban: form.bank_iban,
-    bank_bic: form.bank_bic || null,
-    health_insurer_id: form.health_insurer_id,
-    tax_declaration_type: form.tax_declaration_type,
-    nczd_applied: form.nczd_applied,
-    pillar2_saver: form.pillar2_saver,
-    is_disabled: form.is_disabled,
-    status: form.status,
-    hire_date: form.hire_date,
-    termination_date: form.termination_date || null,
-  }
-}
-
-function toUpdatePayload(form: FormState): EmployeeUpdate {
-  return {
-    employee_number: form.employee_number,
-    first_name: form.first_name,
-    last_name: form.last_name,
-    title_before: form.title_before || null,
-    title_after: form.title_after || null,
-    birth_date: form.birth_date,
-    birth_number: form.birth_number,
-    gender: form.gender,
-    nationality: form.nationality || 'SK',
-    address_street: form.address_street,
-    address_city: form.address_city,
-    address_zip: form.address_zip,
-    address_country: form.address_country || 'SK',
-    bank_iban: form.bank_iban,
-    bank_bic: form.bank_bic || null,
-    health_insurer_id: form.health_insurer_id,
-    tax_declaration_type: form.tax_declaration_type,
-    nczd_applied: form.nczd_applied,
-    pillar2_saver: form.pillar2_saver,
-    is_disabled: form.is_disabled,
-    status: form.status,
-    hire_date: form.hire_date,
-    termination_date: form.termination_date || null,
-  }
-}
-
-function employeeToForm(emp: EmployeeRead): FormState {
-  return {
-    tenant_id: emp.tenant_id,
-    employee_number: emp.employee_number,
-    first_name: emp.first_name,
-    last_name: emp.last_name,
-    title_before: emp.title_before ?? '',
-    title_after: emp.title_after ?? '',
-    birth_date: emp.birth_date,
-    birth_number: emp.birth_number,
-    gender: emp.gender,
-    nationality: emp.nationality,
-    address_street: emp.address_street,
-    address_city: emp.address_city,
-    address_zip: emp.address_zip,
-    address_country: emp.address_country,
-    bank_iban: emp.bank_iban,
-    bank_bic: emp.bank_bic ?? '',
-    health_insurer_id: emp.health_insurer_id,
-    tax_declaration_type: emp.tax_declaration_type,
-    nczd_applied: emp.nczd_applied,
-    pillar2_saver: emp.pillar2_saver,
-    is_disabled: emp.is_disabled,
-    status: emp.status,
-    hire_date: emp.hire_date,
-    termination_date: emp.termination_date ?? '',
-  }
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '\u2014'
-  return new Date(iso).toLocaleDateString('sk-SK')
-}
-
-function fullName(emp: EmployeeRead): string {
-  const parts: string[] = []
-  if (emp.title_before) parts.push(emp.title_before)
-  parts.push(emp.first_name, emp.last_name)
-  if (emp.title_after) parts.push(emp.title_after)
-  return parts.join(' ')
-}
 
 // -- Component ---------------------------------------------------------------
 function EmployeesPage() {
@@ -291,7 +126,9 @@ function EmployeesPage() {
       if (editing) {
         await updateEmployee(editing.id, toUpdatePayload(form))
       } else {
-        await createEmployee(toCreatePayload(form))
+        const tenantId = authStore.getState().tenantId
+        if (!tenantId) throw new Error('Tenant ID nie je k dispozícii')
+        await createEmployee(toCreatePayload(form, tenantId))
       }
       closeModal()
       await fetchData()
@@ -320,11 +157,6 @@ function EmployeesPage() {
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
-
-  // -- Input class -----------------------------------------------------------
-  const inputCls =
-    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500'
-  const labelCls = 'mb-1 block text-sm font-medium text-gray-700'
 
   // -- Render ----------------------------------------------------------------
   return (
@@ -576,17 +408,17 @@ function EmployeesPage() {
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${detail.nczd_applied ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
                   >
-                    NCZD: {detail.nczd_applied ? 'Ano' : 'Nie'}
+                    NCZD: {detail.nczd_applied ? 'Áno' : 'Nie'}
                   </span>
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${detail.pillar2_saver ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}
                   >
-                    II. pilier: {detail.pillar2_saver ? 'Ano' : 'Nie'}
+                    II. pilier: {detail.pillar2_saver ? 'Áno' : 'Nie'}
                   </span>
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${detail.is_disabled ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}
                   >
-                    ZTP: {detail.is_disabled ? 'Ano' : 'Nie'}
+                    ZŤP: {detail.is_disabled ? 'Áno' : 'Nie'}
                   </span>
                 </div>
               </div>
@@ -641,23 +473,6 @@ function EmployeesPage() {
                 </legend>
 
                 <div className="grid grid-cols-3 gap-4">
-                  {/* Tenant ID */}
-                  {!editing && (
-                    <div className="col-span-3">
-                      <label className={labelCls}>
-                        Tenant ID
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={form.tenant_id}
-                        onChange={(e) => updateField('tenant_id', e.target.value)}
-                        className={`${inputCls} font-mono`}
-                        placeholder="UUID organizácie"
-                      />
-                    </div>
-                  )}
-
                   <div>
                     <label className={labelCls}>Číslo zamestnanca</label>
                     <input
@@ -677,7 +492,7 @@ function EmployeesPage() {
                       value={form.first_name}
                       onChange={(e) => updateField('first_name', e.target.value)}
                       className={inputCls}
-                      placeholder="napr. Jan"
+                      placeholder="napr. Ján"
                     />
                   </div>
                   <div>
@@ -688,7 +503,7 @@ function EmployeesPage() {
                       value={form.last_name}
                       onChange={(e) => updateField('last_name', e.target.value)}
                       className={inputCls}
-                      placeholder="napr. Novak"
+                      placeholder="napr. Novák"
                     />
                   </div>
                 </div>
@@ -779,7 +594,7 @@ function EmployeesPage() {
                     value={form.address_street}
                     onChange={(e) => updateField('address_street', e.target.value)}
                     className={inputCls}
-                    placeholder="napr. Hlavna 1"
+                    placeholder="napr. Hlavná 1"
                   />
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-4">

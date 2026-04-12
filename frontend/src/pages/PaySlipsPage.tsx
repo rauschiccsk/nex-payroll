@@ -45,12 +45,6 @@ function toCreatePayload(form: FormState): PaySlipCreate {
 
 function toUpdatePayload(form: FormState, original: PaySlipRead): PaySlipUpdate {
   const payload: PaySlipUpdate = {}
-  if (form.payroll_id !== original.payroll_id) payload.payroll_id = form.payroll_id || null
-  if (form.employee_id !== original.employee_id) payload.employee_id = form.employee_id || null
-  if (Number(form.period_year) !== original.period_year)
-    payload.period_year = Number(form.period_year)
-  if (Number(form.period_month) !== original.period_month)
-    payload.period_month = Number(form.period_month)
   if (form.pdf_path !== original.pdf_path) payload.pdf_path = form.pdf_path || null
   const origSize = original.file_size_bytes != null ? String(original.file_size_bytes) : ''
   if (form.file_size_bytes !== origSize)
@@ -421,6 +415,24 @@ function PaySlipsPage() {
                   </div>
                 </dl>
               </fieldset>
+
+              <fieldset className="rounded-lg border border-gray-200 p-4">
+                <legend className="px-2 text-sm font-medium text-gray-500">Systémové</legend>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div>
+                    <dt className="text-gray-500">Vytvorené</dt>
+                    <dd className="font-medium text-gray-900">
+                      {formatDateTime(detail.created_at)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Aktualizované</dt>
+                    <dd className="font-medium text-gray-900">
+                      {formatDateTime(detail.updated_at)}
+                    </dd>
+                  </div>
+                </dl>
+              </fieldset>
             </div>
 
             <div className="mt-4 flex justify-end gap-3">
@@ -466,20 +478,22 @@ function PaySlipsPage() {
                   <input
                     type="number"
                     required
+                    readOnly={!!editing}
                     min={2000}
                     max={2100}
                     value={form.period_year}
                     onChange={(e) => updateField('period_year', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 ${editing ? 'bg-gray-100 text-gray-500' : ''}`}
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Mesiac</label>
                   <select
                     required
+                    disabled={!!editing}
                     value={form.period_month}
                     onChange={(e) => updateField('period_month', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 ${editing ? 'bg-gray-100 text-gray-500' : ''}`}
                   >
                     {Array.from({ length: 12 }, (_, i) => (
                       <option key={i + 1} value={String(i + 1)}>
@@ -499,10 +513,11 @@ function PaySlipsPage() {
                   <input
                     type="text"
                     required
+                    readOnly={!!editing}
                     value={form.payroll_id}
                     onChange={(e) => updateField('payroll_id', e.target.value)}
                     placeholder="UUID"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={`w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 ${editing ? 'bg-gray-100 text-gray-500' : ''}`}
                   />
                 </div>
                 <div>
@@ -512,10 +527,11 @@ function PaySlipsPage() {
                   <input
                     type="text"
                     required
+                    readOnly={!!editing}
                     value={form.employee_id}
                     onChange={(e) => updateField('employee_id', e.target.value)}
                     placeholder="UUID"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className={`w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 ${editing ? 'bg-gray-100 text-gray-500' : ''}`}
                   />
                 </div>
               </div>

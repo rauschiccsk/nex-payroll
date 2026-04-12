@@ -12,10 +12,6 @@ export interface PaySlipCreate {
 }
 
 export interface PaySlipUpdate {
-  payroll_id?: string | null;
-  employee_id?: string | null;
-  period_year?: number | null;
-  period_month?: number | null;
   pdf_path?: string | null;
   file_size_bytes?: number | null;
   downloaded_at?: string | null;
@@ -32,4 +28,6 @@ export interface PaySlipRead {
   file_size_bytes: number | null;
   generated_at: string;
   downloaded_at: string | null;
+  created_at: string;
+  updated_at: string;
 }

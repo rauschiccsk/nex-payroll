@@ -8,7 +8,7 @@ import type {
   PaymentType,
 } from '@/types/payment-order'
 
-const BASE = '/api/v1/payment-orders'
+const BASE = '/api/v1/payments'
 
 export interface PaymentOrderListParams extends PaginationParams {
   tenant_id?: string

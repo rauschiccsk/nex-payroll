@@ -33,6 +33,19 @@ const STATUS_COLORS: Record<LeaveStatus, string> = {
   cancelled: 'bg-gray-100 text-gray-600',
 }
 
+const LEAVE_TYPE_OPTIONS: LeaveType[] = [
+  'annual',
+  'sick_employer',
+  'sick_sp',
+  'ocr',
+  'maternity',
+  'parental',
+  'unpaid',
+  'obstacle',
+]
+
+const STATUS_OPTIONS: LeaveStatus[] = ['pending', 'approved', 'rejected', 'cancelled']
+
 // -- Empty form state --------------------------------------------------------
 interface FormState {
   tenant_id: string
@@ -124,12 +137,17 @@ function LeavesPage() {
   // Employees for dropdown
   const [employees, setEmployees] = useState<EmployeeRead[]>([])
 
+  // Filter state
+  const [filterEmployee, setFilterEmployee] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+  const [filterType, setFilterType] = useState('')
+
   // -- Fetch -----------------------------------------------------------------
   useEffect(() => {
     listEmployees({ skip: 0, limit: 1000 })
       .then((res) => setEmployees(res.items))
       .catch(() => {
-        /* silently ignore – dropdown will be empty */
+        /* silently ignore - dropdown will be empty */
       })
   }, [])
 
@@ -137,7 +155,14 @@ function LeavesPage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await listLeaves({ skip: page * PAGE_SIZE, limit: PAGE_SIZE })
+      const params: Record<string, unknown> = {
+        skip: page * PAGE_SIZE,
+        limit: PAGE_SIZE,
+      }
+      if (filterEmployee) params.employee_id = filterEmployee
+      if (filterStatus) params.status = filterStatus
+      if (filterType) params.leave_type = filterType
+      const res = await listLeaves(params)
       setItems(res.items)
       setTotal(res.total)
     } catch (err) {
@@ -145,13 +170,31 @@ function LeavesPage() {
     } finally {
       setLoading(false)
     }
-  }, [page])
+  }, [page, filterEmployee, filterStatus, filterType])
 
   useEffect(() => {
     fetchData()
   }, [fetchData])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // -- Filter handlers -------------------------------------------------------
+  function handleFilterChange(
+    setter: React.Dispatch<React.SetStateAction<string>>,
+    value: string,
+  ) {
+    setter(value)
+    setPage(0)
+  }
+
+  function clearFilters() {
+    setFilterEmployee('')
+    setFilterStatus('')
+    setFilterType('')
+    setPage(0)
+  }
+
+  const hasActiveFilters = filterEmployee || filterStatus || filterType
 
   // -- Modal handlers --------------------------------------------------------
   function openCreate() {
@@ -236,6 +279,66 @@ function LeavesPage() {
         >
           + Nov\u00e1 \u017eiados\u0165
         </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="min-w-[180px]">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Zamestnanec</label>
+          <select
+            value={filterEmployee}
+            onChange={(e) => handleFilterChange(setFilterEmployee, e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            data-testid="filter-employee"
+          >
+            <option value="">V\u0161etci</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.last_name} {emp.first_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-[150px]">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Typ</label>
+          <select
+            value={filterType}
+            onChange={(e) => handleFilterChange(setFilterType, e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            data-testid="filter-type"
+          >
+            <option value="">V\u0161etky</option>
+            {LEAVE_TYPE_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {LEAVE_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="min-w-[140px]">
+          <label className="mb-1 block text-xs font-medium text-gray-500">Stav</label>
+          <select
+            value={filterStatus}
+            onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            data-testid="filter-status"
+          >
+            <option value="">V\u0161etky</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            Zru\u0161i\u0165 filtre
+          </button>
+        )}
       </div>
 
       {/* Error */}
@@ -374,7 +477,7 @@ function LeavesPage() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
-                Nepr\u00edtomnos\u0165 \u2014 {employeeName(detail.employee_id)}
+                Nepr\u00edtomnos\u0165 &mdash; {employeeName(detail.employee_id)}
               </h2>
             </div>
 
@@ -499,7 +602,7 @@ function LeavesPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Employee — only for create */}
+              {/* Employee - only for create */}
               {!editing && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -511,7 +614,7 @@ function LeavesPage() {
                     onChange={(e) => updateField('employee_id', e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   >
-                    <option value="">— Vyberte zamestnanca —</option>
+                    <option value="">-- Vyberte zamestnanca --</option>
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
                         {emp.last_name} {emp.first_name} ({emp.employee_number})
@@ -532,7 +635,7 @@ function LeavesPage() {
                   onChange={(e) => updateField('leave_type', e.target.value as LeaveType)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
-                  {(Object.keys(LEAVE_TYPE_LABELS) as LeaveType[]).map((type) => (
+                  {LEAVE_TYPE_OPTIONS.map((type) => (
                     <option key={type} value={type}>
                       {LEAVE_TYPE_LABELS[type]}
                     </option>
@@ -592,7 +695,7 @@ function LeavesPage() {
                     onChange={(e) => updateField('status', e.target.value as LeaveStatus)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
                   >
-                    {(Object.keys(STATUS_LABELS) as LeaveStatus[]).map((st) => (
+                    {STATUS_OPTIONS.map((st) => (
                       <option key={st} value={st}>
                         {STATUS_LABELS[st]}
                       </option>
@@ -649,7 +752,7 @@ function LeavesPage() {
             <p className="mb-4 text-sm text-gray-600">
               Naozaj chcete zmaza\u0165 {LEAVE_TYPE_LABELS[deleting.leave_type].toLowerCase()} pre{' '}
               <strong>{employeeName(deleting.employee_id)}</strong> ({formatDate(deleting.start_date)}{' '}
-              \u2013 {formatDate(deleting.end_date)})?
+              &ndash; {formatDate(deleting.end_date)})?
             </p>
             <div className="flex justify-end gap-3">
               <button

@@ -5,7 +5,11 @@ import type { LeaveCreate, LeaveRead, LeaveUpdate } from '@/types/leave'
 const BASE = '/api/v1/leaves'
 
 export async function listLeaves(
-  params?: PaginationParams & { employee_id?: string; status?: string },
+  params?: PaginationParams & {
+    employee_id?: string
+    status?: string
+    leave_type?: string
+  },
 ): Promise<PaginatedResponse<LeaveRead>> {
   const response = await api.get<PaginatedResponse<LeaveRead>>(BASE, { params })
   return response.data

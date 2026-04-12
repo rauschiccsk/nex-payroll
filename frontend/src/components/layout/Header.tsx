@@ -1,18 +1,33 @@
 import { useNavigate } from 'react-router'
+import { useSyncExternalStore } from 'react'
+import { authStore } from '@/stores/auth.store'
 import TenantSelector from './TenantSelector'
 import NotificationBell from './NotificationBell'
 
+const ROLE_LABELS: Record<string, string> = {
+  director: 'Riaditeľ',
+  accountant: 'Účtovník',
+  employee: 'Zamestnanec',
+}
+
 /**
  * Header — TenantSelector, user display (name+role), NotificationBell, logout.
- * User data will be wired to authStore in later phases.
  */
 function Header() {
   const navigate = useNavigate()
+  const currentUser = useSyncExternalStore(
+    authStore.subscribe,
+    () => authStore.getState().currentUser,
+  )
 
   function handleLogout() {
-    // Will clear authStore token in later phases
+    authStore.getState().clear()
     navigate('/login')
   }
+
+  const displayName = currentUser?.username ?? 'User'
+  const displayRole = currentUser?.role ? (ROLE_LABELS[currentUser.role] ?? currentUser.role) : 'N/A'
+  const initials = displayName.charAt(0).toUpperCase()
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-6">
@@ -25,14 +40,14 @@ function Header() {
 
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-medium text-primary-700">
-            U
+            {initials}
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-medium leading-tight text-gray-700">
-              User
+              {displayName}
             </span>
             <span className="text-xs leading-tight text-gray-400">
-              Director
+              {displayRole}
             </span>
           </div>
         </div>

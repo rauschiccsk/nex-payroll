@@ -2,42 +2,45 @@
 // StatutoryDeadline types — matches backend app.schemas.statutory_deadline
 // ---------------------------------------------------------------------------
 
-export type DeadlineType =
-  | 'sp_monthly'
-  | 'zp_monthly'
-  | 'tax_advance'
-  | 'tax_reconciliation'
-  | 'sp_annual'
-  | 'zp_annual';
+export type DeadlineType = 'monthly' | 'annual' | 'one_time';
 
 export interface StatutoryDeadlineCreate {
+  code: string;
+  name: string;
+  description?: string | null;
   deadline_type: DeadlineType;
+  day_of_month?: number | null;
+  month_of_year?: number | null;
+  business_days_rule: boolean;
   institution: string;
-  day_of_month: number;
-  description: string;
   valid_from: string;
   valid_to?: string | null;
-  is_active?: boolean;
 }
 
 export interface StatutoryDeadlineUpdate {
-  deadline_type?: DeadlineType | null;
-  institution?: string | null;
-  day_of_month?: number | null;
+  code?: string | null;
+  name?: string | null;
   description?: string | null;
+  deadline_type?: DeadlineType | null;
+  day_of_month?: number | null;
+  month_of_year?: number | null;
+  business_days_rule?: boolean | null;
+  institution?: string | null;
   valid_from?: string | null;
   valid_to?: string | null;
-  is_active?: boolean | null;
 }
 
 export interface StatutoryDeadlineRead {
   id: string;
+  code: string;
+  name: string;
+  description: string | null;
   deadline_type: DeadlineType;
+  day_of_month: number | null;
+  month_of_year: number | null;
+  business_days_rule: boolean;
   institution: string;
-  day_of_month: number;
-  description: string;
   valid_from: string;
   valid_to: string | null;
-  is_active: boolean;
   created_at: string;
 }

@@ -73,7 +73,7 @@ function entitlementToForm(e: LeaveEntitlementRead): FormState {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '\u2014'
+  if (!iso) return '—'
   return new Date(iso).toLocaleDateString('sk-SK')
 }
 
@@ -119,7 +119,7 @@ function LeaveEntitlementsPage() {
       setItems(res.items)
       setTotal(res.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa na\u010d\u00edta\u0165 d\u00e1ta')
+      setError(err instanceof Error ? err.message : 'Nepodarilo sa načítať dáta')
     } finally {
       setLoading(false)
     }
@@ -166,7 +166,7 @@ function LeaveEntitlementsPage() {
       closeModal()
       await fetchData()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Chyba pri ukladan\u00ed')
+      setFormError(err instanceof Error ? err.message : 'Chyba pri ukladaní')
     } finally {
       setSubmitting(false)
     }
@@ -180,7 +180,7 @@ function LeaveEntitlementsPage() {
       setDeleting(null)
       await fetchData()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chyba pri mazan\u00ed')
+      setError(err instanceof Error ? err.message : 'Chyba pri mazaní')
       setDeleting(null)
     }
   }
@@ -209,16 +209,16 @@ function LeaveEntitlementsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">N\u00e1roky na dovolenku</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Nároky na dovolenku</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Evidencia n\u00e1rokov na dovolenku zamestnancov pod\u013ea rokov
+            Evidencia nárokov na dovolenku zamestnancov podľa rokov
           </p>
         </div>
         <button
           onClick={openCreate}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
         >
-          + Nov\u00fd n\u00e1rok
+          + Nový nárok
         </button>
       </div>
 
@@ -241,13 +241,13 @@ function LeaveEntitlementsPage() {
                 Rok
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                Celkov\u00e9 dni
+                Celkové dni
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                \u010cerpan\u00e9
+                Čerpané
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                Zost\u00e1vaj\u00face
+                Zostávajúce
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Prenos
@@ -261,14 +261,14 @@ function LeaveEntitlementsPage() {
             {loading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Na\u010d\u00edtavam...
+                  Načítavam...
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                  \u017diadne z\u00e1znamy
+                  Žiadne záznamy
                 </td>
               </tr>
             )}
@@ -312,13 +312,13 @@ function LeaveEntitlementsPage() {
                       onClick={() => openEdit(ent)}
                       className="mr-2 text-primary-600 hover:text-primary-800"
                     >
-                      Upravi\u0165
+                      Upraviť
                     </button>
                     <button
                       onClick={() => setDeleting(ent)}
                       className="text-red-600 hover:text-red-800"
                     >
-                      Zmaza\u0165
+                      Zmazať
                     </button>
                   </td>
                 </tr>
@@ -330,7 +330,7 @@ function LeaveEntitlementsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
             <p className="text-sm text-gray-700">
-              Zobrazen\u00fdch {page * PAGE_SIZE + 1}&ndash;
+              Zobrazených {page * PAGE_SIZE + 1}&ndash;
               {Math.min((page + 1) * PAGE_SIZE, total)} z {total}
             </p>
             <div className="flex gap-2">
@@ -339,7 +339,7 @@ function LeaveEntitlementsPage() {
                 disabled={page === 0}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Predch\u00e1dzaj\u00faca
+                Predchádzajúca
               </button>
               <span className="flex items-center px-2 text-sm text-gray-700">
                 {page + 1} / {totalPages}
@@ -349,7 +349,7 @@ function LeaveEntitlementsPage() {
                 disabled={page >= totalPages - 1}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Nasleduj\u00faca
+                Nasledujúca
               </button>
             </div>
           </div>
@@ -362,7 +362,7 @@ function LeaveEntitlementsPage() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
-                N\u00e1rok na dovolenku \u2014 {employeeName(detail.employee_id)} ({detail.year})
+                Nárok na dovolenku — {employeeName(detail.employee_id)} ({detail.year})
               </h2>
             </div>
 
@@ -387,15 +387,15 @@ function LeaveEntitlementsPage() {
                 <legend className="px-2 text-sm font-medium text-gray-500">Dni dovolenky</legend>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
-                    <dt className="text-gray-500">Celkov\u00e9 dni</dt>
+                    <dt className="text-gray-500">Celkové dni</dt>
                     <dd className="font-medium text-gray-900">{detail.total_days}</dd>
                   </div>
                   <div>
-                    <dt className="text-gray-500">\u010cerpan\u00e9 dni</dt>
+                    <dt className="text-gray-500">Čerpané dni</dt>
                     <dd className="font-medium text-gray-900">{detail.used_days}</dd>
                   </div>
                   <div>
-                    <dt className="text-gray-500">Zost\u00e1vaj\u00face dni</dt>
+                    <dt className="text-gray-500">Zostávajúce dni</dt>
                     <dd className="font-medium text-gray-900">
                       <span
                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -411,21 +411,21 @@ function LeaveEntitlementsPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-gray-500">Prenos z predch\u00e1dzaj\u00faceho roka</dt>
+                    <dt className="text-gray-500">Prenos z predchádzajúceho roka</dt>
                     <dd className="font-medium text-gray-900">{detail.carryover_days}</dd>
                   </div>
                 </dl>
               </fieldset>
 
               <fieldset className="rounded-lg border border-gray-200 p-4">
-                <legend className="px-2 text-sm font-medium text-gray-500">Syst\u00e9m</legend>
+                <legend className="px-2 text-sm font-medium text-gray-500">Systém</legend>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
-                    <dt className="text-gray-500">Vytvoren\u00e9</dt>
+                    <dt className="text-gray-500">Vytvorené</dt>
                     <dd className="font-medium text-gray-900">{formatDate(detail.created_at)}</dd>
                   </div>
                   <div>
-                    <dt className="text-gray-500">Aktualizovan\u00e9</dt>
+                    <dt className="text-gray-500">Aktualizované</dt>
                     <dd className="font-medium text-gray-900">{formatDate(detail.updated_at)}</dd>
                   </div>
                 </dl>
@@ -440,13 +440,13 @@ function LeaveEntitlementsPage() {
                 }}
                 className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
               >
-                Upravi\u0165
+                Upraviť
               </button>
               <button
                 onClick={() => setDetail(null)}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Zavrie\u0165
+                Zavrieť
               </button>
             </div>
           </div>
@@ -458,7 +458,7 @@ function LeaveEntitlementsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              {editing ? 'Upravi\u0165 n\u00e1rok' : 'Nov\u00fd n\u00e1rok na dovolenku'}
+              {editing ? 'Upraviť nárok' : 'Nový nárok na dovolenku'}
             </h2>
 
             {formError && (
@@ -510,7 +510,7 @@ function LeaveEntitlementsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Celkov\u00e9 dni
+                    Celkové dni
                   </label>
                   <input
                     type="number"
@@ -524,7 +524,7 @@ function LeaveEntitlementsPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    \u010cerpan\u00e9 dni
+                    Čerpané dni
                   </label>
                   <input
                     type="number"
@@ -541,7 +541,7 @@ function LeaveEntitlementsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Zost\u00e1vaj\u00face dni
+                    Zostávajúce dni
                   </label>
                   <input
                     type="number"
@@ -554,7 +554,7 @@ function LeaveEntitlementsPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Prenos z predch\u00e1dzaj\u00faceho roka
+                    Prenos z predchádzajúceho roka
                   </label>
                   <input
                     type="number"
@@ -575,7 +575,7 @@ function LeaveEntitlementsPage() {
                   onClick={closeModal}
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  Zru\u0161i\u0165
+                  Zrušiť
                 </button>
                 <button
                   type="submit"
@@ -583,10 +583,10 @@ function LeaveEntitlementsPage() {
                   className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                 >
                   {submitting
-                    ? 'Uklad\u00e1m...'
+                    ? 'Ukladám...'
                     : editing
-                      ? 'Ulo\u017ei\u0165 zmeny'
-                      : 'Vytvori\u0165'}
+                      ? 'Uložiť zmeny'
+                      : 'Vytvoriť'}
                 </button>
               </div>
             </form>
@@ -598,9 +598,9 @@ function LeaveEntitlementsPage() {
       {deleting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="mb-2 text-lg font-semibold text-gray-900">Potvrdi\u0165 zmazanie</h2>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">Potvrdiť zmazanie</h2>
             <p className="mb-4 text-sm text-gray-600">
-              Naozaj chcete zmaza\u0165 n\u00e1rok na dovolenku pre{' '}
+              Naozaj chcete zmazať nárok na dovolenku pre{' '}
               <strong>{employeeName(deleting.employee_id)}</strong> za rok{' '}
               <strong>{deleting.year}</strong>?
             </p>
@@ -609,13 +609,13 @@ function LeaveEntitlementsPage() {
                 onClick={() => setDeleting(null)}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Zru\u0161i\u0165
+                Zrušiť
               </button>
               <button
                 onClick={handleDelete}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
-                Zmaza\u0165
+                Zmazať
               </button>
             </div>
           </div>

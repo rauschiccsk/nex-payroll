@@ -27,6 +27,8 @@ const SAMPLE_PAY_SLIP = {
   file_size_bytes: 45200,
   generated_at: '2026-03-15T10:00:00Z',
   downloaded_at: null,
+  created_at: '2026-03-15T10:00:00Z',
+  updated_at: '2026-03-15T10:00:00Z',
 }
 
 const EMPTY_RESPONSE = { items: [], total: 0, skip: 0, limit: 50 }

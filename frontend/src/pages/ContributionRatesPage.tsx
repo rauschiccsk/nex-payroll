@@ -383,8 +383,9 @@ function ContributionRatesPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Rate type */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Typ sadzby</label>
+                <label htmlFor="cr-rate-type" className="mb-1 block text-sm font-medium text-gray-700">Typ sadzby</label>
                 <input
+                  id="cr-rate-type"
                   type="text"
                   required
                   value={form.rate_type}
@@ -396,8 +397,9 @@ function ContributionRatesPage() {
 
               {/* Fund */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Fond</label>
+                <label htmlFor="cr-fund" className="mb-1 block text-sm font-medium text-gray-700">Fond</label>
                 <select
+                  id="cr-fund"
                   required
                   value={form.fund}
                   onChange={(e) => updateField('fund', e.target.value)}
@@ -413,8 +415,9 @@ function ContributionRatesPage() {
 
               {/* Payer */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Platca</label>
+                <label htmlFor="cr-payer" className="mb-1 block text-sm font-medium text-gray-700">Platca</label>
                 <select
+                  id="cr-payer"
                   required
                   value={form.payer}
                   onChange={(e) => updateField('payer', e.target.value as ContributionPayer)}
@@ -431,10 +434,11 @@ function ContributionRatesPage() {
               {/* Rate percent + Max assessment base (side by side) */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="cr-rate-percent" className="mb-1 block text-sm font-medium text-gray-700">
                     Sadzba (%)
                   </label>
                   <input
+                    id="cr-rate-percent"
                     type="number"
                     required
                     step="0.01"
@@ -447,10 +451,11 @@ function ContributionRatesPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="cr-max-base" className="mb-1 block text-sm font-medium text-gray-700">
                     Max. VZ (EUR)
                   </label>
                   <input
+                    id="cr-max-base"
                     type="number"
                     step="0.01"
                     min="0"
@@ -465,10 +470,11 @@ function ContributionRatesPage() {
               {/* Valid from / to */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="cr-valid-from" className="mb-1 block text-sm font-medium text-gray-700">
                     Platnosť od
                   </label>
                   <input
+                    id="cr-valid-from"
                     type="date"
                     required
                     value={form.valid_from}
@@ -477,10 +483,11 @@ function ContributionRatesPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="cr-valid-to" className="mb-1 block text-sm font-medium text-gray-700">
                     Platnosť do
                   </label>
                   <input
+                    id="cr-valid-to"
                     type="date"
                     value={form.valid_to}
                     onChange={(e) => updateField('valid_to', e.target.value)}

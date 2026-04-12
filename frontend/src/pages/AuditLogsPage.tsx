@@ -7,7 +7,7 @@ const PAGE_SIZE = 20
 
 const ACTION_LABELS: Record<AuditAction, string> = {
   CREATE: 'Vytvorenie',
-  UPDATE: 'Uprava',
+  UPDATE: 'Úprava',
   DELETE: 'Zmazanie',
 }
 
@@ -64,7 +64,7 @@ function AuditLogsPage() {
       setItems(res.items)
       setTotal(res.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa nacitat data')
+      setError(err instanceof Error ? err.message : 'Nepodarilo sa načítať dáta')
     } finally {
       setLoading(false)
     }
@@ -101,11 +101,13 @@ function AuditLogsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Audit log</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Historia zmien v systeme - vsetky operacie nad entitami
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Audit log</h1>
+          <p className="mt-1 text-sm text-gray-600">
+            História zmien v systéme — všetky operácie nad entitami
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -117,9 +119,9 @@ function AuditLogsPage() {
             onChange={(e) => handleActionFilter(e.target.value)}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
           >
-            <option value="">Vsetky</option>
+            <option value="">Všetky</option>
             <option value="CREATE">Vytvorenie</option>
-            <option value="UPDATE">Uprava</option>
+            <option value="UPDATE">Úprava</option>
             <option value="DELETE">Zmazanie</option>
           </select>
         </div>
@@ -138,7 +140,7 @@ function AuditLogsPage() {
             onClick={clearFilters}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
-            Zrusit filtre
+            Zrušiť filtre
           </button>
         )}
       </div>
@@ -156,7 +158,7 @@ function AuditLogsPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Datum a cas
+                Dátum a čas
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Akcia
@@ -168,13 +170,13 @@ function AuditLogsPage() {
                 ID entity
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Pouzivatel
+                Používateľ
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 IP adresa
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                Detail
+                Akcie
               </th>
             </tr>
           </thead>
@@ -182,14 +184,14 @@ function AuditLogsPage() {
             {loading && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Nacitavam...
+                  Načítavam...
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Ziadne zaznamy v audit logu
+                  Žiadne záznamy v audit logu
                 </td>
               </tr>
             )}
@@ -225,7 +227,7 @@ function AuditLogsPage() {
                       onClick={() => setDetail(entry)}
                       className="text-primary-600 hover:text-primary-800"
                     >
-                      Zobrazit
+                      Zobraziť
                     </button>
                   </td>
                 </tr>
@@ -237,7 +239,7 @@ function AuditLogsPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
             <p className="text-sm text-gray-700">
-              Zobrazenych {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, total)} z{' '}
+              Zobrazených {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, total)} z{' '}
               {total}
             </p>
             <div className="flex gap-2">
@@ -246,7 +248,7 @@ function AuditLogsPage() {
                 disabled={page === 0}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Predchadzajuca
+                Predchádzajúca
               </button>
               <span className="flex items-center px-2 text-sm text-gray-700">
                 {page + 1} / {totalPages}
@@ -256,7 +258,7 @@ function AuditLogsPage() {
                 disabled={page >= totalPages - 1}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Nasledujuca
+                Nasledujúca
               </button>
             </div>
           </div>
@@ -268,7 +270,7 @@ function AuditLogsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Detail audit zaznamu</h2>
+              <h2 className="text-lg font-semibold text-gray-900">Detail audit záznamu</h2>
               <button
                 onClick={() => setDetail(null)}
                 className="text-gray-400 hover:text-gray-600"
@@ -286,7 +288,7 @@ function AuditLogsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium uppercase text-gray-500">
-                    Datum a cas
+                    Dátum a čas
                   </label>
                   <p className="mt-1 text-sm text-gray-900">{formatDateTime(detail.created_at)}</p>
                 </div>
@@ -331,7 +333,7 @@ function AuditLogsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium uppercase text-gray-500">
-                    Pouzivatel ID
+                    Používateľ ID
                   </label>
                   <p className="mt-1 font-mono text-sm text-gray-900">
                     {detail.user_id ?? '\u2014'}
@@ -348,7 +350,7 @@ function AuditLogsPage() {
               {/* Old values */}
               <div>
                 <label className="block text-xs font-medium uppercase text-gray-500">
-                  Povodne hodnoty
+                  Pôvodné hodnoty
                 </label>
                 <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-800">
                   {formatJson(detail.old_values)}
@@ -358,7 +360,7 @@ function AuditLogsPage() {
               {/* New values */}
               <div>
                 <label className="block text-xs font-medium uppercase text-gray-500">
-                  Nove hodnoty
+                  Nové hodnoty
                 </label>
                 <pre className="mt-1 max-h-48 overflow-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-800">
                   {formatJson(detail.new_values)}
@@ -372,7 +374,7 @@ function AuditLogsPage() {
                 onClick={() => setDetail(null)}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Zavriet
+                Zavrieť
               </button>
             </div>
           </div>

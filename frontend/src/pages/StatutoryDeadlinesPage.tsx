@@ -16,12 +16,9 @@ import {
 const PAGE_SIZE = 20
 
 const DEADLINE_TYPE_OPTIONS: { value: DeadlineType; label: string }[] = [
-  { value: 'sp_monthly', label: 'SP mesacne' },
-  { value: 'zp_monthly', label: 'ZP mesacne' },
-  { value: 'tax_advance', label: 'Preddavok na dan' },
-  { value: 'tax_reconciliation', label: 'Rocne zuctovanie dane' },
-  { value: 'sp_annual', label: 'SP rocne' },
-  { value: 'zp_annual', label: 'ZP rocne' },
+  { value: 'monthly', label: 'Mesačný' },
+  { value: 'annual', label: 'Ročný' },
+  { value: 'one_time', label: 'Jednorazový' },
 ]
 
 function deadlineTypeLabel(dt: DeadlineType): string {
@@ -30,59 +27,74 @@ function deadlineTypeLabel(dt: DeadlineType): string {
 
 // -- Empty form state --------------------------------------------------------
 interface FormState {
-  deadline_type: DeadlineType
-  institution: string
-  day_of_month: string
+  code: string
+  name: string
   description: string
+  deadline_type: DeadlineType
+  day_of_month: string
+  month_of_year: string
+  business_days_rule: boolean
+  institution: string
   valid_from: string
   valid_to: string
-  is_active: boolean
 }
 
 const EMPTY_FORM: FormState = {
-  deadline_type: 'sp_monthly',
-  institution: '',
-  day_of_month: '',
+  code: '',
+  name: '',
   description: '',
+  deadline_type: 'monthly',
+  day_of_month: '',
+  month_of_year: '',
+  business_days_rule: false,
+  institution: '',
   valid_from: '',
   valid_to: '',
-  is_active: true,
 }
 
 // -- Helpers -----------------------------------------------------------------
 function toCreatePayload(form: FormState): StatutoryDeadlineCreate {
   return {
+    code: form.code,
+    name: form.name,
+    description: form.description || null,
     deadline_type: form.deadline_type,
+    day_of_month: form.day_of_month ? Number(form.day_of_month) : null,
+    month_of_year: form.month_of_year ? Number(form.month_of_year) : null,
+    business_days_rule: form.business_days_rule,
     institution: form.institution,
-    day_of_month: Number(form.day_of_month),
-    description: form.description,
     valid_from: form.valid_from,
     valid_to: form.valid_to || null,
-    is_active: form.is_active,
   }
 }
 
 function toUpdatePayload(form: FormState): StatutoryDeadlineUpdate {
   return {
+    code: form.code,
+    name: form.name,
+    description: form.description || null,
     deadline_type: form.deadline_type,
+    day_of_month: form.day_of_month ? Number(form.day_of_month) : null,
+    month_of_year: form.month_of_year ? Number(form.month_of_year) : null,
+    business_days_rule: form.business_days_rule,
     institution: form.institution,
-    day_of_month: Number(form.day_of_month),
-    description: form.description,
     valid_from: form.valid_from,
     valid_to: form.valid_to || null,
-    is_active: form.is_active,
   }
 }
 
 function deadlineToForm(d: StatutoryDeadlineRead): FormState {
   return {
+    code: d.code,
+    name: d.name,
+    description: d.description ?? '',
     deadline_type: d.deadline_type,
+    day_of_month: d.day_of_month != null ? String(d.day_of_month) : '',
+    month_of_year: d.month_of_year != null ? String(d.month_of_year) : '',
+    business_days_rule: d.business_days_rule,
     institution: d.institution,
-    day_of_month: String(d.day_of_month),
-    description: d.description,
     valid_from: d.valid_from,
     valid_to: d.valid_to ?? '',
-    is_active: d.is_active,
   }
 }
 
@@ -119,7 +131,7 @@ function StatutoryDeadlinesPage() {
       setItems(res.items)
       setTotal(res.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nepodarilo sa nacitat data')
+      setError(err instanceof Error ? err.message : 'Nepodarilo sa načítať dáta')
     } finally {
       setLoading(false)
     }
@@ -165,7 +177,7 @@ function StatutoryDeadlinesPage() {
       closeModal()
       await fetchData()
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Chyba pri ukladani')
+      setFormError(err instanceof Error ? err.message : 'Chyba pri ukladaní')
     } finally {
       setSubmitting(false)
     }
@@ -179,7 +191,7 @@ function StatutoryDeadlinesPage() {
       setDeleting(null)
       await fetchData()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Chyba pri mazani')
+      setError(err instanceof Error ? err.message : 'Chyba pri mazaní')
       setDeleting(null)
     }
   }
@@ -195,16 +207,16 @@ function StatutoryDeadlinesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Zakonné terminy</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Zákonné termíny</h1>
           <p className="mt-1 text-sm text-gray-600">
-            Sprava zakonnych terminov pre SP, ZP a dane
+            Správa zákonných termínov pre SP, ZP a dane
           </p>
         </div>
         <button
           onClick={openCreate}
           className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
         >
-          + Novy termin
+          + Nový termín
         </button>
       </div>
 
@@ -221,25 +233,31 @@ function StatutoryDeadlinesPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Kód
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Názov
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 Typ
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Institucia
+                Inštitúcia
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                Den v mesiaci
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Popis
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Platnost od
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Platnost do
+                Den
               </th>
               <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
-                Stav
+                Mesiac
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Platnosť od
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                Platnosť do
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500">
+                Prac. dni
               </th>
               <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                 Akcie
@@ -249,15 +267,15 @@ function StatutoryDeadlinesPage() {
           <tbody className="divide-y divide-gray-200">
             {loading && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Nacitavam...
+                <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500">
+                  Načítavam...
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-500">
-                  Ziadne zakonné terminy
+                <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-500">
+                  Žiadne zákonné termíny
                 </td>
               </tr>
             )}
@@ -265,16 +283,32 @@ function StatutoryDeadlinesPage() {
               items.map((deadline) => (
                 <tr key={deadline.id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
-                    {deadlineTypeLabel(deadline.deadline_type)}
+                    {deadline.code}
+                  </td>
+                  <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-700">
+                    {deadline.name}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        deadline.deadline_type === 'monthly'
+                          ? 'bg-blue-100 text-blue-800'
+                          : deadline.deadline_type === 'annual'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {deadlineTypeLabel(deadline.deadline_type)}
+                    </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                     {deadline.institution}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-700">
-                    {deadline.day_of_month}.
+                    {deadline.day_of_month != null ? `${deadline.day_of_month}.` : '\u2014'}
                   </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-700">
-                    {deadline.description}
+                  <td className="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-700">
+                    {deadline.month_of_year != null ? `${deadline.month_of_year}.` : '\u2014'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
                     {formatDate(deadline.valid_from)}
@@ -285,12 +319,12 @@ function StatutoryDeadlinesPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-center text-sm">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        deadline.is_active
+                        deadline.business_days_rule
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {deadline.is_active ? 'Aktivny' : 'Neaktivny'}
+                      {deadline.business_days_rule ? 'Ano' : 'Nie'}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
@@ -298,13 +332,13 @@ function StatutoryDeadlinesPage() {
                       onClick={() => openEdit(deadline)}
                       className="mr-2 text-primary-600 hover:text-primary-800"
                     >
-                      Upravit
+                      Upraviť
                     </button>
                     <button
                       onClick={() => setDeleting(deadline)}
                       className="text-red-600 hover:text-red-800"
                     >
-                      Zmazat
+                      Zmazať
                     </button>
                   </td>
                 </tr>
@@ -316,7 +350,7 @@ function StatutoryDeadlinesPage() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3">
             <p className="text-sm text-gray-700">
-              Zobrazenych {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, total)} z {total}
+              Zobrazených {page * PAGE_SIZE + 1}&ndash;{Math.min((page + 1) * PAGE_SIZE, total)} z {total}
             </p>
             <div className="flex gap-2">
               <button
@@ -324,7 +358,7 @@ function StatutoryDeadlinesPage() {
                 disabled={page === 0}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Predchadzajuca
+                Predchádzajúca
               </button>
               <span className="flex items-center px-2 text-sm text-gray-700">
                 {page + 1} / {totalPages}
@@ -334,7 +368,7 @@ function StatutoryDeadlinesPage() {
                 disabled={page >= totalPages - 1}
                 className="rounded-md border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Nasledujuca
+                Nasledujúca
               </button>
             </div>
           </div>
@@ -346,7 +380,7 @@ function StatutoryDeadlinesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
             <h2 className="mb-4 text-lg font-semibold text-gray-900">
-              {editing ? 'Upravit termin' : 'Novy zakonny termin'}
+              {editing ? 'Upraviť termín' : 'Nový zákonný termín'}
             </h2>
 
             {formError && (
@@ -356,10 +390,22 @@ function StatutoryDeadlinesPage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Deadline Type + Day of Month */}
+              {/* Code + Name */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Typ terminu</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Kód</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={50}
+                    value={form.code}
+                    onChange={(e) => updateField('code', e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    placeholder="napr. SP_MONTHLY"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Typ termínu</label>
                   <select
                     required
                     value={form.deadline_type}
@@ -373,51 +419,86 @@ function StatutoryDeadlinesPage() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Den v mesiaci</label>
-                  <input
-                    type="number"
-                    required
-                    min={1}
-                    max={31}
-                    value={form.day_of_month}
-                    onChange={(e) => updateField('day_of_month', e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    placeholder="napr. 8"
-                  />
-                </div>
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Názov</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={200}
+                  value={form.name}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  placeholder="napr. Mesačný výkaz SP"
+                />
               </div>
 
               {/* Institution */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Institucia</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Inštitúcia</label>
                 <input
                   type="text"
                   required
+                  maxLength={100}
                   value={form.institution}
                   onChange={(e) => updateField('institution', e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="napr. Socialna poistovna"
+                  placeholder="napr. Sociálna poisťovňa"
                 />
               </div>
 
               {/* Description */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Popis</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Popis <span className="text-gray-400">(voliteľné)</span>
+                </label>
                 <input
                   type="text"
-                  required
                   value={form.description}
                   onChange={(e) => updateField('description', e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  placeholder="napr. Mesacny vykaz a odvody SP"
+                  placeholder="napr. Mesačný výkaz a odvody SP"
                 />
+              </div>
+
+              {/* Day of Month + Month of Year */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Den v mesiaci <span className="text-gray-400">(voliteľné)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={form.day_of_month}
+                    onChange={(e) => updateField('day_of_month', e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    placeholder="1-31"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Mesiac v roku <span className="text-gray-400">(voliteľné)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={form.month_of_year}
+                    onChange={(e) => updateField('month_of_year', e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    placeholder="1-12"
+                  />
+                </div>
               </div>
 
               {/* Valid From + Valid To */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">Platnost od</label>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Platnosť od</label>
                   <input
                     type="date"
                     required
@@ -428,7 +509,7 @@ function StatutoryDeadlinesPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Platnost do <span className="text-gray-400">(volitelne)</span>
+                    Platnosť do <span className="text-gray-400">(voliteľné)</span>
                   </label>
                   <input
                     type="date"
@@ -439,17 +520,17 @@ function StatutoryDeadlinesPage() {
                 </div>
               </div>
 
-              {/* Is Active */}
+              {/* Business Days Rule */}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  id="is_active"
-                  checked={form.is_active}
-                  onChange={(e) => updateField('is_active', e.target.checked)}
+                  id="business_days_rule"
+                  checked={form.business_days_rule}
+                  onChange={(e) => updateField('business_days_rule', e.target.checked)}
                   className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label htmlFor="is_active" className="text-sm font-medium text-gray-700">
-                  Aktivny
+                <label htmlFor="business_days_rule" className="text-sm font-medium text-gray-700">
+                  Posun na nasledujúci pracovný deň
                 </label>
               </div>
 
@@ -460,14 +541,14 @@ function StatutoryDeadlinesPage() {
                   onClick={closeModal}
                   className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  Zrusit
+                  Zrušiť
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                 >
-                  {submitting ? 'Ukladam...' : editing ? 'Ulozit zmeny' : 'Vytvorit'}
+                  {submitting ? 'Ukladám...' : editing ? 'Uložiť zmeny' : 'Vytvoriť'}
                 </button>
               </div>
             </form>
@@ -479,22 +560,22 @@ function StatutoryDeadlinesPage() {
       {deleting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="mb-2 text-lg font-semibold text-gray-900">Potvrdit zmazanie</h2>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">Potvrdiť zmazanie</h2>
             <p className="mb-4 text-sm text-gray-600">
-              Naozaj chcete zmazat termin <strong>{deadlineTypeLabel(deleting.deadline_type)}</strong> ({deleting.institution})?
+              Naozaj chcete zmazať termín <strong>{deleting.code}</strong> ({deleting.name})?
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleting(null)}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
-                Zrusit
+                Zrušiť
               </button>
               <button
                 onClick={handleDelete}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
-                Zmazat
+                Zmazať
               </button>
             </div>
           </div>
