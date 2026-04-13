@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router'
 import { useStore } from 'zustand'
 import { authStore } from '../../stores/auth.store'
+import { APP_VERSION } from '../../version'
 
 // ── Types ──────────────────────────────────────────────────
 type Role = 'director' | 'accountant' | 'employee'
@@ -209,6 +210,12 @@ function Sidebar() {
           )}
         </div>
       )}
+      {/* Version */}
+      <div className="border-t border-gray-200 px-6 py-3">
+        <p className="text-xs text-gray-400" data-testid="app-version">
+          NEX Payroll v{APP_VERSION}
+        </p>
+      </div>
     </aside>
   )
 }
