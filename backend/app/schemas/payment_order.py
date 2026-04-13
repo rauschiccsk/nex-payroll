@@ -258,3 +258,36 @@ class PaymentOrderRead(BaseModel):
     health_insurer_id: UUID | None
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# PaymentOrderStatusUpdate — for PUT /payments/{id}/status
+# ---------------------------------------------------------------------------
+
+
+class PaymentOrderStatusUpdate(BaseModel):
+    """Schema for updating only the status of a payment order."""
+
+    status: _PAYMENT_STATUS = Field(
+        ...,
+        examples=["exported"],
+        description="New status: pending, exported, paid",
+    )
+
+
+# ---------------------------------------------------------------------------
+# SepaXmlRequest — for POST /payments/{year}/{month}/sepa-xml
+# ---------------------------------------------------------------------------
+
+
+class SepaXmlRequest(BaseModel):
+    """Optional parameters for SEPA XML generation."""
+
+    tenant_id: UUID = Field(
+        ...,
+        description="Tenant whose payment orders to export",
+    )
+    execution_date: datetime | None = Field(
+        default=None,
+        description="Requested execution date (defaults to today)",
+    )

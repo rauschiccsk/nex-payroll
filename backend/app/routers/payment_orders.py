@@ -1,6 +1,6 @@
-"""PaymentOrder API router — CRUD endpoints.
+"""PaymentOrder API router — CRUD + SEPA XML endpoints.
 
-Prefix: /api/v1/payment-orders (set in main.py via include_router)
+Prefix: /api/v1/payments (set in main.py via include_router)
 All endpoints use def (NEVER async def) per DESIGN.md.
 """
 
@@ -8,6 +8,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,9 +16,11 @@ from app.schemas.pagination import PaginatedResponse
 from app.schemas.payment_order import (
     PaymentOrderCreate,
     PaymentOrderRead,
+    PaymentOrderStatusUpdate,
     PaymentOrderUpdate,
 )
 from app.services import payment_order as payment_order_service
+from app.services import sepa_generator
 
 logger = logging.getLogger(__name__)
 
@@ -164,3 +167,156 @@ def delete_payment_order_endpoint(
     except ValueError as exc:
         _raise_for_value_error(exc)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# PUT  /payments/{id}/status        — update status only
+# ---------------------------------------------------------------------------
+
+
+@router.put("/{order_id}/status", response_model=PaymentOrderRead)
+def update_payment_order_status_endpoint(
+    order_id: UUID,
+    payload: PaymentOrderStatusUpdate,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Update the status of a payment order (pending → exported → paid)."""
+    try:
+        order = payment_order_service.update_payment_order(
+            db,
+            order_id,
+            PaymentOrderUpdate(status=payload.status),
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+# ---------------------------------------------------------------------------
+# GET  /payments/{year}/{month}     — list orders for a specific period
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{year}/{month}", response_model=PaginatedResponse[PaymentOrderRead])
+def list_payment_orders_by_period_endpoint(
+    year: int,
+    month: int,
+    tenant_id: UUID = Query(..., description="Filter by tenant"),  # noqa: B008
+    payment_type: str | None = Query(None, description="Filter by payment type"),  # noqa: B008
+    status: str | None = Query(None, description="Filter by status"),  # noqa: B008
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Max records to return"),
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Return payment orders for a specific year/month period."""
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=422, detail="month must be between 1 and 12")
+    if year < 2000 or year > 2100:
+        raise HTTPException(status_code=422, detail="year must be between 2000 and 2100")
+
+    try:
+        items = payment_order_service.list_payment_orders(
+            db,
+            tenant_id=tenant_id,
+            payment_type=payment_type,
+            status=status,
+            period_year=year,
+            period_month=month,
+            skip=skip,
+            limit=limit,
+        )
+        total = payment_order_service.count_payment_orders(
+            db,
+            tenant_id=tenant_id,
+            payment_type=payment_type,
+            status=status,
+            period_year=year,
+            period_month=month,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+    return PaginatedResponse(items=items, total=total, skip=skip, limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# GET  /payments/{year}/{month}/sepa-xml  — download SEPA XML
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{year}/{month}/sepa-xml")
+def download_sepa_xml_endpoint(
+    year: int,
+    month: int,
+    tenant_id: UUID = Query(..., description="Tenant ID"),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Download SEPA XML (pain.001.001.03) for all pending/exported orders.
+
+    Returns XML without changing order status (preview mode).
+    To export and mark as 'exported', use POST /{year}/{month}/sepa-xml.
+    """
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=422, detail="month must be between 1 and 12")
+    if year < 2000 or year > 2100:
+        raise HTTPException(status_code=422, detail="year must be between 2000 and 2100")
+
+    try:
+        xml_bytes = sepa_generator.generate_sepa_xml_preview(
+            db,
+            tenant_id=tenant_id,
+            period_year=year,
+            period_month=month,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    filename = f"SEPA-{year}-{month:02d}.xml"
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /payments/{year}/{month}/sepa-xml  — generate & export SEPA XML
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{year}/{month}/sepa-xml")
+def generate_sepa_xml_endpoint(
+    year: int,
+    month: int,
+    tenant_id: UUID = Query(..., description="Tenant ID"),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Generate SEPA XML and mark all pending orders as 'exported'.
+
+    Returns the XML document.  Orders are transitioned from
+    'pending' → 'exported' atomically.
+    """
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=422, detail="month must be between 1 and 12")
+    if year < 2000 or year > 2100:
+        raise HTTPException(status_code=422, detail="year must be between 2000 and 2100")
+
+    try:
+        xml_bytes = sepa_generator.generate_sepa_xml(
+            db,
+            tenant_id=tenant_id,
+            period_year=year,
+            period_month=month,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    db.commit()
+
+    filename = f"SEPA-{year}-{month:02d}.xml"
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
