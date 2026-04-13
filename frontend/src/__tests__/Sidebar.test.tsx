@@ -64,4 +64,11 @@ describe('Sidebar', () => {
     // Settings should auto-expand when on settings route
     expect(screen.getByText('Používatelia')).toBeInTheDocument()
   })
+
+  it('displays application version', () => {
+    renderSidebar()
+    const versionEl = screen.getByTestId('app-version')
+    expect(versionEl).toBeInTheDocument()
+    expect(versionEl.textContent).toMatch(/^v\d+\.\d+\.\d+$/)
+  })
 })

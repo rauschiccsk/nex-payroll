@@ -209,6 +209,16 @@ function Sidebar() {
           )}
         </div>
       )}
+
+      {/* Version */}
+      <div className="border-t border-gray-200 px-4 py-2">
+        <span
+          data-testid="app-version"
+          className="text-xs text-gray-400"
+        >
+          v{__APP_VERSION__}
+        </span>
+      </div>
     </aside>
   )
 }
