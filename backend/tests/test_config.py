@@ -36,8 +36,20 @@ def test_settings_default_debug_is_false():
     assert s.debug is False
 
 
-def test_settings_default_secret_key():
-    """Verify a default secret key exists (placeholder)."""
+def test_settings_default_payroll_jwt_secret():
+    """Verify PAYROLL_JWT_SECRET has a default value (per DESIGN.md §2.2)."""
     s = Settings()
-    assert s.secret_key is not None
-    assert len(s.secret_key) > 0
+    assert s.payroll_jwt_secret is not None
+    assert len(s.payroll_jwt_secret) > 0
+
+
+def test_settings_payroll_encryption_key_field_exists():
+    """Verify PAYROLL_ENCRYPTION_KEY field exists (AES-256 PII encryption per DESIGN.md)."""
+    s = Settings()
+    assert hasattr(s, "payroll_encryption_key")
+
+
+def test_settings_payroll_admin_password_field_exists():
+    """Verify PAYROLL_ADMIN_PASSWORD field exists (initial seeding per DESIGN.md)."""
+    s = Settings()
+    assert hasattr(s, "payroll_admin_password")
