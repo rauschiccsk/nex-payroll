@@ -67,7 +67,7 @@ class TestUpdatePaymentOrderStatus:
         tenant = _make_tenant(db_session)
         order = _make_order(db_session, tenant.id)
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/payments/{order.id}/status",
             json={"status": "exported"},
         )
@@ -81,7 +81,7 @@ class TestUpdatePaymentOrderStatus:
         tenant = _make_tenant(db_session)
         order = _make_order(db_session, tenant.id, status="exported")
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/payments/{order.id}/status",
             json={"status": "paid"},
         )
@@ -93,7 +93,7 @@ class TestUpdatePaymentOrderStatus:
         tenant = _make_tenant(db_session)
         order = _make_order(db_session, tenant.id)
 
-        resp = client.put(
+        resp = client.patch(
             f"/api/v1/payments/{order.id}/status",
             json={"status": "invalid_status"},
         )
@@ -101,7 +101,7 @@ class TestUpdatePaymentOrderStatus:
         assert resp.status_code == 422
 
     def test_update_status_not_found(self, client, db_session):
-        resp = client.put(
+        resp = client.patch(
             "/api/v1/payments/00000000-0000-0000-0000-000000000001/status",
             json={"status": "exported"},
         )

@@ -190,10 +190,16 @@ class PaySlipData:
 # Styles
 # ---------------------------------------------------------------------------
 
-_HEADER_BG = colors.HexColor("#2563EB")
-_SECTION_BG = colors.HexColor("#EFF6FF")
-_NET_BG = colors.HexColor("#DCFCE7")
-_BORDER_COLOR = colors.HexColor("#D1D5DB")
+if colors is not None:
+    _HEADER_BG = colors.HexColor("#2563EB")
+    _SECTION_BG = colors.HexColor("#EFF6FF")
+    _NET_BG = colors.HexColor("#DCFCE7")
+    _BORDER_COLOR = colors.HexColor("#D1D5DB")
+else:
+    _HEADER_BG = None
+    _SECTION_BG = None
+    _NET_BG = None
+    _BORDER_COLOR = None
 
 
 def _get_styles():

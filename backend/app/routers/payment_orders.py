@@ -174,7 +174,7 @@ def delete_payment_order_endpoint(
 # ---------------------------------------------------------------------------
 
 
-@router.put("/{order_id}/status", response_model=PaymentOrderRead)
+@router.patch("/{order_id}/status", response_model=PaymentOrderRead)
 def update_payment_order_status_endpoint(
     order_id: UUID,
     payload: PaymentOrderStatusUpdate,
