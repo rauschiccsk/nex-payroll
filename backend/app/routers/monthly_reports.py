@@ -1,4 +1,4 @@
-"""MonthlyReport API router — CRUD endpoints.
+"""MonthlyReport API router — CRUD + SP report generation endpoints.
 
 Prefix: /api/v1/monthly-reports (set in main.py via include_router)
 All endpoints use def (NEVER async def) per DESIGN.md.
@@ -8,6 +8,7 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,6 +19,7 @@ from app.schemas.monthly_report import (
 )
 from app.schemas.pagination import PaginatedResponse
 from app.services import monthly_report as monthly_report_service
+from app.services.sp_report_generator import generate_sp_report_xml, get_sp_report_deadline
 
 logger = logging.getLogger(__name__)
 
@@ -161,3 +163,94 @@ def delete_monthly_report_endpoint(
     except ValueError as exc:
         _raise_for_value_error(exc)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# POST /monthly-reports/{tenant_id}/{year}/{month}/sp-xml — generate SP report
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{tenant_id}/{year}/{month}/sp-xml",
+    response_model=MonthlyReportRead,
+    status_code=201,
+)
+def generate_sp_report_endpoint(
+    tenant_id: UUID,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Generate SP monthly report XML and store a MonthlyReport record.
+
+    Builds the XML from approved/paid payrolls for the given period,
+    then creates a ``monthly_reports`` record with ``report_type='sp_monthly'``.
+    Returns the MonthlyReport metadata (the XML is downloadable via the GET endpoint).
+    """
+    try:
+        xml_bytes = generate_sp_report_xml(db, tenant_id, year, month)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    deadline = get_sp_report_deadline(year, month)
+    file_path = f"/data/reports/{year}/{month:02d}/sp_monthly_{tenant_id}.xml"
+
+    payload = MonthlyReportCreate(
+        tenant_id=tenant_id,
+        period_year=year,
+        period_month=month,
+        report_type="sp_monthly",
+        file_path=file_path,
+        file_format="xml",
+        status="generated",
+        deadline_date=deadline,
+        institution="Sociálna poisťovňa",
+    )
+
+    try:
+        report = monthly_report_service.create_monthly_report(db, payload)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    db.commit()
+    db.refresh(report)
+
+    logger.info(
+        "SP monthly report generated: tenant=%s period=%d/%02d size=%d bytes",
+        tenant_id,
+        year,
+        month,
+        len(xml_bytes),
+    )
+
+    return report
+
+
+# ---------------------------------------------------------------------------
+# GET /monthly-reports/{tenant_id}/{year}/{month}/sp-xml — download SP XML
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{tenant_id}/{year}/{month}/sp-xml")
+def download_sp_report_endpoint(
+    tenant_id: UUID,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Download SP monthly report as XML.
+
+    Generates the XML on the fly from approved/paid payrolls.
+    Does not create or modify any database records.
+    """
+    try:
+        xml_bytes = generate_sp_report_xml(db, tenant_id, year, month)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    filename = f"sp_monthly_{year}_{month:02d}.xml"
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
