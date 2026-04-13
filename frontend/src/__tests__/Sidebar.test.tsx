@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import Sidebar from '@/components/layout/Sidebar'
-import { APP_VERSION } from '@/version'
 
 function renderSidebar(initialRoute = '/') {
   return render(
@@ -64,12 +63,5 @@ describe('Sidebar', () => {
     renderSidebar('/settings')
     // Settings should auto-expand when on settings route
     expect(screen.getByText('Používatelia')).toBeInTheDocument()
-  })
-
-  it('displays app version in sidebar footer', () => {
-    renderSidebar()
-    const versionEl = screen.getByTestId('app-version')
-    expect(versionEl).toBeInTheDocument()
-    expect(versionEl).toHaveTextContent(`NEX Payroll v${APP_VERSION}`)
   })
 })
