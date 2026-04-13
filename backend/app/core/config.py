@@ -30,6 +30,9 @@ class Settings(BaseSettings):
         "http://localhost:5173",
     ]
 
+    # Paths
+    pdf_base_path: str = "/opt/nex-payroll-src/data/payslips"
+
     # Application
     app_name: str = "NEX Payroll"
     debug: bool = False

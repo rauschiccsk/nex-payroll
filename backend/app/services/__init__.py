@@ -6,6 +6,7 @@ with the Router Generation Checklist pattern.
 """
 
 from app.services import audit_log as audit_log_service
+from app.services import calculation_engine, tenant_service
 from app.services import contract as contract_service
 from app.services import contribution_rate as contribution_rate_service
 from app.services import employee as employee_service
@@ -20,10 +21,10 @@ from app.services import payment_order as payment_order_service
 from app.services import payroll as payroll_service
 from app.services import statutory_deadline as statutory_deadline_service
 from app.services import tax_bracket as tax_bracket_service
-from app.services import tenant_service
 from app.services import user as user_service
 
 __all__ = [
+    "calculation_engine",
     "audit_log_service",
     "contract_service",
     "contribution_rate_service",

@@ -1,18 +1,31 @@
 """Service layer for PaySlip entity.
 
-Provides CRUD operations over the pay_slips table (tenant-specific schema).
+Provides CRUD operations over the pay_slips table (tenant-specific schema)
+plus PDF generation for approved payrolls.
 All functions are synchronous (def, not async def) and accept a
 SQLAlchemy Session.  They flush but never commit — the caller
 (typically a FastAPI endpoint / unit-of-work) owns the transaction.
 """
 
+import logging
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.models.employee import Employee
 from app.models.pay_slip import PaySlip
+from app.models.payroll import Payroll
+from app.models.tenant import Tenant
 from app.schemas.pay_slip import PaySlipCreate, PaySlipUpdate
+from app.services.pdf_generator import (
+    build_pay_slip_data_from_models,
+    build_pay_slip_pdf,
+    get_pdf_path,
+    write_pdf_to_disk,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def count_pay_slips(
@@ -167,3 +180,263 @@ def delete_pay_slip(db: Session, pay_slip_id: UUID) -> bool:
     db.delete(pay_slip)
     db.flush()
     return True
+
+
+# ---------------------------------------------------------------------------
+# PDF generation
+# ---------------------------------------------------------------------------
+
+
+def generate_pay_slip_pdf(
+    db: Session,
+    *,
+    tenant_id: UUID,
+    employee_id: UUID,
+    period_year: int,
+    period_month: int,
+) -> PaySlip:
+    """Generate a pay slip PDF for a single employee/period.
+
+    Requires an approved payroll for the given employee/period.
+    Creates or updates the PaySlip record with file path and size.
+
+    Raises ``ValueError`` if tenant, employee, or approved payroll not found.
+    Returns the PaySlip ORM instance (flushed, not committed).
+    """
+    # Resolve tenant
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"Tenant with id={tenant_id} not found")
+
+    # Resolve employee
+    employee = db.get(Employee, employee_id)
+    if employee is None:
+        raise ValueError(f"Employee with id={employee_id} not found")
+    if employee.tenant_id != tenant_id:
+        raise ValueError(f"Employee {employee_id} does not belong to tenant {tenant_id}")
+
+    # Find approved payroll for the period
+    stmt = select(Payroll).where(
+        Payroll.tenant_id == tenant_id,
+        Payroll.employee_id == employee_id,
+        Payroll.period_year == period_year,
+        Payroll.period_month == period_month,
+        Payroll.status.in_(["approved", "paid"]),
+    )
+    payroll = db.execute(stmt).scalar_one_or_none()
+    if payroll is None:
+        msg = f"Approved payroll not found for employee {employee_id} in {period_year}/{period_month}"
+        raise ValueError(msg)
+
+    # Build PDF data and generate bytes
+    slip_data = build_pay_slip_data_from_models(
+        tenant=tenant,
+        employee=employee,
+        payroll=payroll,
+    )
+    pdf_bytes = build_pay_slip_pdf(slip_data)
+
+    # Compute canonical path and write to disk
+    pdf_path = get_pdf_path(
+        tenant_schema=tenant.schema_name,
+        period_year=period_year,
+        period_month=period_month,
+        employee_number=employee.employee_number,
+    )
+    file_size = write_pdf_to_disk(pdf_bytes, pdf_path)
+
+    # Create or update PaySlip record
+    existing_stmt = select(PaySlip).where(
+        PaySlip.tenant_id == tenant_id,
+        PaySlip.payroll_id == payroll.id,
+    )
+    pay_slip = db.execute(existing_stmt).scalar_one_or_none()
+
+    if pay_slip is not None:
+        # Update existing record (re-generation)
+        pay_slip.pdf_path = pdf_path
+        pay_slip.file_size_bytes = file_size
+    else:
+        pay_slip = PaySlip(
+            tenant_id=tenant_id,
+            payroll_id=payroll.id,
+            employee_id=employee_id,
+            period_year=period_year,
+            period_month=period_month,
+            pdf_path=pdf_path,
+            file_size_bytes=file_size,
+        )
+        db.add(pay_slip)
+
+    db.flush()
+
+    logger.info(
+        "Generated pay slip PDF: %s (%d bytes)",
+        pdf_path,
+        file_size,
+    )
+    return pay_slip
+
+
+def generate_all_pay_slips(
+    db: Session,
+    *,
+    tenant_id: UUID,
+    period_year: int,
+    period_month: int,
+) -> list[PaySlip]:
+    """Batch-generate pay slip PDFs for all approved payrolls in a period.
+
+    Finds all approved/paid payrolls for the given tenant and period,
+    then generates a PDF for each.
+
+    Returns list of created/updated PaySlip records (flushed, not committed).
+    Raises ``ValueError`` if tenant not found or no approved payrolls exist.
+    """
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"Tenant with id={tenant_id} not found")
+
+    # Find all approved payrolls for the period
+    stmt = select(Payroll).where(
+        Payroll.tenant_id == tenant_id,
+        Payroll.period_year == period_year,
+        Payroll.period_month == period_month,
+        Payroll.status.in_(["approved", "paid"]),
+    )
+    payrolls = list(db.execute(stmt).scalars().all())
+
+    if not payrolls:
+        raise ValueError(f"Approved payrolls not found for tenant {tenant_id} in period {period_year}/{period_month}")
+
+    results: list[PaySlip] = []
+    for payroll in payrolls:
+        employee = db.get(Employee, payroll.employee_id)
+        if employee is None:
+            logger.warning(
+                "Skipping payroll %s — employee %s not found",
+                payroll.id,
+                payroll.employee_id,
+            )
+            continue
+
+        slip_data = build_pay_slip_data_from_models(
+            tenant=tenant,
+            employee=employee,
+            payroll=payroll,
+        )
+        pdf_bytes = build_pay_slip_pdf(slip_data)
+
+        pdf_path = get_pdf_path(
+            tenant_schema=tenant.schema_name,
+            period_year=period_year,
+            period_month=period_month,
+            employee_number=employee.employee_number,
+        )
+        file_size = write_pdf_to_disk(pdf_bytes, pdf_path)
+
+        # Create or update PaySlip record
+        existing_stmt = select(PaySlip).where(
+            PaySlip.tenant_id == tenant_id,
+            PaySlip.payroll_id == payroll.id,
+        )
+        pay_slip = db.execute(existing_stmt).scalar_one_or_none()
+
+        if pay_slip is not None:
+            pay_slip.pdf_path = pdf_path
+            pay_slip.file_size_bytes = file_size
+        else:
+            pay_slip = PaySlip(
+                tenant_id=tenant_id,
+                payroll_id=payroll.id,
+                employee_id=payroll.employee_id,
+                period_year=period_year,
+                period_month=period_month,
+                pdf_path=pdf_path,
+                file_size_bytes=file_size,
+            )
+            db.add(pay_slip)
+
+        db.flush()
+        results.append(pay_slip)
+
+        logger.info(
+            "Generated pay slip PDF: %s (%d bytes)",
+            pdf_path,
+            file_size,
+        )
+
+    return results
+
+
+def get_pay_slip_pdf_bytes(
+    db: Session,
+    *,
+    tenant_id: UUID,
+    employee_id: UUID,
+    period_year: int,
+    period_month: int,
+) -> tuple[bytes, str]:
+    """Generate a pay slip PDF in memory (for streaming download).
+
+    Returns (pdf_bytes, filename).
+    Raises ``ValueError`` if data not found.
+    """
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"Tenant with id={tenant_id} not found")
+
+    employee = db.get(Employee, employee_id)
+    if employee is None:
+        raise ValueError(f"Employee with id={employee_id} not found")
+    if employee.tenant_id != tenant_id:
+        raise ValueError(f"Employee {employee_id} does not belong to tenant {tenant_id}")
+
+    stmt = select(Payroll).where(
+        Payroll.tenant_id == tenant_id,
+        Payroll.employee_id == employee_id,
+        Payroll.period_year == period_year,
+        Payroll.period_month == period_month,
+        Payroll.status.in_(["approved", "paid"]),
+    )
+    payroll = db.execute(stmt).scalar_one_or_none()
+    if payroll is None:
+        msg = f"Approved payroll not found for employee {employee_id} in {period_year}/{period_month}"
+        raise ValueError(msg)
+
+    slip_data = build_pay_slip_data_from_models(
+        tenant=tenant,
+        employee=employee,
+        payroll=payroll,
+    )
+    pdf_bytes = build_pay_slip_pdf(slip_data)
+    filename = f"payslip_{employee.employee_number}_{period_year}_{period_month:02d}.pdf"
+
+    return pdf_bytes, filename
+
+
+def mark_downloaded(
+    db: Session,
+    *,
+    tenant_id: UUID,
+    employee_id: UUID,
+    period_year: int,
+    period_month: int,
+) -> None:
+    """Mark a pay slip as downloaded (set ``downloaded_at`` if not yet set).
+
+    Looks up the PaySlip record by tenant/employee/period and sets
+    ``downloaded_at`` to the current UTC timestamp if it was previously NULL.
+    No-op if the record doesn't exist or was already marked.
+    Flushes but does not commit.
+    """
+    stmt = select(PaySlip).where(
+        PaySlip.tenant_id == tenant_id,
+        PaySlip.employee_id == employee_id,
+        PaySlip.period_year == period_year,
+        PaySlip.period_month == period_month,
+    )
+    pay_slip = db.execute(stmt).scalar_one_or_none()
+    if pay_slip is not None and pay_slip.downloaded_at is None:
+        pay_slip.downloaded_at = func.now()
+        db.flush()

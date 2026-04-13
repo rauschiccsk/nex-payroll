@@ -11,9 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.schemas.calculation import PayrollCalculateRequest, PayrollCalculationResult
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.payroll import PayrollCreate, PayrollRead, PayrollUpdate
 from app.services import payroll as payroll_service
+from app.services.calculation_engine import calculate_employee_payroll, persist_calculation
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +144,92 @@ def update_payroll_endpoint(
     db.commit()
     db.refresh(payroll)
     return payroll
+
+
+# ---------------------------------------------------------------------------
+# POST /payroll/calculate              — trigger payroll calculation
+# ---------------------------------------------------------------------------
+
+
+@router.post("/calculate", response_model=PayrollCalculationResult, status_code=200)
+def calculate_payroll_endpoint(
+    payload: PayrollCalculateRequest,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Calculate monthly payroll (gross → net) for an employee.
+
+    Fetches employee data, contract, children, and rates from DB.
+    Creates or updates a Payroll record with status='calculated'.
+    Returns the complete calculation breakdown.
+    """
+    try:
+        result = calculate_employee_payroll(
+            db,
+            tenant_id=payload.tenant_id,
+            employee_id=payload.employee_id,
+            contract_id=payload.contract_id,
+            period_year=payload.period_year,
+            period_month=payload.period_month,
+            overtime_hours=payload.overtime_hours,
+            overtime_amount=payload.overtime_amount,
+            bonus_amount=payload.bonus_amount,
+            supplement_amount=payload.supplement_amount,
+        )
+        # Persist the calculation result
+        persist_calculation(db, tenant_id=payload.tenant_id, result=result)
+        db.commit()
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    return PayrollCalculationResult(
+        base_wage=result.base_wage,
+        overtime_hours=result.overtime_hours,
+        overtime_amount=result.overtime_amount,
+        bonus_amount=result.bonus_amount,
+        supplement_amount=result.supplement_amount,
+        gross_wage=result.gross_wage,
+        sp_assessment_base=result.sp_assessment_base,
+        sp_nemocenske=result.sp_nemocenske,
+        sp_starobne=result.sp_starobne,
+        sp_invalidne=result.sp_invalidne,
+        sp_nezamestnanost=result.sp_nezamestnanost,
+        sp_employee_total=result.sp_employee_total,
+        zp_assessment_base=result.zp_assessment_base,
+        zp_employee=result.zp_employee,
+        partial_tax_base=result.partial_tax_base,
+        nczd_applied=result.nczd_applied,
+        tax_base=result.tax_base,
+        tax_advance=result.tax_advance,
+        child_bonus=result.child_bonus,
+        child_bonus_details=[
+            {
+                "child_id": c.child_id,
+                "child_name": c.child_name,
+                "age": c.age,
+                "bonus_amount": c.bonus_amount,
+            }
+            for c in result.child_bonus_details
+        ],
+        tax_after_bonus=result.tax_after_bonus,
+        net_wage=result.net_wage,
+        sp_employer_nemocenske=result.sp_employer_nemocenske,
+        sp_employer_starobne=result.sp_employer_starobne,
+        sp_employer_invalidne=result.sp_employer_invalidne,
+        sp_employer_nezamestnanost=result.sp_employer_nezamestnanost,
+        sp_employer_garancne=result.sp_employer_garancne,
+        sp_employer_rezervny=result.sp_employer_rezervny,
+        sp_employer_kurzarbeit=result.sp_employer_kurzarbeit,
+        sp_employer_urazove=result.sp_employer_urazove,
+        sp_employer_total=result.sp_employer_total,
+        zp_employer=result.zp_employer,
+        pillar2_amount=result.pillar2_amount,
+        total_employer_cost=result.total_employer_cost,
+        period_year=result.period_year,
+        period_month=result.period_month,
+        employee_id=result.employee_id,
+        contract_id=result.contract_id,
+        effective_date=result.effective_date,
+    )
 
 
 # ---------------------------------------------------------------------------

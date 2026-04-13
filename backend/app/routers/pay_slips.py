@@ -1,18 +1,28 @@
-"""PaySlip API router — CRUD endpoints.
+"""PaySlip API router — CRUD + PDF generation endpoints.
 
 Prefix: /api/v1/payslips (set in main.py via include_router)
 All endpoints use def (NEVER async def) per DESIGN.md.
+
+Endpoints per DESIGN.md §6.8:
+  GET    /payslips/{year}/{month}/{employee_id}/pdf   — Download PDF
+  POST   /payslips/{year}/{month}/generate-all        — Batch generate all
 """
 
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.pagination import PaginatedResponse
-from app.schemas.pay_slip import PaySlipCreate, PaySlipRead, PaySlipUpdate
+from app.schemas.pay_slip import (
+    PaySlipCreate,
+    PaySlipGenerateAllResponse,
+    PaySlipRead,
+    PaySlipUpdate,
+)
 from app.services import pay_slip as pay_slip_service
 
 logger = logging.getLogger(__name__)
@@ -161,3 +171,90 @@ def delete_pay_slip_endpoint(
     except ValueError as exc:
         _raise_for_value_error(exc)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# GET  /payslips/{year}/{month}/{employee_id}/pdf  — download PDF
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{year}/{month}/{employee_id}/pdf")
+def download_pay_slip_pdf(
+    year: int = Path(..., ge=2000, le=2100, description="Period year"),  # noqa: B008
+    month: int = Path(..., ge=1, le=12, description="Period month (1-12)"),  # noqa: B008
+    employee_id: UUID = Path(..., description="Employee ID"),  # noqa: B008
+    tenant_id: UUID = Query(..., description="Tenant ID"),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Download a pay slip PDF for a specific employee and period.
+
+    Generates the PDF on-the-fly from the approved payroll data.
+    Sets Content-Disposition for browser download.
+    """
+    try:
+        pdf_bytes, filename = pay_slip_service.get_pay_slip_pdf_bytes(
+            db,
+            tenant_id=tenant_id,
+            employee_id=employee_id,
+            period_year=year,
+            period_month=month,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    # Update downloaded_at on existing PaySlip record if present
+    pay_slip_service.mark_downloaded(
+        db,
+        tenant_id=tenant_id,
+        employee_id=employee_id,
+        period_year=year,
+        period_month=month,
+    )
+    db.commit()
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /payslips/{year}/{month}/generate-all     — batch generate
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{year}/{month}/generate-all",
+    response_model=PaySlipGenerateAllResponse,
+    status_code=201,
+)
+def generate_all_pay_slips_endpoint(
+    year: int = Path(..., ge=2000, le=2100, description="Period year"),  # noqa: B008
+    month: int = Path(..., ge=1, le=12, description="Period month (1-12)"),  # noqa: B008
+    tenant_id: UUID = Query(..., description="Tenant ID"),  # noqa: B008
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Batch-generate pay slip PDFs for all approved payrolls in a period.
+
+    Generates PDF files on disk and creates PaySlip metadata records.
+    Returns the count and list of generated pay slips.
+    """
+    try:
+        pay_slips = pay_slip_service.generate_all_pay_slips(
+            db,
+            tenant_id=tenant_id,
+            period_year=year,
+            period_month=month,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+    db.commit()
+    for ps in pay_slips:
+        db.refresh(ps)
+    return PaySlipGenerateAllResponse(
+        count=len(pay_slips),
+        pay_slips=pay_slips,
+    )

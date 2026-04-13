@@ -130,3 +130,21 @@ class PaySlipRead(BaseModel):
     downloaded_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# PaySlipGenerateAllResponse
+# ---------------------------------------------------------------------------
+
+
+class PaySlipGenerateAllResponse(BaseModel):
+    """Response schema for batch pay slip generation."""
+
+    count: int = Field(
+        ...,
+        description="Number of pay slips generated",
+    )
+    pay_slips: list[PaySlipRead] = Field(
+        ...,
+        description="Generated pay slip records",
+    )
