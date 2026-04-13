@@ -180,8 +180,10 @@ def create_payroll(
         action="create",
         entity_type="Payroll",
         entity_id=payroll.id,
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in payload.model_dump().items()},
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v
+            for k, v in payload.model_dump().items()
+        },
     )
     return payroll
 
@@ -214,8 +216,12 @@ def update_payroll(
     if payroll is None:
         raise ValueError(f"Payroll with id={payroll_id} not found")
 
-    old_values = {k: str(getattr(payroll, k)) if not isinstance(getattr(payroll, k), (str, int, float, bool, type(None))) else getattr(payroll, k)
-                  for k in update_data}
+    old_values = {
+        k: str(getattr(payroll, k))
+        if not isinstance(getattr(payroll, k), str | int | float | bool | type(None))
+        else getattr(payroll, k)
+        for k in update_data
+    }
 
     for field, value in update_data.items():
         setattr(payroll, field, value)
@@ -229,8 +235,9 @@ def update_payroll(
         entity_type="Payroll",
         entity_id=payroll.id,
         old_values=old_values,
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in update_data.items()},
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v for k, v in update_data.items()
+        },
     )
     return payroll
 

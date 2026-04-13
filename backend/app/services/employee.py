@@ -109,8 +109,10 @@ def create_employee(
         action="create",
         entity_type="Employee",
         entity_id=employee.id,
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in payload.model_dump().items()},
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v
+            for k, v in payload.model_dump().items()
+        },
     )
     return employee
 
@@ -147,8 +149,12 @@ def update_employee(
                 f"Employee with employee_number={new_number!r} already exists in tenant {employee.tenant_id}"
             )
 
-    old_values = {k: str(getattr(employee, k)) if not isinstance(getattr(employee, k), (str, int, float, bool, type(None))) else getattr(employee, k)
-                  for k in update_data}
+    old_values = {
+        k: str(getattr(employee, k))
+        if not isinstance(getattr(employee, k), str | int | float | bool | type(None))
+        else getattr(employee, k)
+        for k in update_data
+    }
 
     for field, value in update_data.items():
         setattr(employee, field, value)
@@ -162,8 +168,9 @@ def update_employee(
         entity_type="Employee",
         entity_id=employee.id,
         old_values=old_values,
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in update_data.items()},
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v for k, v in update_data.items()
+        },
     )
     return employee
 

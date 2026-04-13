@@ -6,8 +6,10 @@ from app.core.config import settings
 from app.routers.audit_log import router as audit_log_router
 from app.routers.auth import router as auth_router
 from app.routers.contracts import router as contracts_router
+from app.routers.contracts_nested import router as contracts_nested_router
 from app.routers.contribution_rates import router as contribution_rates_router
 from app.routers.employee_children import router as employee_children_router
+from app.routers.employee_children_nested import router as employee_children_nested_router
 from app.routers.employees import router as employees_router
 from app.routers.health_insurers import router as health_insurers_router
 from app.routers.leave_entitlements import router as leave_entitlements_router
@@ -20,8 +22,6 @@ from app.routers.payroll import router as payroll_router
 from app.routers.statutory_deadlines import router as statutory_deadlines_router
 from app.routers.tax_brackets import router as tax_brackets_router
 from app.routers.tenants import router as tenants_router
-from app.routers.contracts_nested import router as contracts_nested_router
-from app.routers.employee_children_nested import router as employee_children_nested_router
 from app.routers.users import router as users_router
 
 app = FastAPI(

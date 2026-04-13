@@ -6,7 +6,7 @@ DESIGN.md §2.3.1:
   - Secret: settings.payroll_jwt_secret
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -38,7 +38,7 @@ def create_access_token(user: User) -> str:
     Payload: sub=str(user.id), tenant_id=str(user.tenant_id),
              role=user.role, exp=utcnow+30min
     """
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user.id),
         "tenant_id": str(user.tenant_id),
@@ -72,12 +72,12 @@ def get_current_user(
         if user_id is None:
             raise credentials_exception
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     try:
         uid = UUID(user_id)
     except ValueError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     user = db.get(User, uid)
     if user is None or not user.is_active:

@@ -8,7 +8,6 @@ DESIGN.md §6.6
 """
 
 from datetime import date
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,7 +17,6 @@ from app.models.employee import Employee
 from app.models.employee_child import EmployeeChild
 from app.models.health_insurer import HealthInsurer
 from app.models.tenant import Tenant
-
 
 # ---------------------------------------------------------------------------
 # Helpers

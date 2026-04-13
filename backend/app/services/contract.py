@@ -98,8 +98,10 @@ def create_contract(
         action="create",
         entity_type="Contract",
         entity_id=contract.id,
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in payload.model_dump().items()},
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v
+            for k, v in payload.model_dump().items()
+        },
     )
     return contract
 
@@ -135,8 +137,12 @@ def update_contract(
                 f"already exists in tenant {contract.tenant_id}"
             )
 
-    old_values = {k: str(getattr(contract, k)) if not isinstance(getattr(contract, k), (str, int, float, bool, type(None))) else getattr(contract, k)
-                  for k in update_data}
+    old_values = {
+        k: str(getattr(contract, k))
+        if not isinstance(getattr(contract, k), str | int | float | bool | type(None))
+        else getattr(contract, k)
+        for k in update_data
+    }
 
     for field, value in update_data.items():
         setattr(contract, field, value)
@@ -150,8 +156,9 @@ def update_contract(
         entity_type="Contract",
         entity_id=contract.id,
         old_values=old_values,
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in update_data.items()},
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v for k, v in update_data.items()
+        },
     )
     return contract
 

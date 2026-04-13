@@ -9,7 +9,6 @@ DESIGN.md §6.5
 
 from datetime import date
 from decimal import Decimal
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -19,7 +18,6 @@ from app.models.contract import Contract
 from app.models.employee import Employee
 from app.models.health_insurer import HealthInsurer
 from app.models.tenant import Tenant
-
 
 # ---------------------------------------------------------------------------
 # Helpers

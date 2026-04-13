@@ -242,8 +242,13 @@ def update_user(
         if new_employee_id is None:
             raise ValueError("employee_id is required when role is 'employee'")
 
-    audit_old = {k: str(getattr(user, k)) if not isinstance(getattr(user, k), (str, int, float, bool, type(None))) else getattr(user, k)
-                 for k in update_data if k != "password_hash"}
+    audit_old = {
+        k: str(getattr(user, k))
+        if not isinstance(getattr(user, k), str | int | float | bool | type(None))
+        else getattr(user, k)
+        for k in update_data
+        if k != "password_hash"
+    }
     audit_new = {k: v for k, v in update_data.items() if k != "password_hash"}
 
     for field, value in update_data.items():
@@ -257,10 +262,12 @@ def update_user(
         action="update",
         entity_type="User",
         entity_id=user.id,
-        old_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in audit_old.items()},
-        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
-                    for k, v in audit_new.items()},
+        old_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v for k, v in audit_old.items()
+        },
+        new_values={
+            k: str(v) if not isinstance(v, str | int | float | bool | type(None)) else v for k, v in audit_new.items()
+        },
     )
     return user
 

@@ -7,14 +7,16 @@ Covers:
 DESIGN.md §2.3.1 + §6.1
 """
 
+from datetime import UTC
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.services.user import create_user
 from app.schemas.user import UserCreate
+from app.services.user import create_user
 
 LOGIN_URL = "/api/v1/auth/login"
 ME_URL = "/api/v1/auth/me"
@@ -157,7 +159,7 @@ class TestMe:
 
     def test_me_with_expired_token(self, client: TestClient, test_user):
         """Manually crafted expired token → 401."""
-        from datetime import datetime, timedelta, timezone
+        from datetime import datetime, timedelta
 
         from jose import jwt
 
@@ -165,7 +167,7 @@ class TestMe:
 
         user, _ = test_user
         # Create token with expiry in the past
-        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        past = datetime.now(UTC) - timedelta(hours=1)
         payload = {
             "sub": str(user.id),
             "tenant_id": str(user.tenant_id),
