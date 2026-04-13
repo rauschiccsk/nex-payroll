@@ -12,6 +12,7 @@ from app.services.audit_log import (
     create_audit_log,
     get_audit_log,
     list_audit_logs,
+    write_audit,
 )
 
 # ---------------------------------------------------------------------------
@@ -288,3 +289,81 @@ class TestListAuditLogsFilters:
 
         assert count_audit_logs(db_session, tenant_id=tenant.id) == 1
         assert count_audit_logs(db_session, tenant_id=uuid4()) == 0
+
+
+# ---------------------------------------------------------------------------
+# write_audit helper (NR-05)
+# ---------------------------------------------------------------------------
+
+
+class TestWriteAudit:
+    """Tests for the write_audit convenience helper."""
+
+    def test_write_audit_creates_entry(self, db_session, tenant):
+        """write_audit creates an AuditLog entry visible via list_audit_logs."""
+        entity_id = uuid4()
+        write_audit(
+            db_session,
+            tenant_id=tenant.id,
+            user_id=None,
+            action="create",
+            entity_type="Employee",
+            entity_id=entity_id,
+            new_values={"first_name": "Ján"},
+        )
+        entries = list_audit_logs(db_session, tenant_id=tenant.id, entity_type="Employee")
+        assert len(entries) == 1
+        entry = entries[0]
+        assert entry.action == "CREATE"
+        assert entry.entity_type == "Employee"
+        assert entry.entity_id == entity_id
+        assert entry.new_values == {"first_name": "Ján"}
+        assert entry.old_values is None
+
+    def test_write_audit_normalises_action_to_uppercase(self, db_session, tenant):
+        """write_audit accepts lowercase action and normalises to uppercase."""
+        entity_id = uuid4()
+        write_audit(
+            db_session,
+            tenant_id=tenant.id,
+            user_id=None,
+            action="update",
+            entity_type="Contract",
+            entity_id=entity_id,
+            old_values={"status": "draft"},
+            new_values={"status": "approved"},
+        )
+        entries = list_audit_logs(db_session, tenant_id=tenant.id, entity_type="Contract")
+        assert len(entries) == 1
+        assert entries[0].action == "UPDATE"
+
+    def test_write_audit_delete_action(self, db_session, tenant):
+        """write_audit with delete action produces DELETE entry."""
+        entity_id = uuid4()
+        write_audit(
+            db_session,
+            tenant_id=tenant.id,
+            user_id=None,
+            action="delete",
+            entity_type="User",
+            entity_id=entity_id,
+            old_values={"is_active": True},
+        )
+        entries = list_audit_logs(db_session, tenant_id=tenant.id, entity_type="User")
+        assert len(entries) == 1
+        assert entries[0].action == "DELETE"
+        assert entries[0].new_values is None
+
+    def test_write_audit_invalid_action_raises(self, db_session, tenant):
+        """write_audit raises ValueError for unrecognised action."""
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid audit action"):
+            write_audit(
+                db_session,
+                tenant_id=tenant.id,
+                user_id=None,
+                action="read",
+                entity_type="Employee",
+                entity_id=uuid4(),
+            )

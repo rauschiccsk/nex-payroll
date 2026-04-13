@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.models.pay_slip import PaySlip
 from app.models.payroll import Payroll
 from app.schemas.payroll import PayrollCreate, PayrollUpdate
+from app.services.audit_log import write_audit
 
 # ---------------------------------------------------------------------------
 # Allowed enum values (validated at service level)
@@ -145,6 +146,7 @@ def get_payroll(db: Session, payroll_id: UUID) -> Payroll | None:
 def create_payroll(
     db: Session,
     payload: PayrollCreate,
+    user_id: UUID | None = None,
 ) -> Payroll:
     """Insert a new payroll record and flush (no commit).
 
@@ -171,6 +173,16 @@ def create_payroll(
     payroll = Payroll(**payload.model_dump())
     db.add(payroll)
     db.flush()
+    write_audit(
+        db,
+        tenant_id=payload.tenant_id,
+        user_id=user_id,
+        action="create",
+        entity_type="Payroll",
+        entity_id=payroll.id,
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in payload.model_dump().items()},
+    )
     return payroll
 
 
@@ -183,6 +195,7 @@ def update_payroll(
     db: Session,
     payroll_id: UUID,
     payload: PayrollUpdate,
+    user_id: UUID | None = None,
 ) -> Payroll:
     """Partially update an existing payroll record.
 
@@ -201,10 +214,24 @@ def update_payroll(
     if payroll is None:
         raise ValueError(f"Payroll with id={payroll_id} not found")
 
+    old_values = {k: str(getattr(payroll, k)) if not isinstance(getattr(payroll, k), (str, int, float, bool, type(None))) else getattr(payroll, k)
+                  for k in update_data}
+
     for field, value in update_data.items():
         setattr(payroll, field, value)
 
     db.flush()
+    write_audit(
+        db,
+        tenant_id=payroll.tenant_id,
+        user_id=user_id,
+        action="update",
+        entity_type="Payroll",
+        entity_id=payroll.id,
+        old_values=old_values,
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in update_data.items()},
+    )
     return payroll
 
 

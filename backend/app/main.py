@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__
 from app.core.config import settings
 from app.routers.audit_log import router as audit_log_router
+from app.routers.auth import router as auth_router
 from app.routers.contracts import router as contracts_router
 from app.routers.contribution_rates import router as contribution_rates_router
 from app.routers.employee_children import router as employee_children_router
@@ -19,6 +20,8 @@ from app.routers.payroll import router as payroll_router
 from app.routers.statutory_deadlines import router as statutory_deadlines_router
 from app.routers.tax_brackets import router as tax_brackets_router
 from app.routers.tenants import router as tenants_router
+from app.routers.contracts_nested import router as contracts_nested_router
+from app.routers.employee_children_nested import router as employee_children_nested_router
 from app.routers.users import router as users_router
 
 app = FastAPI(
@@ -37,6 +40,10 @@ app.add_middleware(
     max_age=600,
 )
 
+app.include_router(
+    auth_router,
+    prefix="/api/v1/auth",
+)
 app.include_router(
     audit_log_router,
     prefix="/api/v1/audit-logs",
@@ -105,6 +112,8 @@ app.include_router(
     users_router,
     prefix="/api/v1/users",
 )
+app.include_router(contracts_nested_router, prefix="/api/v1")
+app.include_router(employee_children_nested_router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -15,6 +15,53 @@ from sqlalchemy.orm import Session
 from app.models.audit_log import AuditLog
 from app.schemas.audit_log import AuditLogCreate, AuditLogUpdate
 
+# ---------------------------------------------------------------------------
+# write_audit helper — called by service layer for NR-05 compliance
+# ---------------------------------------------------------------------------
+
+_ACTION_MAP = {
+    "create": "CREATE",
+    "update": "UPDATE",
+    "delete": "DELETE",
+    # Accept uppercase directly too
+    "CREATE": "CREATE",
+    "UPDATE": "UPDATE",
+    "DELETE": "DELETE",
+}
+
+
+def write_audit(
+    db: Session,
+    tenant_id: UUID,
+    user_id: UUID | None,
+    action: str,
+    entity_type: str,
+    entity_id: UUID,
+    old_values: dict | None = None,
+    new_values: dict | None = None,
+) -> None:
+    """Write an audit log entry and flush (no commit).
+
+    action: 'create'|'update'|'delete' (case-insensitive) or uppercase variant.
+    entity_id: UUID of the affected entity.
+    Called by Employee, Contract, User, and Payroll service functions.
+    """
+    normalised_action = _ACTION_MAP.get(action)
+    if normalised_action is None:
+        raise ValueError(f"Invalid audit action={action!r}. Expected create/update/delete.")
+
+    entry = AuditLog(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action=normalised_action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        old_values=old_values,
+        new_values=new_values,
+    )
+    db.add(entry)
+    db.flush()
+
 
 def _apply_filters(
     stmt,

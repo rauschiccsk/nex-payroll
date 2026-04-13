@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
+from app.services.audit_log import write_audit
 
 # ---------------------------------------------------------------------------
 # Password hashing (Argon2 via pwdlib)
@@ -132,6 +133,7 @@ def get_user(db: Session, user_id: UUID) -> User | None:
 def create_user(
     db: Session,
     payload: UserCreate,
+    acting_user_id: UUID | None = None,
 ) -> User:
     """Insert a new user and flush (no commit).
 
@@ -165,6 +167,15 @@ def create_user(
     user = User(**data)
     db.add(user)
     db.flush()
+    write_audit(
+        db,
+        tenant_id=payload.tenant_id,
+        user_id=acting_user_id,
+        action="create",
+        entity_type="User",
+        entity_id=user.id,
+        new_values={"username": payload.username, "email": payload.email, "role": payload.role},
+    )
     return user
 
 
@@ -177,6 +188,7 @@ def update_user(
     db: Session,
     user_id: UUID,
     payload: UserUpdate,
+    acting_user_id: UUID | None = None,
 ) -> User | None:
     """Partially update an existing user.
 
@@ -230,10 +242,26 @@ def update_user(
         if new_employee_id is None:
             raise ValueError("employee_id is required when role is 'employee'")
 
+    audit_old = {k: str(getattr(user, k)) if not isinstance(getattr(user, k), (str, int, float, bool, type(None))) else getattr(user, k)
+                 for k in update_data if k != "password_hash"}
+    audit_new = {k: v for k, v in update_data.items() if k != "password_hash"}
+
     for field, value in update_data.items():
         setattr(user, field, value)
 
     db.flush()
+    write_audit(
+        db,
+        tenant_id=user.tenant_id,
+        user_id=acting_user_id,
+        action="update",
+        entity_type="User",
+        entity_id=user.id,
+        old_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in audit_old.items()},
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in audit_new.items()},
+    )
     return user
 
 
@@ -242,7 +270,7 @@ def update_user(
 # ---------------------------------------------------------------------------
 
 
-def delete_user(db: Session, user_id: UUID) -> bool:
+def delete_user(db: Session, user_id: UUID, acting_user_id: UUID | None = None) -> bool:
     """Soft-delete a user by setting is_active=False.
 
     Returns ``True`` if the user was deactivated, ``False`` if not found.
@@ -254,4 +282,14 @@ def delete_user(db: Session, user_id: UUID) -> bool:
 
     user.is_active = False
     db.flush()
+    write_audit(
+        db,
+        tenant_id=user.tenant_id,
+        user_id=acting_user_id,
+        action="delete",
+        entity_type="User",
+        entity_id=user.id,
+        old_values={"is_active": True},
+        new_values={"is_active": False},
+    )
     return True

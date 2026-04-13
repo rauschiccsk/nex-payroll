@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models.employee import Employee
 from app.schemas.employee import EmployeeCreate, EmployeeUpdate
+from app.services.audit_log import write_audit
 
 
 def count_employees(
@@ -81,6 +82,7 @@ def get_employee(db: Session, employee_id: UUID) -> Employee | None:
 def create_employee(
     db: Session,
     payload: EmployeeCreate,
+    user_id: UUID | None = None,
 ) -> Employee:
     """Insert a new employee and flush (no commit).
 
@@ -100,6 +102,16 @@ def create_employee(
     employee = Employee(**payload.model_dump())
     db.add(employee)
     db.flush()
+    write_audit(
+        db,
+        tenant_id=payload.tenant_id,
+        user_id=user_id,
+        action="create",
+        entity_type="Employee",
+        entity_id=employee.id,
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in payload.model_dump().items()},
+    )
     return employee
 
 
@@ -107,6 +119,7 @@ def update_employee(
     db: Session,
     employee_id: UUID,
     payload: EmployeeUpdate,
+    user_id: UUID | None = None,
 ) -> Employee | None:
     """Partially update an existing employee.
 
@@ -134,14 +147,28 @@ def update_employee(
                 f"Employee with employee_number={new_number!r} already exists in tenant {employee.tenant_id}"
             )
 
+    old_values = {k: str(getattr(employee, k)) if not isinstance(getattr(employee, k), (str, int, float, bool, type(None))) else getattr(employee, k)
+                  for k in update_data}
+
     for field, value in update_data.items():
         setattr(employee, field, value)
 
     db.flush()
+    write_audit(
+        db,
+        tenant_id=employee.tenant_id,
+        user_id=user_id,
+        action="update",
+        entity_type="Employee",
+        entity_id=employee.id,
+        old_values=old_values,
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in update_data.items()},
+    )
     return employee
 
 
-def delete_employee(db: Session, employee_id: UUID) -> bool:
+def delete_employee(db: Session, employee_id: UUID, user_id: UUID | None = None) -> bool:
     """Soft-delete an employee by setting ``is_deleted = True``.
 
     Returns ``True`` if the employee was found and soft-deleted,
@@ -153,4 +180,14 @@ def delete_employee(db: Session, employee_id: UUID) -> bool:
 
     employee.is_deleted = True
     db.flush()
+    write_audit(
+        db,
+        tenant_id=employee.tenant_id,
+        user_id=user_id,
+        action="delete",
+        entity_type="Employee",
+        entity_id=employee.id,
+        old_values={"is_deleted": False},
+        new_values={"is_deleted": True},
+    )
     return True

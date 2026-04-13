@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.models.contract import Contract
 from app.models.payroll import Payroll
 from app.schemas.contract import ContractCreate, ContractUpdate
+from app.services.audit_log import write_audit
 
 
 def _apply_filters(stmt, *, tenant_id, employee_id, is_current):
@@ -70,6 +71,7 @@ def get_contract(db: Session, contract_id: UUID) -> Contract | None:
 def create_contract(
     db: Session,
     payload: ContractCreate,
+    user_id: UUID | None = None,
 ) -> Contract:
     """Insert a new contract and flush (no commit).
 
@@ -89,6 +91,16 @@ def create_contract(
     contract = Contract(**payload.model_dump())
     db.add(contract)
     db.flush()
+    write_audit(
+        db,
+        tenant_id=payload.tenant_id,
+        user_id=user_id,
+        action="create",
+        entity_type="Contract",
+        entity_id=contract.id,
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in payload.model_dump().items()},
+    )
     return contract
 
 
@@ -96,6 +108,7 @@ def update_contract(
     db: Session,
     contract_id: UUID,
     payload: ContractUpdate,
+    user_id: UUID | None = None,
 ) -> Contract | None:
     """Partially update an existing contract.
 
@@ -122,14 +135,28 @@ def update_contract(
                 f"already exists in tenant {contract.tenant_id}"
             )
 
+    old_values = {k: str(getattr(contract, k)) if not isinstance(getattr(contract, k), (str, int, float, bool, type(None))) else getattr(contract, k)
+                  for k in update_data}
+
     for field, value in update_data.items():
         setattr(contract, field, value)
 
     db.flush()
+    write_audit(
+        db,
+        tenant_id=contract.tenant_id,
+        user_id=user_id,
+        action="update",
+        entity_type="Contract",
+        entity_id=contract.id,
+        old_values=old_values,
+        new_values={k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                    for k, v in update_data.items()},
+    )
     return contract
 
 
-def delete_contract(db: Session, contract_id: UUID) -> bool:
+def delete_contract(db: Session, contract_id: UUID, user_id: UUID | None = None) -> bool:
     """Delete a contract by primary key (hard delete).
 
     Returns ``True`` if the row was deleted, ``False`` if not found.
@@ -151,6 +178,16 @@ def delete_contract(db: Session, contract_id: UUID) -> bool:
     if payroll_count > 0:
         raise ValueError(f"Cannot delete contract {contract_id}: {payroll_count} payroll record(s) depend on it")
 
+    tenant_id = contract.tenant_id
+    contract_id_saved = contract.id
     db.delete(contract)
     db.flush()
+    write_audit(
+        db,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        action="delete",
+        entity_type="Contract",
+        entity_id=contract_id_saved,
+    )
     return True
