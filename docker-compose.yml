@@ -30,7 +30,9 @@ services:
     environment:
       DATABASE_URL: postgresql+pg8000://${POSTGRES_USER:-nex_payroll}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-nex_payroll}
       TEST_DATABASE_URL: postgresql+pg8000://${POSTGRES_USER:-nex_payroll}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_TEST_DB:-nex_payroll_test}
-      SECRET_KEY: ${SECRET_KEY:-changeme-generate-a-real-secret-key}
+      PAYROLL_JWT_SECRET: ${PAYROLL_JWT_SECRET:-changeme-generate-a-real-secret-key}
+      PAYROLL_ENCRYPTION_KEY: ${PAYROLL_ENCRYPTION_KEY:-changeme-32-chars-minimum-key!!}
+      PAYROLL_ADMIN_PASSWORD: ${PAYROLL_ADMIN_PASSWORD:-admin}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:9173"]}
     ports:
       - "${BACKEND_PORT:-9172}:9172"

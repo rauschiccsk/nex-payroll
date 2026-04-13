@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     test_database_url: str = "postgresql+pg8000://nex_payroll:changeme@db:5432/nex_payroll_test"
 
     # Security
-    secret_key: str = "changeme-generate-a-real-secret-key"
+    payroll_jwt_secret: str = "changeme-generate-a-real-secret-key"
+    payroll_encryption_key: str = ""
+    payroll_admin_password: str = "admin"
 
     # CORS
     cors_origins: list[str] = [
