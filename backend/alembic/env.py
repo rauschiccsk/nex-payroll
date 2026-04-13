@@ -13,7 +13,9 @@ from sqlalchemy import create_engine, pool
 
 import app.models as _models  # noqa: F401
 from alembic import context
+from app.models.annual_settlement import AnnualSettlement  # noqa: F401
 from app.models.base import Base
+from app.models.journal_entry import JournalEntry  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
 

@@ -3,6 +3,7 @@
 Import all models here so Alembic autogenerate can detect them.
 """
 
+from app.models.annual_settlement import AnnualSettlement
 from app.models.audit_log import AuditLog
 from app.models.base import Base
 from app.models.contract import Contract
@@ -10,6 +11,7 @@ from app.models.contribution_rate import ContributionRate
 from app.models.employee import Employee
 from app.models.employee_child import EmployeeChild
 from app.models.health_insurer import HealthInsurer
+from app.models.journal_entry import JournalEntry
 from app.models.leave import Leave
 from app.models.leave_entitlement import LeaveEntitlement
 from app.models.monthly_report import MonthlyReport
@@ -23,6 +25,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 
 __all__ = [
+    "AnnualSettlement",
     "AuditLog",
     "Base",
     "Contract",
@@ -30,6 +33,7 @@ __all__ = [
     "Employee",
     "EmployeeChild",
     "HealthInsurer",
+    "JournalEntry",
     "Leave",
     "LeaveEntitlement",
     "MonthlyReport",

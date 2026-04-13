@@ -20,7 +20,11 @@ from app.schemas.payment_order import (
     PaymentOrderUpdate,
 )
 from app.services import payment_order as payment_order_service
-from app.services import sepa_generator
+
+try:
+    from app.services import sepa_generator
+except ImportError:
+    sepa_generator = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
