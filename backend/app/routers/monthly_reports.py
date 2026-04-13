@@ -20,6 +20,7 @@ from app.schemas.monthly_report import (
 from app.schemas.pagination import PaginatedResponse
 from app.services import monthly_report as monthly_report_service
 from app.services.sp_report_generator import generate_sp_report_xml, get_sp_report_deadline
+from app.services.tax_prehled_generator import generate_tax_prehled_xml, get_tax_prehled_deadline
 from app.services.zp_report_generator import (
     REPORT_TYPE_TO_INSTITUTION,
     REPORT_TYPE_TO_INSURER_CODE,
@@ -384,6 +385,98 @@ def download_zp_report_endpoint(
         _raise_for_value_error(exc)
 
     filename = f"{report_type}_{year}_{month:02d}.xml"
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /monthly-reports/{tenant_id}/{year}/{month}/tax-xml
+#      — generate tax monthly prehľad
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{tenant_id}/{year}/{month}/tax-xml",
+    response_model=MonthlyReportRead,
+    status_code=201,
+)
+def generate_tax_prehled_endpoint(
+    tenant_id: UUID,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Generate DÚ tax monthly prehľad XML and store a MonthlyReport record.
+
+    Builds the XML from approved/paid payrolls for the given period,
+    then creates a ``monthly_reports`` record with ``report_type='tax_prehled'``.
+    Returns the MonthlyReport metadata (the XML is downloadable via the GET endpoint).
+    """
+    try:
+        xml_bytes = generate_tax_prehled_xml(db, tenant_id, year, month)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    deadline = get_tax_prehled_deadline(year, month)
+    file_path = f"/data/reports/{year}/{month:02d}/tax_prehled_{tenant_id}.xml"
+
+    payload = MonthlyReportCreate(
+        tenant_id=tenant_id,
+        period_year=year,
+        period_month=month,
+        report_type="tax_prehled",
+        file_path=file_path,
+        file_format="xml",
+        status="generated",
+        deadline_date=deadline,
+        institution="Daňový úrad",
+    )
+
+    try:
+        report = monthly_report_service.create_monthly_report(db, payload)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    db.commit()
+    db.refresh(report)
+
+    logger.info(
+        "Tax monthly prehľad generated: tenant=%s period=%d/%02d size=%d bytes",
+        tenant_id,
+        year,
+        month,
+        len(xml_bytes),
+    )
+
+    return report
+
+
+# ---------------------------------------------------------------------------
+# GET /monthly-reports/{tenant_id}/{year}/{month}/tax-xml — download tax XML
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{tenant_id}/{year}/{month}/tax-xml")
+def download_tax_prehled_endpoint(
+    tenant_id: UUID,
+    year: int,
+    month: int,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Download DÚ tax monthly prehľad as XML.
+
+    Generates the XML on the fly from approved/paid payrolls.
+    Does not create or modify any database records.
+    """
+    try:
+        xml_bytes = generate_tax_prehled_xml(db, tenant_id, year, month)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    filename = f"tax_prehled_{year}_{month:02d}.xml"
     return Response(
         content=xml_bytes,
         media_type="application/xml",
