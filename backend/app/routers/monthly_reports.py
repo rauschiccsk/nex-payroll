@@ -1,4 +1,4 @@
-"""MonthlyReport API router — CRUD + SP report generation endpoints.
+"""MonthlyReport API router — CRUD + SP/ZP report generation endpoints.
 
 Prefix: /api/v1/monthly-reports (set in main.py via include_router)
 All endpoints use def (NEVER async def) per DESIGN.md.
@@ -20,6 +20,12 @@ from app.schemas.monthly_report import (
 from app.schemas.pagination import PaginatedResponse
 from app.services import monthly_report as monthly_report_service
 from app.services.sp_report_generator import generate_sp_report_xml, get_sp_report_deadline
+from app.services.zp_report_generator import (
+    REPORT_TYPE_TO_INSTITUTION,
+    REPORT_TYPE_TO_INSURER_CODE,
+    generate_zp_report_xml,
+    get_zp_report_deadline,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +255,135 @@ def download_sp_report_endpoint(
         _raise_for_value_error(exc)
 
     filename = f"sp_monthly_{year}_{month:02d}.xml"
+    return Response(
+        content=xml_bytes,
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /monthly-reports/{tenant_id}/{year}/{month}/zp-xml/{report_type}
+#      — generate ZP report per health insurer
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{tenant_id}/{year}/{month}/zp-xml/{report_type}",
+    response_model=MonthlyReportRead,
+    status_code=201,
+)
+def generate_zp_report_endpoint(
+    tenant_id: UUID,
+    year: int,
+    month: int,
+    report_type: str,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Generate ZP monthly report XML for a specific health insurer.
+
+    Builds the XML from approved/paid payrolls for the given period,
+    filtering only employees assigned to the specified health insurer.
+    Creates a ``monthly_reports`` record with the appropriate ZP report type.
+    Returns the MonthlyReport metadata (XML downloadable via the GET endpoint).
+
+    ``report_type`` must be one of: ``zp_vszp``, ``zp_dovera``, ``zp_union``.
+    """
+    if report_type not in REPORT_TYPE_TO_INSURER_CODE:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid ZP report type: {report_type}. "
+            f"Must be one of: {', '.join(sorted(REPORT_TYPE_TO_INSURER_CODE))}",
+        )
+
+    try:
+        xml_bytes, health_insurer_id = generate_zp_report_xml(
+            db,
+            tenant_id,
+            year,
+            month,
+            report_type,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    deadline = get_zp_report_deadline(year, month)
+    institution = REPORT_TYPE_TO_INSTITUTION[report_type]
+    file_path = f"/data/reports/{year}/{month:02d}/{report_type}_{tenant_id}.xml"
+
+    payload = MonthlyReportCreate(
+        tenant_id=tenant_id,
+        period_year=year,
+        period_month=month,
+        report_type=report_type,
+        file_path=file_path,
+        file_format="xml",
+        status="generated",
+        deadline_date=deadline,
+        institution=institution,
+        health_insurer_id=health_insurer_id,
+    )
+
+    try:
+        report = monthly_report_service.create_monthly_report(db, payload)
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    db.commit()
+    db.refresh(report)
+
+    logger.info(
+        "ZP monthly report generated (%s): tenant=%s period=%d/%02d size=%d bytes",
+        report_type,
+        tenant_id,
+        year,
+        month,
+        len(xml_bytes),
+    )
+
+    return report
+
+
+# ---------------------------------------------------------------------------
+# GET /monthly-reports/{tenant_id}/{year}/{month}/zp-xml/{report_type}
+#     — download ZP XML
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{tenant_id}/{year}/{month}/zp-xml/{report_type}")
+def download_zp_report_endpoint(
+    tenant_id: UUID,
+    year: int,
+    month: int,
+    report_type: str,
+    db: Session = Depends(get_db),  # noqa: B008
+):
+    """Download ZP monthly report as XML for a specific health insurer.
+
+    Generates the XML on the fly from approved/paid payrolls.
+    Does not create or modify any database records.
+
+    ``report_type`` must be one of: ``zp_vszp``, ``zp_dovera``, ``zp_union``.
+    """
+    if report_type not in REPORT_TYPE_TO_INSURER_CODE:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid ZP report type: {report_type}. "
+            f"Must be one of: {', '.join(sorted(REPORT_TYPE_TO_INSURER_CODE))}",
+        )
+
+    try:
+        xml_bytes, _insurer_id = generate_zp_report_xml(
+            db,
+            tenant_id,
+            year,
+            month,
+            report_type,
+        )
+    except ValueError as exc:
+        _raise_for_value_error(exc)
+
+    filename = f"{report_type}_{year}_{month:02d}.xml"
     return Response(
         content=xml_bytes,
         media_type="application/xml",
