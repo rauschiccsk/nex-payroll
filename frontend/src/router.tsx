@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router'
 import { MainLayout } from './components/layout'
+import ProtectedRoute from './components/auth/ProtectedRoute'
 import {
   LoginPage,
   DashboardPage,
@@ -39,7 +40,11 @@ const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
-    element: <MainLayout />,
+    element: (
+      <ProtectedRoute>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'employees', element: <EmployeesPage /> },
