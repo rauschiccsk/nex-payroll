@@ -94,14 +94,15 @@
 
 | Role | Scope | Permissions |
 |------|-------|-------------|
+| superadmin | System-wide | Multi-tenant management, system configuration, tenant_id=NULL |
 | director | Full access | All operations, user management, tenant settings, approve payroll, annual processing, integrations |
 | accountant | Operational | Employee CRUD, payroll calculation, reports, payments, leaves management |
 | employee | Self-service | View own payslips, request leaves, view own data only |
 
 **Implementation:**
 - `get_current_user` dependency — extracts and validates JWT
-- `require_role(role)` dependency — checks role hierarchy: director > accountant > employee
-- Tenant isolation: user always scoped to their tenant_id
+- `require_role(role)` dependency — checks role hierarchy: superadmin > director > accountant > employee
+- Tenant isolation: user always scoped to their tenant_id (superadmin has no tenant_id)
 - Employee self-service: employee role filtered to own employee_id
 
 #### 2.3.3 Initial User Seeding
@@ -365,13 +366,14 @@ Column              Type              Constraints
 ──────────────────────────────────────────────────────────────
 id                  UUID              PK, server_default=gen_random_uuid()
 name                String(200)       NOT NULL
-ico                 String(8)         NOT NULL, UNIQUE
-dic                 String(12)        NULLABLE
-ic_dph              String(14)        NULLABLE
-address_street      String(200)       NOT NULL
+ico                 String(20)        NOT NULL, UNIQUE
+dic                 String(20)        NULLABLE
+ic_dph              String(20)        NULLABLE
+address_street      String(255)       NOT NULL
 address_city        String(100)       NOT NULL
 address_zip         String(10)        NOT NULL
 address_country     String(2)         NOT NULL, DEFAULT 'SK'
+contact_email       String(255)       NULLABLE
 bank_iban           String(34)        NOT NULL
 bank_bic            String(11)        NULLABLE
 schema_name         String(63)        NOT NULL, UNIQUE
@@ -384,7 +386,7 @@ updated_at          DateTime          NOT NULL, server_default=now(), onupdate=n
 
 ### 5.3 User
 
-**Schema:** tenant-specific
+**Schema:** public
 
 ```
 Table: users
@@ -392,12 +394,12 @@ Table: users
 Column              Type              Constraints
 ──────────────────────────────────────────────────────────────
 id                  UUID              PK, server_default=gen_random_uuid()
-tenant_id           UUID              FK(public.tenants.id), NOT NULL
+tenant_id           UUID              FK(public.tenants.id), NULLABLE
 employee_id         UUID              FK(employees.id), NULLABLE, UNIQUE
 username            String(100)       NOT NULL
 email               String(255)       NOT NULL
 password_hash       String(255)       NOT NULL
-role                String(20)        NOT NULL, CHECK IN ('director','accountant','employee')
+role                String(20)        NOT NULL, CHECK IN ('superadmin','director','accountant','employee')
 is_active           Boolean           NOT NULL, server_default='true'
 last_login_at       DateTime          NULLABLE
 password_changed_at DateTime          NULLABLE
@@ -412,6 +414,8 @@ Indexes:
   UNIQUE(employee_id) WHERE employee_id IS NOT NULL
 
 Business Rules:
+  role='superadmin' MUST have tenant_id=NULL (system-wide admin)
+  role!='superadmin' MUST have tenant_id set
   role='employee' MUST have employee_id set
   role='director'|'accountant' MAY have employee_id
   Soft delete via is_active=False
