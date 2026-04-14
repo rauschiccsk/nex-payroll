@@ -18,6 +18,8 @@ from app.models.base import Base
 from app.models.journal_entry import JournalEntry  # noqa: F401
 from app.models.notification import Notification  # noqa: F401
 from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
+from app.models.tenant import Tenant  # noqa: F401
+from app.models.user import User  # noqa: F401
 
 target_metadata = Base.metadata
 
