@@ -33,25 +33,25 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     )
 
     ico: Mapped[str] = mapped_column(
-        String(20),
+        String(8),
         nullable=False,
         comment="Company registration number (IČO)",
     )
 
     dic: Mapped[str | None] = mapped_column(
-        String(20),
+        String(12),
         nullable=True,
         comment="Tax identification number (DIČ)",
     )
 
     ic_dph: Mapped[str | None] = mapped_column(
-        String(20),
+        String(14),
         nullable=True,
         comment="VAT identification number (IČ DPH)",
     )
 
     address_street: Mapped[str] = mapped_column(
-        String(255),
+        String(200),
         nullable=False,
         comment="Street address",
     )
@@ -73,12 +73,6 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         server_default="SK",
         comment="ISO 3166-1 alpha-2 country code",
-    )
-
-    contact_email: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-        comment="Primary contact email for tenant",
     )
 
     bank_iban: Mapped[str] = mapped_column(

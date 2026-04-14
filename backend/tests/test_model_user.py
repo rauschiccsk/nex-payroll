@@ -151,7 +151,7 @@ class TestUserColumns:
     def test_tenant_id_column(self):
         col = self.mapper.columns["tenant_id"]
         assert isinstance(col.type, UUID)
-        assert col.nullable is True
+        assert col.nullable is False
 
     def test_employee_id_column(self):
         col = self.mapper.columns["employee_id"]
@@ -382,49 +382,6 @@ class TestUserConstraints:
         db_session.add(u)
         db_session.flush()
         assert u.role == "employee"
-
-    def test_superadmin_with_null_tenant_succeeds(self, db_session):
-        """Superadmin with tenant_id=NULL must be allowed (ck_users_superadmin_no_tenant)."""
-        u = User(
-            tenant_id=None,
-            username="superadmin1",
-            email="superadmin1@example.com",
-            password_hash="$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest",
-            role="superadmin",
-        )
-        db_session.add(u)
-        db_session.flush()
-        assert u.id is not None
-        assert u.tenant_id is None
-        assert u.role == "superadmin"
-
-    def test_superadmin_with_tenant_fails(self, db_session, tenant):
-        """Superadmin with tenant_id set must be rejected (ck_users_superadmin_no_tenant)."""
-        u = User(
-            tenant_id=tenant.id,
-            username="superadmin_bad",
-            email="superadmin_bad@example.com",
-            password_hash="$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest",
-            role="superadmin",
-        )
-        db_session.add(u)
-        with pytest.raises((IntegrityError, ProgrammingError)):
-            db_session.flush()
-        db_session.rollback()
-
-    def test_non_superadmin_with_null_tenant_fails(self, db_session):
-        """Non-superadmin role with tenant_id=NULL must be rejected (ck_users_superadmin_no_tenant)."""
-        u = User(
-            tenant_id=None,
-            username="accountant_bad",
-            email="accountant_bad@example.com",
-            password_hash="$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest",
-            role="accountant",
-        )
-        db_session.add(u)
-        with pytest.raises((IntegrityError, ProgrammingError)):
-            db_session.flush()
-        db_session.rollback()
 
     def test_fk_tenant_nonexistent(self, db_session):
         """FK to tenant must exist."""
