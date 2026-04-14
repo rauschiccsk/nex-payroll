@@ -187,8 +187,8 @@ jobs:
         run: |
           cd /opt/nex-payroll-src
           git pull origin main
-          # Force-remove any containers with mismatched compose project labels
-          docker rm -f nex-payroll-frontend nex-payroll-backend 2>/dev/null || true
+          # Force-remove containers with mismatched compose project labels (data safe in volumes)
+          docker rm -f nex-payroll-frontend nex-payroll-backend nex-payroll-db 2>/dev/null || true
           docker compose up -d --build --remove-orphans
 
       - name: Wait for backend health
