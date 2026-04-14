@@ -32,10 +32,11 @@ class TestTenantSchema:
 
         assert issubclass(Tenant, TimestampMixin)
 
-    def test_extend_existing(self):
-        """Table args must include extend_existing=True."""
+    def test_table_args_dict(self):
+        """Table args must include schema='public' dict."""
         table_opts = Tenant.__table_args__[-1]
-        assert table_opts.get("extend_existing") is True
+        assert table_opts.get("schema") == "public"
+        assert "extend_existing" not in table_opts
 
 
 class TestTenantColumns:
