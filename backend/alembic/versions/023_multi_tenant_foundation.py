@@ -1,11 +1,11 @@
-"""Multi-tenant foundation — shared schema + tenants + users tables.
+"""Multi-tenant foundation — tenants + users tables.
 
-Creates the shared schema used by lookup tables and the foundational
-public.tenants and public.users tables for multi-tenant support.
+Creates the foundational public.tenants and public.users tables
+for multi-tenant support.
 
-Revision ID: 001
-Revises:
-Create Date: 2025-01-01 00:00:00.000000
+Revision ID: 023
+Revises: 022
+Create Date: 2026-04-14 00:00:00.000000
 
 """
 
@@ -16,17 +16,14 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "001"
-down_revision: str | Sequence[str] | None = None
+revision: str = "023"
+down_revision: str | Sequence[str] | None = "022"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Create shared schema, public.tenants and public.users tables."""
-    # Shared schema for lookup tables
-    op.execute("CREATE SCHEMA IF NOT EXISTS shared")
-
+    """Create public.tenants and public.users tables."""
     # public.tenants table
     op.create_table(
         "tenants",
@@ -155,32 +152,17 @@ def upgrade() -> None:
         schema="public",
     )
 
-    # Indexes on users table
+    # Index on users.tenant_id (email and username already indexed via UniqueConstraint)
     op.create_index(
         "ix_mt_users_tenant_id",
         "users",
         ["tenant_id"],
         schema="public",
     )
-    op.create_index(
-        "ix_mt_users_email",
-        "users",
-        ["email"],
-        schema="public",
-    )
-    op.create_index(
-        "ix_mt_users_username",
-        "users",
-        ["username"],
-        schema="public",
-    )
 
 
 def downgrade() -> None:
-    """Drop users and tenants tables, then shared schema."""
-    op.drop_index("ix_mt_users_username", table_name="users", schema="public")
-    op.drop_index("ix_mt_users_email", table_name="users", schema="public")
+    """Drop users and tenants tables."""
     op.drop_index("ix_mt_users_tenant_id", table_name="users", schema="public")
     op.drop_table("users", schema="public")
     op.drop_table("tenants", schema="public")
-    op.execute("DROP SCHEMA IF EXISTS shared CASCADE")
