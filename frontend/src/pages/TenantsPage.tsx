@@ -460,13 +460,19 @@ function TenantsPage() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Krajina</label>
-                  <input
-                    type="text"
+                  <select
                     value={form.address_country}
                     onChange={(e) => updateField('address_country', e.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    placeholder="SK"
-                  />
+                  >
+                    <option value="SK">SK - Slovensko</option>
+                    <option value="CZ">CZ - Cesko</option>
+                    <option value="HU">HU - Madarsko</option>
+                    <option value="PL">PL - Polsko</option>
+                    <option value="AT">AT - Rakusko</option>
+                    <option value="DE">DE - Nemecko</option>
+                    <option value="UA">UA - Ukrajina</option>
+                  </select>
                 </div>
               </div>
 

@@ -401,4 +401,77 @@ describe('TenantsPage', () => {
     expect(screen.getByText('SK3112000000198742637541')).toBeInTheDocument()
     expect(screen.getByText('SK3112000000198742637542')).toBeInTheDocument()
   })
+
+  it('country field is a select with valid ISO codes preventing invalid input (BUG-004)', async () => {
+    const user = userEvent.setup()
+    render(<TenantsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha s.r.o.')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('+ Nova organizacia'))
+
+    // Country field should be a <select>, not a text input
+    const countryLabel = screen.getByText('Krajina')
+    const countrySelect = countryLabel
+      .closest('div')!
+      .querySelector('select') as HTMLSelectElement
+    expect(countrySelect).toBeTruthy()
+
+    // Default value should be 'SK'
+    expect(countrySelect.value).toBe('SK')
+
+    // Should have valid ISO country options
+    const options = Array.from(countrySelect.options).map((o) => o.value)
+    expect(options).toContain('SK')
+    expect(options).toContain('CZ')
+
+    // All option values must be exactly 2 characters (ISO alpha-2)
+    for (const optValue of options) {
+      expect(optValue).toHaveLength(2)
+    }
+  })
+
+  it('sends valid 2-char country code in create payload (BUG-004)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createTenant).mockResolvedValue({
+      ...MOCK_TENANT_1,
+      id: '55555555-5555-5555-5555-555555555555',
+      address_country: 'CZ',
+    })
+
+    render(<TenantsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha s.r.o.')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('+ Nova organizacia'))
+
+    // Fill required fields
+    await user.type(screen.getByPlaceholderText('napr. Firma s.r.o.'), 'CZ Firma')
+    await user.type(screen.getByPlaceholderText('napr. 12345678'), '99887766')
+    await user.type(screen.getByPlaceholderText('napr. Hlavna 1'), 'Praha 1')
+    await user.type(screen.getByPlaceholderText('napr. Bratislava'), 'Praha')
+    await user.type(screen.getByPlaceholderText('napr. 81101'), '11000')
+    await user.type(screen.getByPlaceholderText('SK...'), 'CZ6508000000192000145399')
+
+    // Change country to CZ
+    const countryLabel = screen.getByText('Krajina')
+    const countrySelect = countryLabel
+      .closest('div')!
+      .querySelector('select') as HTMLSelectElement
+    await user.selectOptions(countrySelect, 'CZ')
+
+    await user.click(screen.getByText('Vytvorit'))
+
+    await waitFor(() => {
+      expect(createTenant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address_country: 'CZ',
+        }),
+      )
+    })
+  })
 })
