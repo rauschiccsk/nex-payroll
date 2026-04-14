@@ -56,7 +56,7 @@ def list_tenants(
     db: Session,
     *,
     skip: int = 0,
-    limit: int = 50,
+    limit: int = 100,
     is_active: bool | None = None,
 ) -> list[Tenant]:
     """Return a paginated list of tenants ordered by name, optionally filtered."""
@@ -69,6 +69,10 @@ def list_tenants(
 def get_tenant(db: Session, tenant_id: UUID) -> Tenant | None:
     """Return a single tenant by primary key, or ``None``."""
     return db.get(Tenant, tenant_id)
+
+
+# Alias required by task specification
+get_tenant_by_id = get_tenant
 
 
 def create_tenant(
@@ -161,3 +165,18 @@ def delete_tenant(db: Session, tenant_id: UUID) -> bool:
     db.delete(tenant)
     db.flush()
     return True
+
+
+def deactivate_tenant(db: Session, tenant_id: UUID) -> Tenant:
+    """Soft-delete a tenant by setting ``is_active = False``.
+
+    Raises:
+        ValueError: If the tenant does not exist.
+    """
+    tenant = db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise ValueError(f"Tenant with id={tenant_id!s} not found")
+
+    tenant.is_active = False
+    db.flush()
+    return tenant

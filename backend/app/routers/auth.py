@@ -12,26 +12,23 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pwdlib import PasswordHash
-from sqlalchemy import select
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import create_access_token, get_current_user
 from app.models.user import User
 from app.schemas.user import UserRead
+from app.services.user_service import authenticate_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(tags=["Auth"])
 
-_pwd_hash = PasswordHash.recommended()
 
 # ---------------------------------------------------------------------------
 # Schemas (auth-specific)
 # ---------------------------------------------------------------------------
-
-from pydantic import BaseModel  # noqa: E402
 
 
 class TokenResponse(BaseModel):
@@ -55,18 +52,9 @@ def login(
     or first active user with that username across tenants in Phase I).
     Returns HTTP 401 on invalid credentials or inactive account.
     """
-    # Locate user by username (unique within tenant; Phase I: first match)
-    stmt = select(User).where(User.username == form_data.username)
-    user: User | None = db.execute(stmt).scalar_one_or_none()
+    user = authenticate_user(db, form_data.username, form_data.password)
 
-    if user is None or not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not _pwd_hash.verify(form_data.password, user.password_hash):
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",

@@ -6,7 +6,6 @@ DESIGN.md §2.3.1:
   - Secret: settings.payroll_jwt_secret
 """
 
-from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -17,13 +16,8 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import ALL_ROLES, User
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from app.services.auth_service import ALGORITHM  # re-exported for middleware
+from app.services.auth_service import create_access_token as _create_access_token_raw
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -35,17 +29,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 def create_access_token(user: User) -> str:
     """Create a signed JWT access token for the given user.
 
-    Payload: sub=str(user.id), tenant_id=str(user.tenant_id),
-             role=user.role, exp=utcnow+30min
+    Delegates to auth_service.create_access_token with user attributes.
     """
-    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": str(user.id),
-        "tenant_id": str(user.tenant_id),
-        "role": user.role,
-        "exp": expire,
-    }
-    return jwt.encode(payload, settings.payroll_jwt_secret, algorithm=ALGORITHM)
+    return _create_access_token_raw(
+        user_id=user.id,
+        tenant_id=user.tenant_id,
+        role=user.role,
+    )
 
 
 # ---------------------------------------------------------------------------

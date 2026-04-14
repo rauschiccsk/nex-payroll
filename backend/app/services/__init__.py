@@ -13,7 +13,7 @@ except ImportError:
     annual_settlement = None  # type: ignore[assignment]
     annual_settlement_service = None  # type: ignore[assignment]
 from app.services import audit_log as audit_log_service
-from app.services import calculation_engine, tenant_service
+from app.services import auth_service, calculation_engine, tenant_service
 from app.services import contract as contract_service
 from app.services import contribution_rate as contribution_rate_service
 from app.services import deadline_monitor as deadline_monitor_service
@@ -46,6 +46,7 @@ except ImportError:
     sepa_generator = None  # type: ignore[assignment]
 
 __all__ = [
+    "auth_service",
     "annual_settlement_service",
     "calculation_engine",
     "audit_log_service",
