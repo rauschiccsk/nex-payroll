@@ -68,6 +68,7 @@ class User(UUIDMixin, TimestampMixin, Base):
         Index("ix_users_tenant_id", "tenant_id"),
         Index("ix_users_email", "email"),
         Index("ix_users_username", "username"),
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --

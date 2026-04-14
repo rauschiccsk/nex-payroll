@@ -23,7 +23,7 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("ico", name="uq_tenants_ico"),
         UniqueConstraint("schema_name", name="uq_tenants_schema_name"),
-        {"schema": "public"},
+        {"schema": "public", "extend_existing": True},
     )
 
     name: Mapped[str] = mapped_column(

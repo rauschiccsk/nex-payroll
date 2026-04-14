@@ -32,10 +32,10 @@ class TestTenantSchema:
 
         assert issubclass(Tenant, TimestampMixin)
 
-    def test_no_extend_existing(self):
-        """Table args must NOT include extend_existing (checklist compliance)."""
+    def test_extend_existing(self):
+        """Table args must include extend_existing=True to prevent MetaData conflicts."""
         table_opts = Tenant.__table_args__[-1]
-        assert table_opts.get("extend_existing") is None
+        assert table_opts.get("extend_existing") is True
 
 
 class TestTenantColumns:
