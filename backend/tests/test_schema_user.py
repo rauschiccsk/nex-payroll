@@ -7,7 +7,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.user import (
+    UserBase,
     UserCreate,
+    UserInDB,
+    UserPublic,
     UserRead,
     UserUpdate,
 )
@@ -19,6 +22,9 @@ from app.schemas.user import (
 _TENANT_ID = uuid4()
 _EMPLOYEE_ID = uuid4()
 
+# A password that satisfies complexity: uppercase, lowercase, digit, special, 12+ chars
+_VALID_PASSWORD = "StrongPass1!xy"
+
 
 def _valid_create_kwargs() -> dict:
     """Return a dict with all required fields for UserCreate."""
@@ -26,9 +32,70 @@ def _valid_create_kwargs() -> dict:
         "tenant_id": _TENANT_ID,
         "username": "jnovak",
         "email": "jan.novak@example.com",
-        "password": "$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest",
+        "password": _VALID_PASSWORD,
         "role": "accountant",
     }
+
+
+# ---------------------------------------------------------------------------
+# UserBase
+# ---------------------------------------------------------------------------
+
+
+class TestUserBase:
+    """Tests for the UserBase schema."""
+
+    def test_valid(self):
+        schema = UserBase(
+            username="jnovak",
+            email="jan.novak@example.com",
+            role="accountant",
+        )
+        assert schema.username == "jnovak"
+        assert schema.email == "jan.novak@example.com"
+        assert schema.role == "accountant"
+        assert schema.is_active is True
+
+    def test_email_format_validation(self):
+        with pytest.raises(ValidationError) as exc_info:
+            UserBase(
+                username="jnovak",
+                email="not-an-email",
+                role="accountant",
+            )
+        assert "email" in str(exc_info.value).lower()
+
+    def test_email_normalized_to_lowercase(self):
+        schema = UserBase(
+            username="jnovak",
+            email="Jan.Novak@Example.COM",
+            role="accountant",
+        )
+        assert schema.email == "jan.novak@example.com"
+
+    def test_username_stripped(self):
+        schema = UserBase(
+            username="  jnovak  ",
+            email="jan.novak@example.com",
+            role="accountant",
+        )
+        assert schema.username == "jnovak"
+
+    def test_blank_username_rejected(self):
+        with pytest.raises(ValidationError):
+            UserBase(
+                username="   ",
+                email="jan.novak@example.com",
+                role="accountant",
+            )
+
+    def test_invalid_role_superadmin(self):
+        with pytest.raises(ValidationError):
+            UserBase(
+                username="admin",
+                email="admin@example.com",
+                role="superadmin",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +112,7 @@ class TestUserCreate:
         assert schema.employee_id is None
         assert schema.username == "jnovak"
         assert schema.email == "jan.novak@example.com"
-        assert schema.password == "$argon2id$v=19$m=65536,t=3,p=4$fakehashfortest"
+        assert schema.password == _VALID_PASSWORD
         assert schema.role == "accountant"
         assert schema.is_active is True
 
@@ -58,14 +125,16 @@ class TestUserCreate:
         assert schema.employee_id == _EMPLOYEE_ID
         assert schema.is_active is False
 
-    # -- required field validation --
+    # -- tenant_id is required --
 
-    def test_missing_required_tenant_id(self):
+    def test_tenant_id_required(self):
         kw = _valid_create_kwargs()
         del kw["tenant_id"]
         with pytest.raises(ValidationError) as exc_info:
             UserCreate(**kw)
         assert "tenant_id" in str(exc_info.value)
+
+    # -- required field validation --
 
     def test_missing_required_username(self):
         kw = _valid_create_kwargs()
@@ -115,23 +184,61 @@ class TestUserCreate:
         with pytest.raises(ValidationError):
             UserCreate(**kw)
 
-    def test_email_at_max_length(self):
-        kw = _valid_create_kwargs()
-        kw["email"] = "x" * 255
-        schema = UserCreate(**kw)
-        assert len(schema.email) == 255
-
     def test_password_max_length(self):
         kw = _valid_create_kwargs()
         kw["password"] = "x" * 256
         with pytest.raises(ValidationError):
             UserCreate(**kw)
 
-    def test_password_at_max_length(self):
+    # -- password complexity validation --
+
+    def test_password_too_short(self):
         kw = _valid_create_kwargs()
-        kw["password"] = "x" * 255
+        kw["password"] = "Abc1!short"  # < 12 chars
+        with pytest.raises(ValidationError):
+            UserCreate(**kw)
+
+    def test_password_no_uppercase(self):
+        kw = _valid_create_kwargs()
+        kw["password"] = "strongpass1!xy"
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**kw)
+        assert "uppercase" in str(exc_info.value)
+
+    def test_password_no_lowercase(self):
+        kw = _valid_create_kwargs()
+        kw["password"] = "STRONGPASS1!XY"
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**kw)
+        assert "lowercase" in str(exc_info.value)
+
+    def test_password_no_digit(self):
+        kw = _valid_create_kwargs()
+        kw["password"] = "StrongPass!!xy"
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**kw)
+        assert "digit" in str(exc_info.value)
+
+    def test_password_no_special(self):
+        kw = _valid_create_kwargs()
+        kw["password"] = "StrongPass1xyz"
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**kw)
+        assert "special" in str(exc_info.value)
+
+    # -- email format validation --
+
+    def test_invalid_email_format(self):
+        kw = _valid_create_kwargs()
+        kw["email"] = "not-an-email"
+        with pytest.raises(ValidationError):
+            UserCreate(**kw)
+
+    def test_valid_email_format(self):
+        kw = _valid_create_kwargs()
+        kw["email"] = "user@domain.co.uk"
         schema = UserCreate(**kw)
-        assert len(schema.password) == 255
+        assert schema.email == "user@domain.co.uk"
 
     # -- role validation --
 
@@ -168,6 +275,13 @@ class TestUserCreate:
         schema = UserCreate(**kw)
         assert schema.role == "employee"
         assert schema.employee_id == _EMPLOYEE_ID
+
+    def test_role_superadmin_rejected(self):
+        kw = _valid_create_kwargs()
+        kw["role"] = "superadmin"
+        with pytest.raises(ValidationError) as exc_info:
+            UserCreate(**kw)
+        assert "role" in str(exc_info.value)
 
     # -- business rule: role='employee' requires employee_id --
 
@@ -253,6 +367,27 @@ class TestUserUpdate:
         with pytest.raises(ValidationError):
             UserUpdate(password="x" * 256)
 
+    # -- password complexity in update --
+
+    def test_update_password_complexity(self):
+        with pytest.raises(ValidationError) as exc_info:
+            UserUpdate(password="weakpassword1")
+        assert "uppercase" in str(exc_info.value)
+
+    def test_update_valid_password(self):
+        schema = UserUpdate(password=_VALID_PASSWORD)
+        assert schema.password == _VALID_PASSWORD
+
+    # -- email format in update --
+
+    def test_update_invalid_email(self):
+        with pytest.raises(ValidationError):
+            UserUpdate(email="not-an-email")
+
+    def test_update_valid_email(self):
+        schema = UserUpdate(email="valid@example.com")
+        assert schema.email == "valid@example.com"
+
     # -- role validation in update --
 
     def test_update_invalid_role(self):
@@ -270,6 +405,10 @@ class TestUserUpdate:
     def test_update_valid_role_employee(self):
         schema = UserUpdate(role="employee")
         assert schema.role == "employee"
+
+    def test_update_invalid_role_superadmin(self):
+        with pytest.raises(ValidationError):
+            UserUpdate(role="superadmin")
 
     # -- readonly datetime fields are NOT in UserUpdate --
 
@@ -330,7 +469,7 @@ class TestUserRead:
         assert "password" not in dumped
 
         # Also verify that passing password is ignored (extra='ignore' default)
-        kw["password"] = "$argon2id$v=19$m=65536,t=3,p=4$fakehash"
+        kw["password"] = _VALID_PASSWORD
         schema2 = UserRead(**kw)
         assert not hasattr(schema2, "password") or "password" not in schema2.model_fields
 
@@ -384,3 +523,93 @@ class TestUserRead:
             kw["role"] = role
             schema = UserRead(**kw)
             assert schema.role == role
+
+
+# ---------------------------------------------------------------------------
+# UserInDB
+# ---------------------------------------------------------------------------
+
+
+class TestUserInDB:
+    """Tests for the InDB schema — includes password_hash."""
+
+    def _indb_kwargs(self) -> dict:
+        now = datetime(2025, 6, 1, 12, 0, 0)
+        return {
+            "id": uuid4(),
+            "tenant_id": _TENANT_ID,
+            "employee_id": _EMPLOYEE_ID,
+            "username": "jnovak",
+            "email": "jan.novak@example.com",
+            "role": "accountant",
+            "is_active": True,
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$fakehash",
+            "last_login_at": now,
+            "password_changed_at": None,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    def test_valid(self):
+        kw = self._indb_kwargs()
+        schema = UserInDB(**kw)
+        assert schema.id == kw["id"]
+        assert schema.password_hash == "$argon2id$v=19$m=65536,t=3,p=4$fakehash"
+        assert schema.tenant_id == _TENANT_ID
+
+    def test_from_attributes(self):
+        """UserInDB has from_attributes=True."""
+        assert UserInDB.model_config.get("from_attributes") is True
+
+    def test_tenant_id_required(self):
+        kw = self._indb_kwargs()
+        del kw["tenant_id"]
+        with pytest.raises(ValidationError) as exc_info:
+            UserInDB(**kw)
+        assert "tenant_id" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# UserPublic
+# ---------------------------------------------------------------------------
+
+
+class TestUserPublic:
+    """Tests for the Public schema — safe subset."""
+
+    def test_valid(self):
+        schema = UserPublic(
+            id=uuid4(),
+            username="jnovak",
+            email="jan.novak@example.com",
+            role="accountant",
+            is_active=True,
+            tenant_id=_TENANT_ID,
+            last_login_at=datetime(2025, 6, 1, 12, 0, 0),
+        )
+        assert schema.username == "jnovak"
+        assert schema.tenant_id == _TENANT_ID
+
+    def test_no_password_hash_field(self):
+        """UserPublic must NOT have password_hash."""
+        assert "password_hash" not in UserPublic.model_fields
+
+    def test_no_timestamps(self):
+        """UserPublic must NOT expose created_at/updated_at."""
+        assert "created_at" not in UserPublic.model_fields
+        assert "updated_at" not in UserPublic.model_fields
+
+    def test_from_attributes(self):
+        """UserPublic has from_attributes=True."""
+        assert UserPublic.model_config.get("from_attributes") is True
+
+    def test_tenant_id_required(self):
+        with pytest.raises(ValidationError) as exc_info:
+            UserPublic(
+                id=uuid4(),
+                username="admin",
+                email="admin@example.com",
+                role="director",
+                is_active=True,
+            )
+        assert "tenant_id" in str(exc_info.value)

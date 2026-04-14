@@ -1,6 +1,13 @@
 """Pydantic v2 request/response schemas for NEX Payroll API."""
 
 from app.schemas.audit_log import AuditLogCreate, AuditLogRead
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    LoginResponse,
+    Token,
+    TokenPayload,
+)
 from app.schemas.contract import ContractCreate, ContractRead, ContractUpdate
 from app.schemas.contribution_rate import (
     ContributionRateCreate,
@@ -34,6 +41,7 @@ from app.schemas.notification import (
     NotificationRead,
     NotificationUpdate,
 )
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.pay_slip import PaySlipCreate, PaySlipRead, PaySlipUpdate
 from app.schemas.payment_order import (
     PaymentOrderCreate,
@@ -51,10 +59,30 @@ from app.schemas.tax_bracket import (
     TaxBracketRead,
     TaxBracketUpdate,
 )
-from app.schemas.tenant import TenantCreate, TenantRead, TenantUpdate
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.tenant import (
+    TenantBase,
+    TenantCreate,
+    TenantInDB,
+    TenantPublic,
+    TenantRead,
+    TenantUpdate,
+)
+from app.schemas.user import (
+    UserBase,
+    UserCreate,
+    UserInDB,
+    UserPublic,
+    UserRead,
+    UserUpdate,
+)
 
 __all__ = [
+    "ChangePasswordRequest",
+    "LoginRequest",
+    "LoginResponse",
+    "PaginatedResponse",
+    "Token",
+    "TokenPayload",
     "AuditLogCreate",
     "AuditLogRead",
     "ContractCreate",
@@ -99,10 +127,16 @@ __all__ = [
     "TaxBracketCreate",
     "TaxBracketRead",
     "TaxBracketUpdate",
+    "TenantBase",
     "TenantCreate",
+    "TenantInDB",
+    "TenantPublic",
     "TenantRead",
     "TenantUpdate",
+    "UserBase",
     "UserCreate",
+    "UserInDB",
+    "UserPublic",
     "UserRead",
     "UserUpdate",
 ]

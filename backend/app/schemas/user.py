@@ -1,9 +1,13 @@
 """Pydantic v2 schemas for User entity.
 
 Used for API request validation (Create/Update) and response serialisation (Read).
-password_hash is write-only — it appears in Create but NEVER in Read responses.
+Provides UserBase, UserCreate, UserUpdate, UserInDB (full DB read),
+and UserPublic (safe subset for API responses).
+
+password_hash is write-only — it appears in UserInDB but NEVER in public responses.
 """
 
+import re
 from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
@@ -17,11 +21,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 _ROLE = Literal["director", "accountant", "employee"]
 
 # ---------------------------------------------------------------------------
-# Validation constants
+# Validation constants & patterns
 # ---------------------------------------------------------------------------
 
-# Password: minimum 8 characters
-_PASSWORD_MIN_LENGTH = 8
+_PASSWORD_MIN_LENGTH = 12
+_EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
 def _strip_not_blank(value: str, field_name: str) -> str:
@@ -33,22 +37,40 @@ def _strip_not_blank(value: str, field_name: str) -> str:
     return stripped
 
 
+def _validate_email_format(value: str) -> str:
+    """Validate e-mail address format."""
+    cleaned = value.strip().lower()
+    if not _EMAIL_RE.match(cleaned):
+        msg = "Invalid email format"
+        raise ValueError(msg)
+    return cleaned
+
+
+def _validate_password_complexity(value: str) -> str:
+    """Validate password complexity: uppercase, lowercase, digit, special char."""
+    if not re.search(r"[A-Z]", value):
+        msg = "Password must contain at least one uppercase letter"
+        raise ValueError(msg)
+    if not re.search(r"[a-z]", value):
+        msg = "Password must contain at least one lowercase letter"
+        raise ValueError(msg)
+    if not re.search(r"\d", value):
+        msg = "Password must contain at least one digit"
+        raise ValueError(msg)
+    if not re.search(r"[^a-zA-Z0-9]", value):
+        msg = "Password must contain at least one special character"
+        raise ValueError(msg)
+    return value
+
+
 # ---------------------------------------------------------------------------
-# UserCreate
+# UserBase — shared writable fields
 # ---------------------------------------------------------------------------
 
 
-class UserCreate(BaseModel):
-    """Schema for creating a new user."""
+class UserBase(BaseModel):
+    """Common fields shared between Create and Read schemas."""
 
-    tenant_id: UUID = Field(
-        ...,
-        description="Reference to owning tenant (public.tenants.id)",
-    )
-    employee_id: UUID | None = Field(
-        default=None,
-        description="Optional link to employee record (required for role='employee')",
-    )
     username: str = Field(
         ...,
         min_length=1,
@@ -62,12 +84,6 @@ class UserCreate(BaseModel):
         max_length=255,
         examples=["jan.novak@example.com"],
         description="Email address (unique within tenant)",
-    )
-    password: str = Field(
-        ...,
-        min_length=_PASSWORD_MIN_LENGTH,
-        max_length=255,
-        description="Plaintext password — hashed server-side via pwdlib (Argon2)",
     )
     role: _ROLE = Field(
         ...,
@@ -86,19 +102,54 @@ class UserCreate(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def _email_not_blank(cls, v: str) -> str:
-        return _strip_not_blank(v, "Email")
+    def _email_format(cls, v: str) -> str:
+        return _validate_email_format(v)
+
+
+# ---------------------------------------------------------------------------
+# UserCreate
+# ---------------------------------------------------------------------------
+
+
+class UserCreate(UserBase):
+    """Schema for creating a new user.
+
+    Inherits username, email, role, is_active from UserBase.
+    Adds password (plaintext, hashed server-side) and tenant_id.
+    """
+
+    password: str = Field(
+        ...,
+        min_length=_PASSWORD_MIN_LENGTH,
+        max_length=255,
+        description="Plaintext password — hashed server-side via pwdlib (Argon2)",
+    )
+    tenant_id: UUID = Field(
+        ...,
+        description="Reference to owning tenant (public.tenants.id). Required — NOT NULL in DB.",
+    )
+    employee_id: UUID | None = Field(
+        default=None,
+        description="Optional link to employee record (required for role='employee')",
+    )
+
+    @field_validator("password")
+    @classmethod
+    def _password_complexity(cls, v: str) -> str:
+        return _validate_password_complexity(v)
 
     @model_validator(mode="after")
-    def employee_role_requires_employee_id(self) -> Self:
-        """Business rule: role='employee' MUST have employee_id set."""
+    def _role_constraints(self) -> Self:
+        """Business rules:
+        - employee → employee_id is required
+        """
         if self.role == "employee" and self.employee_id is None:
             raise ValueError("employee_id is required when role is 'employee'")
         return self
 
 
 # ---------------------------------------------------------------------------
-# UserUpdate
+# UserUpdate — all fields Optional
 # ---------------------------------------------------------------------------
 
 
@@ -106,6 +157,7 @@ class UserUpdate(BaseModel):
     """Schema for updating a user.
 
     All fields optional — only supplied fields are updated.
+    Immutable fields (id, created_at, tenant_id) are excluded.
     """
 
     employee_id: UUID | None = Field(default=None)
@@ -129,14 +181,45 @@ class UserUpdate(BaseModel):
 
     @field_validator("email")
     @classmethod
-    def _email_not_blank(cls, v: str | None) -> str | None:
+    def _email_format(cls, v: str | None) -> str | None:
         if v is not None:
-            return _strip_not_blank(v, "Email")
+            return _validate_email_format(v)
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def _password_complexity(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validate_password_complexity(v)
         return v
 
 
 # ---------------------------------------------------------------------------
-# UserRead
+# UserInDB — full representation from database (all columns)
+# ---------------------------------------------------------------------------
+
+
+class UserInDB(UserBase):
+    """Full user representation as stored in the database.
+
+    Includes all model columns (PK, FKs, password_hash, timestamps).
+    Not intended for API responses — use UserRead or UserPublic instead.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    tenant_id: UUID
+    employee_id: UUID | None = None
+    password_hash: str
+    last_login_at: datetime | None = None
+    password_changed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# UserRead — API response (excludes password_hash)
 # ---------------------------------------------------------------------------
 
 
@@ -150,12 +233,34 @@ class UserRead(BaseModel):
 
     id: UUID
     tenant_id: UUID
-    employee_id: UUID | None
+    employee_id: UUID | None = None
     username: str
     email: str
     role: _ROLE
     is_active: bool
-    last_login_at: datetime | None
-    password_changed_at: datetime | None
+    last_login_at: datetime | None = None
+    password_changed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# UserPublic — safe subset for API responses
+# ---------------------------------------------------------------------------
+
+
+class UserPublic(BaseModel):
+    """Safe subset of user data exposed in public-facing API responses.
+
+    Omits sensitive fields like password_hash, employee_id, timestamps.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    username: str
+    email: str
+    role: _ROLE
+    is_active: bool
+    tenant_id: UUID
+    last_login_at: datetime | None = None

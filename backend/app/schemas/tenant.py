@@ -1,6 +1,8 @@
 """Pydantic v2 schemas for Tenant entity.
 
 Used for API request validation (Create/Update) and response serialisation (Read).
+Provides TenantBase, TenantCreate, TenantUpdate, TenantInDB (full DB read),
+and TenantPublic (safe subset for API responses).
 """
 
 import re
@@ -9,6 +11,10 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+# ---------------------------------------------------------------------------
+# Compiled regex patterns
+# ---------------------------------------------------------------------------
 
 # Basic IBAN pattern: 2-letter country code + 2 check digits + up to 30 alphanumeric
 _IBAN_RE = re.compile(r"^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$")
@@ -22,6 +28,13 @@ _DIC_RE = re.compile(r"^\d{10,12}$")
 _IC_DPH_RE = re.compile(r"^SK\d{10}$")
 # ISO 3166-1 alpha-2 country code
 _COUNTRY_RE = re.compile(r"^[A-Z]{2}$")
+# PostgreSQL schema name for tenants
+_SCHEMA_NAME_RE = re.compile(r"^tenant_[a-z0-9_]+$")
+
+
+# ---------------------------------------------------------------------------
+# Shared validation helpers
+# ---------------------------------------------------------------------------
 
 
 def _validate_iban(value: str) -> str:
@@ -44,8 +57,13 @@ def _validate_bic(value: str | None) -> str | None:
     return cleaned
 
 
-class TenantCreate(BaseModel):
-    """Schema for creating a new tenant (company)."""
+# ---------------------------------------------------------------------------
+# TenantBase — shared writable fields
+# ---------------------------------------------------------------------------
+
+
+class TenantBase(BaseModel):
+    """Common fields shared between Create and Read schemas."""
 
     name: str = Field(
         ...,
@@ -110,15 +128,8 @@ class TenantCreate(BaseModel):
         max_length=11,
         description="BIC/SWIFT code; null if domestic-only",
     )
-    default_role: Literal["director", "accountant", "employee"] = Field(
-        default="accountant",
-        examples=["accountant"],
-        description="Default role assigned to new users in this tenant",
-    )
-    is_active: bool = Field(
-        default=True,
-        description="Whether the tenant is currently active",
-    )
+
+    # -- validators --
 
     @field_validator("name")
     @classmethod
@@ -175,62 +186,70 @@ class TenantCreate(BaseModel):
         return _validate_bic(v)
 
 
+# ---------------------------------------------------------------------------
+# TenantCreate
+# ---------------------------------------------------------------------------
+
+
+class TenantCreate(TenantBase):
+    """Schema for creating a new tenant (company).
+
+    Inherits all base fields + adds schema_name, default_role, is_active.
+    """
+
+    schema_name: str | None = Field(
+        default=None,
+        max_length=63,
+        examples=["tenant_firma"],
+        description=(
+            "PostgreSQL schema name (must match ^tenant_[a-z0-9_]+$). Auto-generated from name + IČO if not provided."
+        ),
+    )
+    default_role: Literal["director", "accountant", "employee"] = Field(
+        default="accountant",
+        examples=["accountant"],
+        description="Default role assigned to new users in this tenant",
+    )
+    is_active: bool = Field(
+        default=True,
+        description="Whether the tenant is currently active",
+    )
+
+    @field_validator("schema_name")
+    @classmethod
+    def _schema_name_format(cls, v: str | None) -> str | None:
+        if v is not None and not _SCHEMA_NAME_RE.match(v):
+            msg = "schema_name must match pattern ^tenant_[a-z0-9_]+$ (e.g. 'tenant_firma')"
+            raise ValueError(msg)
+        return v
+
+
+# ---------------------------------------------------------------------------
+# TenantUpdate — all fields Optional
+# ---------------------------------------------------------------------------
+
+
 class TenantUpdate(BaseModel):
     """Schema for updating a tenant.
 
     All fields optional — only supplied fields are updated.
+    schema_name is immutable and therefore excluded.
     """
 
-    name: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=200,
-    )
-    ico: str | None = Field(
-        default=None,
-        max_length=8,
-    )
-    dic: str | None = Field(
-        default=None,
-        max_length=12,
-    )
-    ic_dph: str | None = Field(
-        default=None,
-        max_length=14,
-    )
-    address_street: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=200,
-    )
-    address_city: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=100,
-    )
-    address_zip: str | None = Field(
-        default=None,
-        min_length=1,
-        max_length=10,
-    )
-    address_country: str | None = Field(
-        default=None,
-        max_length=2,
-    )
-    bank_iban: str | None = Field(
-        default=None,
-        max_length=34,
-    )
-    bank_bic: str | None = Field(
-        default=None,
-        max_length=11,
-    )
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    ico: str | None = Field(default=None, max_length=8)
+    dic: str | None = Field(default=None, max_length=12)
+    ic_dph: str | None = Field(default=None, max_length=14)
+    address_street: str | None = Field(default=None, min_length=1, max_length=200)
+    address_city: str | None = Field(default=None, min_length=1, max_length=100)
+    address_zip: str | None = Field(default=None, min_length=1, max_length=10)
+    address_country: str | None = Field(default=None, max_length=2)
+    bank_iban: str | None = Field(default=None, max_length=34)
+    bank_bic: str | None = Field(default=None, max_length=11)
     default_role: Literal["director", "accountant", "employee"] | None = Field(
         default=None,
     )
-    is_active: bool | None = Field(
-        default=None,
-    )
+    is_active: bool | None = Field(default=None)
 
     @field_validator("name")
     @classmethod
@@ -293,24 +312,46 @@ class TenantUpdate(BaseModel):
         return _validate_bic(v)
 
 
-class TenantRead(BaseModel):
-    """Schema for returning a tenant in API responses."""
+# ---------------------------------------------------------------------------
+# TenantInDB — full representation from database (all columns)
+# ---------------------------------------------------------------------------
+
+
+class TenantInDB(TenantBase):
+    """Full tenant representation as stored in the database.
+
+    Includes all model columns (PK, schema_name, flags, timestamps).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    schema_name: str
+    default_role: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+# Backward-compatible alias — existing code imports TenantRead
+TenantRead = TenantInDB
+
+
+# ---------------------------------------------------------------------------
+# TenantPublic — safe subset for API responses
+# ---------------------------------------------------------------------------
+
+
+class TenantPublic(BaseModel):
+    """Safe subset of tenant data exposed in public-facing API responses.
+
+    Omits sensitive fields like bank details and full address.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     name: str
     ico: str
-    dic: str | None
-    ic_dph: str | None
-    address_street: str
-    address_city: str
-    address_zip: str
-    address_country: str
-    bank_iban: str
-    bank_bic: str | None
     schema_name: str
-    default_role: str
     is_active: bool
-    created_at: datetime
-    updated_at: datetime
