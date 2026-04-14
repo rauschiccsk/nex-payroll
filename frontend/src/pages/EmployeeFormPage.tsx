@@ -9,6 +9,7 @@ import {
   GENDER_LABELS,
   TAX_LABELS,
   STATUS_LABELS,
+  COUNTRY_OPTIONS,
   EMPTY_FORM,
   toCreatePayload,
   inputCls,
@@ -213,14 +214,19 @@ function EmployeeFormPage() {
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Národnosť</label>
-                <input
-                  type="text"
+                <label htmlFor="nationality" className={labelCls}>Národnosť</label>
+                <select
+                  id="nationality"
                   value={form.nationality}
                   onChange={(e) => updateField('nationality', e.target.value)}
                   className={inputCls}
-                  placeholder="SK"
-                />
+                >
+                  {COUNTRY_OPTIONS.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} - {c.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -289,14 +295,19 @@ function EmployeeFormPage() {
                 />
               </div>
               <div>
-                <label className={labelCls}>Krajina</label>
-                <input
-                  type="text"
+                <label htmlFor="address_country" className={labelCls}>Krajina</label>
+                <select
+                  id="address_country"
                   value={form.address_country}
                   onChange={(e) => updateField('address_country', e.target.value)}
                   className={inputCls}
-                  placeholder="SK"
-                />
+                >
+                  {COUNTRY_OPTIONS.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} - {c.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

@@ -193,6 +193,115 @@ describe('EmployeeFormPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/employees/new-emp-id')
   })
 
+  it('renders address_country as a select dropdown with ISO country codes', async () => {
+    const user = userEvent.setup()
+
+    await act(async () => {
+      render(<EmployeeFormPage />)
+    })
+
+    // Navigate to address step
+    await user.click(screen.getByRole('button', { name: /Ďalej/ }))
+
+    // Krajina should be a select, not a text input
+    const krajina = screen.getByLabelText('Krajina')
+    expect(krajina.tagName).toBe('SELECT')
+
+    // Default value should be SK
+    expect(krajina).toHaveValue('SK')
+
+    // Should contain ISO codes
+    const options = krajina.querySelectorAll('option')
+    expect(options.length).toBeGreaterThanOrEqual(5)
+    // First option should be SK
+    expect(options[0]).toHaveValue('SK')
+    expect(options[0]).toHaveTextContent('SK - Slovensko')
+  })
+
+  it('renders nationality as a select dropdown with ISO country codes', async () => {
+    await act(async () => {
+      render(<EmployeeFormPage />)
+    })
+
+    // Národnosť should be a select, not a text input
+    const nationality = screen.getByLabelText('Národnosť')
+    expect(nationality.tagName).toBe('SELECT')
+    expect(nationality).toHaveValue('SK')
+  })
+
+  it('sends 2-char country code in create payload (BUG-005 regression)', async () => {
+    const user = userEvent.setup()
+    mockCreateEmployee.mockResolvedValue({
+      id: 'new-emp-id',
+      tenant_id: 'tenant-123',
+      employee_number: 'E001',
+      first_name: 'Ján',
+      last_name: 'Novák',
+    })
+
+    await act(async () => {
+      render(<EmployeeFormPage />)
+    })
+
+    // Fill step 1
+    await user.type(screen.getByPlaceholderText('napr. EMP001'), 'E002')
+    await user.type(screen.getByPlaceholderText('napr. Ján'), 'Peter')
+    await user.type(screen.getByPlaceholderText('napr. Novák'), 'Horváth')
+    const dateInputs = document.querySelectorAll<HTMLInputElement>('input[type="date"]')
+    if (dateInputs[0]) {
+      await user.clear(dateInputs[0])
+      await user.type(dateInputs[0], '1985-06-20')
+    }
+    await user.type(screen.getByPlaceholderText('napr. 900101/1234'), '850620/1234')
+
+    // Step 2 (address) — country should be SK by default via select
+    await user.click(screen.getByRole('button', { name: /Ďalej/ }))
+    await user.type(screen.getByPlaceholderText('napr. Hlavná 1'), 'Dlhá 5')
+    await user.type(screen.getByPlaceholderText('napr. Bratislava'), 'Košice')
+    await user.type(screen.getByPlaceholderText('napr. 81101'), '04001')
+
+    // Change country to CZ
+    const krajina = screen.getByLabelText('Krajina')
+    await user.selectOptions(krajina, 'CZ')
+
+    // Step 3 (bank)
+    await user.click(screen.getByRole('button', { name: /Ďalej/ }))
+    await user.type(screen.getByPlaceholderText('SK...'), 'SK3112000000198742637541')
+
+    // Step 4 (employment)
+    await user.click(screen.getByRole('button', { name: /Ďalej/ }))
+    const hireDates = document.querySelectorAll<HTMLInputElement>('input[type="date"]')
+    if (hireDates[0]) {
+      await user.clear(hireDates[0])
+      await user.type(hireDates[0], '2021-03-01')
+    }
+    await waitFor(() => {
+      expect(screen.getByText('25 - VšZP')).toBeInTheDocument()
+    })
+    const insurerSel = document.querySelector<HTMLSelectElement>('select[required]')
+    if (insurerSel) {
+      await user.selectOptions(insurerSel, 'hi-1')
+    }
+
+    // Submit
+    await user.click(screen.getByRole('button', { name: /Vytvoriť zamestnanca/ }))
+
+    await waitFor(() => {
+      expect(mockCreateEmployee).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address_country: 'CZ',
+          nationality: 'SK',
+        }),
+      )
+    })
+
+    // Verify country codes are exactly 2 chars
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const payload = mockCreateEmployee.mock.calls[0]![0] as Record<string, string>
+    expect(payload['address_country']!.length).toBe(2)
+    expect(payload['nationality']!.length).toBe(2)
+  })
+
   it('shows error message on submit failure', async () => {
     const user = userEvent.setup()
     mockCreateEmployee.mockRejectedValue(new Error('Duplicate employee number'))

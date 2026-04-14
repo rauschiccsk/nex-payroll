@@ -9,6 +9,7 @@ import {
   TAX_LABELS,
   STATUS_LABELS,
   STATUS_COLORS,
+  COUNTRY_OPTIONS,
   employeeToForm,
   toUpdatePayload,
   formatDate,
@@ -399,12 +400,17 @@ function EmployeeDetailPage() {
                   </div>
                   <div>
                     <label className={labelCls}>Národnosť</label>
-                    <input
-                      type="text"
+                    <select
                       value={form.nationality}
                       onChange={(e) => updateField('nationality', e.target.value)}
                       className={inputCls}
-                    />
+                    >
+                      {COUNTRY_OPTIONS.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} - {c.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-4">
@@ -469,12 +475,17 @@ function EmployeeDetailPage() {
                   </div>
                   <div>
                     <label className={labelCls}>Krajina</label>
-                    <input
-                      type="text"
+                    <select
                       value={form.address_country}
                       onChange={(e) => updateField('address_country', e.target.value)}
                       className={inputCls}
-                    />
+                    >
+                      {COUNTRY_OPTIONS.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} - {c.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </fieldset>

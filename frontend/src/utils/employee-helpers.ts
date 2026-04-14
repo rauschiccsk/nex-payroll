@@ -35,6 +35,30 @@ export const STATUS_COLORS: Record<EmployeeStatus, string> = {
   terminated: 'bg-red-100 text-red-800',
 }
 
+/** ISO 3166-1 alpha-2 country codes used in address / nationality selects. */
+export const COUNTRY_OPTIONS: { code: string; label: string }[] = [
+  { code: 'SK', label: 'Slovensko' },
+  { code: 'CZ', label: 'Česko' },
+  { code: 'AT', label: 'Rakúsko' },
+  { code: 'HU', label: 'Maďarsko' },
+  { code: 'PL', label: 'Poľsko' },
+  { code: 'DE', label: 'Nemecko' },
+  { code: 'UA', label: 'Ukrajina' },
+  { code: 'GB', label: 'Veľká Británia' },
+  { code: 'US', label: 'USA' },
+  { code: 'FR', label: 'Francúzsko' },
+  { code: 'IT', label: 'Taliansko' },
+  { code: 'ES', label: 'Španielsko' },
+  { code: 'NL', label: 'Holandsko' },
+  { code: 'BE', label: 'Belgicko' },
+  { code: 'CH', label: 'Švajčiarsko' },
+  { code: 'RO', label: 'Rumunsko' },
+  { code: 'HR', label: 'Chorvátsko' },
+  { code: 'RS', label: 'Srbsko' },
+  { code: 'BG', label: 'Bulharsko' },
+  { code: 'SI', label: 'Slovinsko' },
+]
+
 // -- Form state --------------------------------------------------------------
 export interface FormState {
   employee_number: string
@@ -100,11 +124,11 @@ export function toCreatePayload(form: FormState, tenantId: string): EmployeeCrea
     birth_date: form.birth_date,
     birth_number: form.birth_number,
     gender: form.gender,
-    nationality: form.nationality || 'SK',
+    nationality: (form.nationality || 'SK').toUpperCase().slice(0, 2),
     address_street: form.address_street,
     address_city: form.address_city,
     address_zip: form.address_zip,
-    address_country: form.address_country || 'SK',
+    address_country: (form.address_country || 'SK').toUpperCase().slice(0, 2),
     bank_iban: form.bank_iban,
     bank_bic: form.bank_bic || null,
     health_insurer_id: form.health_insurer_id,
@@ -128,11 +152,11 @@ export function toUpdatePayload(form: FormState): EmployeeUpdate {
     birth_date: form.birth_date,
     birth_number: form.birth_number,
     gender: form.gender,
-    nationality: form.nationality || 'SK',
+    nationality: (form.nationality || 'SK').toUpperCase().slice(0, 2),
     address_street: form.address_street,
     address_city: form.address_city,
     address_zip: form.address_zip,
-    address_country: form.address_country || 'SK',
+    address_country: (form.address_country || 'SK').toUpperCase().slice(0, 2),
     bank_iban: form.bank_iban,
     bank_bic: form.bank_bic || null,
     health_insurer_id: form.health_insurer_id,
