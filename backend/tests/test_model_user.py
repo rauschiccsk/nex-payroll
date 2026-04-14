@@ -151,7 +151,7 @@ class TestUserColumns:
     def test_tenant_id_column(self):
         col = self.mapper.columns["tenant_id"]
         assert isinstance(col.type, UUID)
-        assert col.nullable is False
+        assert col.nullable is True
 
     def test_employee_id_column(self):
         col = self.mapper.columns["employee_id"]

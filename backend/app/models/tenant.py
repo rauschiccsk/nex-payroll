@@ -23,7 +23,7 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("ico", name="uq_tenants_ico"),
         UniqueConstraint("schema_name", name="uq_tenants_schema_name"),
-        {"schema": "public", "extend_existing": True},
+        {"schema": "public"},
     )
 
     name: Mapped[str] = mapped_column(
@@ -33,25 +33,25 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     )
 
     ico: Mapped[str] = mapped_column(
-        String(8),
+        String(20),
         nullable=False,
         comment="Company registration number (IČO)",
     )
 
     dic: Mapped[str | None] = mapped_column(
-        String(12),
+        String(20),
         nullable=True,
         comment="Tax identification number (DIČ)",
     )
 
     ic_dph: Mapped[str | None] = mapped_column(
-        String(14),
+        String(20),
         nullable=True,
         comment="VAT identification number (IČ DPH)",
     )
 
     address_street: Mapped[str] = mapped_column(
-        String(200),
+        String(255),
         nullable=False,
         comment="Street address",
     )
@@ -73,6 +73,12 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
         nullable=False,
         server_default="SK",
         comment="ISO 3166-1 alpha-2 country code",
+    )
+
+    contact_email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="Primary contact email for tenant",
     )
 
     bank_iban: Mapped[str] = mapped_column(

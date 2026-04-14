@@ -32,10 +32,10 @@ class TestTenantSchema:
 
         assert issubclass(Tenant, TimestampMixin)
 
-    def test_extend_existing(self):
-        """Table args must include extend_existing=True."""
+    def test_no_extend_existing(self):
+        """Table args must NOT include extend_existing (checklist compliance)."""
         table_opts = Tenant.__table_args__[-1]
-        assert table_opts.get("extend_existing") is True
+        assert table_opts.get("extend_existing") is None
 
 
 class TestTenantColumns:
@@ -59,7 +59,7 @@ class TestTenantColumns:
     def test_ico_column(self):
         col = self.mapper.columns["ico"]
         assert isinstance(col.type, String)
-        assert col.type.length == 8
+        assert col.type.length == 20
         assert col.nullable is False
 
     def test_ico_unique_constraint(self):
@@ -70,19 +70,19 @@ class TestTenantColumns:
     def test_dic_column(self):
         col = self.mapper.columns["dic"]
         assert isinstance(col.type, String)
-        assert col.type.length == 12
+        assert col.type.length == 20
         assert col.nullable is True
 
     def test_ic_dph_column(self):
         col = self.mapper.columns["ic_dph"]
         assert isinstance(col.type, String)
-        assert col.type.length == 14
+        assert col.type.length == 20
         assert col.nullable is True
 
     def test_address_street_column(self):
         col = self.mapper.columns["address_street"]
         assert isinstance(col.type, String)
-        assert col.type.length == 200
+        assert col.type.length == 255
         assert col.nullable is False
 
     def test_address_city_column(self):
@@ -103,6 +103,12 @@ class TestTenantColumns:
         assert col.type.length == 2
         assert col.nullable is False
         assert col.server_default is not None
+
+    def test_contact_email_column(self):
+        col = self.mapper.columns["contact_email"]
+        assert isinstance(col.type, String)
+        assert col.type.length == 255
+        assert col.nullable is True
 
     def test_bank_iban_column(self):
         col = self.mapper.columns["bank_iban"]
