@@ -44,16 +44,16 @@ const EMPTY_FORM: FormState = {
 // -- Helpers -----------------------------------------------------------------
 function toCreatePayload(form: FormState): TenantCreate {
   return {
-    name: form.name,
-    ico: form.ico,
-    dic: form.dic || null,
-    ic_dph: form.ic_dph || null,
-    address_street: form.address_street,
-    address_city: form.address_city,
-    address_zip: form.address_zip,
-    address_country: form.address_country || 'SK',
-    bank_iban: form.bank_iban,
-    bank_bic: form.bank_bic || null,
+    name: form.name.trim(),
+    ico: form.ico.trim(),
+    dic: form.dic.trim() || null,
+    ic_dph: form.ic_dph.trim() || null,
+    address_street: form.address_street.trim(),
+    address_city: form.address_city.trim(),
+    address_zip: form.address_zip.trim(),
+    address_country: form.address_country.trim() || 'SK',
+    bank_iban: form.bank_iban.trim(),
+    bank_bic: form.bank_bic.trim() || null,
     default_role: form.default_role,
     is_active: form.is_active,
   }
@@ -61,16 +61,16 @@ function toCreatePayload(form: FormState): TenantCreate {
 
 function toUpdatePayload(form: FormState): TenantUpdate {
   return {
-    name: form.name,
-    ico: form.ico,
-    dic: form.dic || null,
-    ic_dph: form.ic_dph || null,
-    address_street: form.address_street,
-    address_city: form.address_city,
-    address_zip: form.address_zip,
-    address_country: form.address_country || 'SK',
-    bank_iban: form.bank_iban,
-    bank_bic: form.bank_bic || null,
+    name: form.name.trim(),
+    ico: form.ico.trim(),
+    dic: form.dic.trim() || null,
+    ic_dph: form.ic_dph.trim() || null,
+    address_street: form.address_street.trim(),
+    address_city: form.address_city.trim(),
+    address_zip: form.address_zip.trim(),
+    address_country: form.address_country.trim() || 'SK',
+    bank_iban: form.bank_iban.trim(),
+    bank_bic: form.bank_bic.trim() || null,
     default_role: form.default_role,
     is_active: form.is_active,
   }
@@ -177,8 +177,12 @@ function TenantsPage() {
       }
       closeModal()
       await fetchData()
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Chyba pri ukladani')
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setFormError(err.message)
+      } else {
+        setFormError('Chyba pri ukladani')
+      }
     } finally {
       setSubmitting(false)
     }

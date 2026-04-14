@@ -319,6 +319,77 @@ describe('TenantsPage', () => {
     })
   })
 
+  it('shows validation error detail from backend (BUG-003)', async () => {
+    const user = userEvent.setup()
+    // Simulate a Pydantic validation error formatted by ApiError
+    vi.mocked(createTenant).mockRejectedValue(
+      new Error('ico: IČO must be exactly 8 digits'),
+    )
+
+    render(<TenantsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha s.r.o.')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('+ Nova organizacia'))
+
+    // Fill fields (ICO intentionally wrong for test)
+    await user.type(screen.getByPlaceholderText('napr. Firma s.r.o.'), 'Test Firma')
+    await user.type(screen.getByPlaceholderText('napr. 12345678'), '1234')
+    await user.type(screen.getByPlaceholderText('napr. Hlavna 1'), 'Test 1')
+    await user.type(screen.getByPlaceholderText('napr. Bratislava'), 'Test')
+    await user.type(screen.getByPlaceholderText('napr. 81101'), '00000')
+    await user.type(screen.getByPlaceholderText('SK...'), 'SK0000000000000000000000')
+
+    await user.click(screen.getByText('Vytvorit'))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('ico: IČO must be exactly 8 digits'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('trims whitespace in create payload (BUG-003)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(createTenant).mockResolvedValue({
+      ...MOCK_TENANT_1,
+      id: '44444444-4444-4444-4444-444444444444',
+    })
+
+    render(<TenantsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha s.r.o.')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText('+ Nova organizacia'))
+
+    // Fill fields with leading/trailing whitespace
+    await user.type(screen.getByPlaceholderText('napr. Firma s.r.o.'), '  Test s.r.o.  ')
+    await user.type(screen.getByPlaceholderText('napr. 12345678'), ' 55667788 ')
+    await user.type(screen.getByPlaceholderText('napr. Hlavna 1'), '  Dlha 10  ')
+    await user.type(screen.getByPlaceholderText('napr. Bratislava'), '  Zilina  ')
+    await user.type(screen.getByPlaceholderText('napr. 81101'), ' 01001 ')
+    await user.type(screen.getByPlaceholderText('SK...'), ' SK3112000000198742637543 ')
+
+    await user.click(screen.getByText('Vytvorit'))
+
+    await waitFor(() => {
+      expect(createTenant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Test s.r.o.',
+          ico: '55667788',
+          address_street: 'Dlha 10',
+          address_city: 'Zilina',
+          address_zip: '01001',
+          bank_iban: 'SK3112000000198742637543',
+        }),
+      )
+    })
+  })
+
   it('displays city and IBAN in table rows', async () => {
     render(<TenantsPage />)
 

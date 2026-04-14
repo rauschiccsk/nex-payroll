@@ -92,10 +92,22 @@ api.interceptors.response.use(
 
     // Extract error message from FastAPI detail
     const detail = error.response?.data?.detail
-    const message =
-      typeof detail === 'string'
-        ? detail
-        : (error.message ?? 'An unexpected error occurred')
+    let message: string
+
+    if (typeof detail === 'string') {
+      message = detail
+    } else if (Array.isArray(detail) && detail.length > 0) {
+      // Pydantic validation error format: [{loc: [...], msg: "...", type: "..."}]
+      message = detail
+        .map((d: Record<string, unknown>) => {
+          const loc = Array.isArray(d.loc) ? d.loc.slice(1).join(' → ') : ''
+          const msg = typeof d.msg === 'string' ? d.msg : JSON.stringify(d)
+          return loc ? `${loc}: ${msg}` : msg
+        })
+        .join('; ')
+    } else {
+      message = error.message ?? 'An unexpected error occurred'
+    }
 
     return Promise.reject(new ApiError(message, error.response?.status, detail))
   },
