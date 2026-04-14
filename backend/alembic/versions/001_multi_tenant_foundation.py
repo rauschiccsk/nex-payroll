@@ -62,7 +62,7 @@ def upgrade() -> None:
         )
 
     # -- Users: make tenant_id nullable for superadmin --
-    with op.batch_alter_table("users", schema=None) as batch_op:
+    with op.batch_alter_table("users", schema="public") as batch_op:
         batch_op.alter_column(
             "tenant_id",
             existing_type=sa.UUID(),
@@ -76,6 +76,7 @@ def upgrade() -> None:
         "ck_users_role",
         "users",
         "role IN ('superadmin', 'director', 'accountant', 'employee')",
+        schema="public",
     )
 
     # Constraint: tenant_id NULL only if role='superadmin'
@@ -83,10 +84,11 @@ def upgrade() -> None:
         "ck_users_superadmin_no_tenant",
         "users",
         "(role = 'superadmin' AND tenant_id IS NULL) OR (role != 'superadmin' AND tenant_id IS NOT NULL)",
+        schema="public",
     )
 
     # Explicit indexes on users
-    with op.batch_alter_table("users", schema=None) as batch_op:
+    with op.batch_alter_table("users", schema="public") as batch_op:
         batch_op.create_index(
             "ix_users_tenant_id",
             ["tenant_id"],
@@ -107,7 +109,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Revert multi-tenant foundation changes."""
     # Drop new indexes
-    with op.batch_alter_table("users", schema=None) as batch_op:
+    with op.batch_alter_table("users", schema="public") as batch_op:
         batch_op.drop_index("ix_users_username")
         batch_op.drop_index("ix_users_email")
         batch_op.drop_index("ix_users_tenant_id")
@@ -121,10 +123,11 @@ def downgrade() -> None:
         "ck_users_role",
         "users",
         "role IN ('director', 'accountant', 'employee')",
+        schema="public",
     )
 
     # Make tenant_id NOT NULL again
-    with op.batch_alter_table("users", schema=None) as batch_op:
+    with op.batch_alter_table("users", schema="public") as batch_op:
         batch_op.alter_column(
             "tenant_id",
             existing_type=sa.UUID(),
