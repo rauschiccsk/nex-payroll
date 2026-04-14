@@ -104,11 +104,13 @@ def upgrade() -> None:
             ["tenant_id"],
             ["public.tenants.id"],
             name="fk_users_tenant_id",
+            ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
             ["employee_id"],
             ["employees.id"],
             name="fk_users_employee_id",
+            ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(

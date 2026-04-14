@@ -12,6 +12,8 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import get_current_user, require_role
+from app.models.user import ROLE_DIRECTOR, User
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.tenant import (
     TenantCreate,
@@ -56,6 +58,7 @@ def list_tenants_endpoint(
     limit: int = Query(50, ge=1, le=100, description="Max records to return"),
     is_active: bool | None = Query(None, description="Filter by active status"),
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
 ):
     """Return a paginated list of tenants with optional filters."""
     items = tenant_service.list_tenants(db, skip=skip, limit=limit, is_active=is_active)
@@ -67,6 +70,7 @@ def list_tenants_endpoint(
 def get_tenant_endpoint(
     tenant_id: UUID,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(get_current_user),  # noqa: B008
 ):
     """Return a single tenant by ID."""
     tenant = tenant_service.get_tenant(db, tenant_id)
@@ -79,6 +83,7 @@ def get_tenant_endpoint(
 def create_tenant_endpoint(
     payload: TenantCreate,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(require_role(ROLE_DIRECTOR)),  # noqa: B008
 ):
     """Create a new tenant."""
     try:
@@ -101,6 +106,7 @@ def update_tenant_endpoint(
     tenant_id: UUID,
     payload: TenantUpdate,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(require_role(ROLE_DIRECTOR)),  # noqa: B008
 ):
     """Update an existing tenant (partial)."""
     try:
@@ -126,6 +132,7 @@ def update_tenant_endpoint(
 def delete_tenant_endpoint(
     tenant_id: UUID,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: User = Depends(require_role(ROLE_DIRECTOR)),  # noqa: B008
 ):
     """Delete a tenant by ID."""
     try:

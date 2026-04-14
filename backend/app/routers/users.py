@@ -11,6 +11,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import require_role
+from app.models.user import ROLE_ACCOUNTANT, ROLE_DIRECTOR
+from app.models.user import User as UserModel
 from app.schemas.pagination import PaginatedResponse
 from app.schemas.user import (
     UserCreate,
@@ -62,6 +65,7 @@ def list_users_endpoint(
     role: str | None = Query(None, description="Filter by role"),  # noqa: B008
     include_inactive: bool = Query(False, description="Include inactive users"),  # noqa: B008
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: UserModel = Depends(require_role(ROLE_DIRECTOR, ROLE_ACCOUNTANT)),  # noqa: B008
 ):
     """Return a paginated list of users."""
     items = user_service.list_users(
@@ -90,6 +94,7 @@ def list_users_endpoint(
 def get_user_endpoint(
     user_id: UUID,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: UserModel = Depends(require_role(ROLE_DIRECTOR, ROLE_ACCOUNTANT)),  # noqa: B008
 ):
     """Return a single user by ID."""
     user = user_service.get_user(db, user_id)
@@ -107,6 +112,7 @@ def get_user_endpoint(
 def create_user_endpoint(
     payload: UserCreate,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: UserModel = Depends(require_role(ROLE_DIRECTOR)),  # noqa: B008
 ):
     """Create a new user."""
     try:
@@ -128,6 +134,7 @@ def update_user_endpoint(
     user_id: UUID,
     payload: UserUpdate,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: UserModel = Depends(require_role(ROLE_DIRECTOR)),  # noqa: B008
 ):
     """Update an existing user (partial)."""
     try:
@@ -150,6 +157,7 @@ def update_user_endpoint(
 def delete_user_endpoint(
     user_id: UUID,
     db: Session = Depends(get_db),  # noqa: B008
+    current_user: UserModel = Depends(require_role(ROLE_DIRECTOR)),  # noqa: B008
 ):
     """Soft-delete a user by setting is_active=False."""
     deleted = user_service.delete_user(db, user_id)

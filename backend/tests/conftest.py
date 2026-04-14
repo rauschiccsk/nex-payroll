@@ -150,10 +150,56 @@ def db_session() -> Generator[Session, None, None]:
 # ---------------------------------------------------------------------------
 @pytest.fixture()
 def client(db_session: Session) -> Generator[TestClient, None, None]:
-    """FastAPI TestClient with get_db overridden to use test session.
+    """FastAPI TestClient with get_db and auth overridden for test isolation.
+
+    - get_db → returns the transactional test session
+    - get_current_user → returns a fake director User (most permissive role)
 
     Ensures all API tests use the same transactional session
     (and thus get automatic rollback isolation).
+    """
+    import uuid
+    from datetime import UTC, datetime
+
+    from app.core.database import get_db
+    from app.core.security import get_current_user
+    from app.main import app
+
+    def _override_get_db() -> Generator[Session, None, None]:
+        yield db_session
+
+    # Create a lightweight mock user for auth — director role grants full access
+    _now = datetime.now(UTC)
+    _fake_user = User(
+        id=uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
+        username="testadmin",
+        email="testadmin@test.local",
+        password_hash="not-a-real-hash",
+        role="director",
+        is_active=True,
+        created_at=_now,
+        updated_at=_now,
+    )
+
+    def _override_get_current_user() -> User:
+        return _fake_user
+
+    app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[get_current_user] = _override_get_current_user
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def auth_client(db_session: Session) -> Generator[TestClient, None, None]:
+    """TestClient with only get_db overridden — NO auth override.
+
+    Use this fixture in tests that need to exercise real JWT authentication
+    (e.g. auth router tests for login/me endpoints).
     """
     from app.core.database import get_db
     from app.main import app

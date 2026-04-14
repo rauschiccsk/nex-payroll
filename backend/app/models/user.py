@@ -1,9 +1,12 @@
 """User model — system user with authentication and RBAC.
 
-Schema: tenant-specific
+Schema: public (tenant isolation enforced via tenant_id FK, not schema separation)
 Represents a user who can log into the system. Linked to a tenant
 and optionally to an employee record.
 Password is hashed using Argon2 via pwdlib.
+
+Seed data (migration 024):
+  - superadmin user (director role, linked to demo tenant)
 """
 
 import uuid
@@ -23,11 +26,25 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
+# ---------------------------------------------------------------------------
+# Role constants — used by require_role() dependency and RBAC checks
+# ---------------------------------------------------------------------------
+
+ROLE_DIRECTOR = "director"
+ROLE_ACCOUNTANT = "accountant"
+ROLE_EMPLOYEE = "employee"
+
+ALL_ROLES: tuple[str, ...] = (ROLE_DIRECTOR, ROLE_ACCOUNTANT, ROLE_EMPLOYEE)
+"""All valid user roles, ordered by privilege level (highest first)."""
+
+MANAGEMENT_ROLES: tuple[str, ...] = (ROLE_DIRECTOR, ROLE_ACCOUNTANT)
+"""Roles with management permissions (can manage employees, payroll, etc.)."""
+
 
 class User(UUIDMixin, TimestampMixin, Base):
     """System user with authentication and role-based access control.
 
-    Tenant-specific table — lives in the tenant's dedicated schema.
+    Lives in the public schema; tenant isolation via tenant_id FK.
     Roles: director, accountant, employee.
     Business rules:
       - role='employee' MUST have employee_id set
@@ -59,7 +76,6 @@ class User(UUIDMixin, TimestampMixin, Base):
             name="ck_users_role",
         ),
         Index("ix_users_tenant_role", "tenant_id", "role"),
-        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --

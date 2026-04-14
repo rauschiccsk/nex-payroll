@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.core.config import settings
+from app.middleware.tenant_resolver import TenantResolverMiddleware
 from app.routers.annual import router as annual_router
 from app.routers.audit_log import router as audit_log_router
 from app.routers.auth import router as auth_router
@@ -43,6 +44,7 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],
     max_age=600,
 )
+app.add_middleware(TenantResolverMiddleware)
 
 app.include_router(
     annual_router,

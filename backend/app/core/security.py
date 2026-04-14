@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.user import User
+from app.models.user import ALL_ROLES, User
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -84,3 +84,37 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+
+# ---------------------------------------------------------------------------
+# require_role dependency factory
+# ---------------------------------------------------------------------------
+
+
+def require_role(*roles: str):
+    """Return a FastAPI dependency that enforces RBAC.
+
+    Usage::
+
+        @router.get("/admin-only", dependencies=[Depends(require_role("director"))])
+        def admin_endpoint(): ...
+
+    Raises HTTP 403 if the authenticated user's role is not in *roles*.
+    Raises ValueError at import time if an invalid role name is passed.
+    """
+    invalid = set(roles) - set(ALL_ROLES)
+    if invalid:
+        raise ValueError(f"Invalid role(s): {invalid}. Valid roles: {ALL_ROLES}")
+    allowed: set[str] = set(roles)
+
+    def _check_role(
+        current_user: User = Depends(get_current_user),  # noqa: B008
+    ) -> User:
+        if current_user.role not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+
+    return _check_role

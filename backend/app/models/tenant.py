@@ -3,6 +3,9 @@
 Schema: public
 Each tenant represents a separate company using NEX Payroll.
 Tenant's schema_name determines the PostgreSQL schema for tenant-specific data.
+
+Seed data (migration 024):
+  - ICC Demo s.r.o. (ico=12345678, schema_name='tenant_demo')
 """
 
 from sqlalchemy import Boolean, String, UniqueConstraint
@@ -23,7 +26,7 @@ class Tenant(UUIDMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("ico", name="uq_tenants_ico"),
         UniqueConstraint("schema_name", name="uq_tenants_schema_name"),
-        {"schema": "public", "extend_existing": True},
+        {"schema": "public"},
     )
 
     name: Mapped[str] = mapped_column(

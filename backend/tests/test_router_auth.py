@@ -69,10 +69,10 @@ def test_user(db_session: Session) -> tuple[User, str]:
 class TestLogin:
     """Tests for the login endpoint."""
 
-    def test_login_success(self, client: TestClient, test_user):
+    def test_login_success(self, auth_client: TestClient, test_user):
         """Correct credentials → 200 with access_token."""
         user, password = test_user
-        resp = client.post(
+        resp = auth_client.post(
             LOGIN_URL,
             data={"username": user.username, "password": password},
         )
@@ -82,24 +82,24 @@ class TestLogin:
         assert body["token_type"] == "bearer"
         assert len(body["access_token"]) > 20
 
-    def test_login_wrong_password(self, client: TestClient, test_user):
+    def test_login_wrong_password(self, auth_client: TestClient, test_user):
         """Wrong password → 401."""
         user, _ = test_user
-        resp = client.post(
+        resp = auth_client.post(
             LOGIN_URL,
             data={"username": user.username, "password": "wrongpassword"},
         )
         assert resp.status_code == 401
 
-    def test_login_unknown_username(self, client: TestClient):
+    def test_login_unknown_username(self, auth_client: TestClient):
         """Non-existent username → 401."""
-        resp = client.post(
+        resp = auth_client.post(
             LOGIN_URL,
             data={"username": "nobody", "password": "whatever123"},
         )
         assert resp.status_code == 401
 
-    def test_login_inactive_user(self, client: TestClient, db_session: Session):
+    def test_login_inactive_user(self, auth_client: TestClient, db_session: Session):
         """Inactive user cannot log in → 401."""
         tenant = _make_tenant(db_session, ico="66666661", schema_name="tenant_auth_inactive_66666661")
         payload = UserCreate(
@@ -113,7 +113,7 @@ class TestLogin:
         user.is_active = False
         db_session.flush()
 
-        resp = client.post(
+        resp = auth_client.post(
             LOGIN_URL,
             data={"username": "inactiveuser", "password": "TestPass123!"},
         )
@@ -128,17 +128,17 @@ class TestLogin:
 class TestMe:
     """Tests for the me endpoint."""
 
-    def _get_token(self, client: TestClient, username: str, password: str) -> str:
-        resp = client.post(LOGIN_URL, data={"username": username, "password": password})
+    def _get_token(self, auth_client: TestClient, username: str, password: str) -> str:
+        resp = auth_client.post(LOGIN_URL, data={"username": username, "password": password})
         assert resp.status_code == 200
         return resp.json()["access_token"]
 
-    def test_me_with_valid_token(self, client: TestClient, test_user):
+    def test_me_with_valid_token(self, auth_client: TestClient, test_user):
         """Valid token → 200 with user data."""
         user, password = test_user
-        token = self._get_token(client, user.username, password)
+        token = self._get_token(auth_client, user.username, password)
 
-        resp = client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
+        resp = auth_client.get(ME_URL, headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         body = resp.json()
         assert body["id"] == str(user.id)
@@ -147,17 +147,17 @@ class TestMe:
         assert body["role"] == user.role
         assert "password_hash" not in body
 
-    def test_me_without_token(self, client: TestClient):
+    def test_me_without_token(self, auth_client: TestClient):
         """No token → 401."""
-        resp = client.get(ME_URL)
+        resp = auth_client.get(ME_URL)
         assert resp.status_code == 401
 
-    def test_me_with_invalid_token(self, client: TestClient):
+    def test_me_with_invalid_token(self, auth_client: TestClient):
         """Garbage token → 401."""
-        resp = client.get(ME_URL, headers={"Authorization": "Bearer not.a.real.token"})
+        resp = auth_client.get(ME_URL, headers={"Authorization": "Bearer not.a.real.token"})
         assert resp.status_code == 401
 
-    def test_me_with_expired_token(self, client: TestClient, test_user):
+    def test_me_with_expired_token(self, auth_client: TestClient, test_user):
         """Manually crafted expired token → 401."""
         from datetime import datetime, timedelta
 
@@ -176,5 +176,5 @@ class TestMe:
         }
         expired_token = jwt.encode(payload, settings.payroll_jwt_secret, algorithm="HS256")
 
-        resp = client.get(ME_URL, headers={"Authorization": f"Bearer {expired_token}"})
+        resp = auth_client.get(ME_URL, headers={"Authorization": f"Bearer {expired_token}"})
         assert resp.status_code == 401

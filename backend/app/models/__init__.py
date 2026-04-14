@@ -22,9 +22,17 @@ from app.models.payroll import Payroll
 from app.models.statutory_deadline import StatutoryDeadline
 from app.models.tax_bracket import TaxBracket
 from app.models.tenant import Tenant
-from app.models.user import User
+from app.models.user import (
+    ALL_ROLES,
+    MANAGEMENT_ROLES,
+    ROLE_ACCOUNTANT,
+    ROLE_DIRECTOR,
+    ROLE_EMPLOYEE,
+    User,
+)
 
 __all__ = [
+    "ALL_ROLES",
     "AnnualSettlement",
     "AuditLog",
     "Base",
@@ -36,11 +44,15 @@ __all__ = [
     "JournalEntry",
     "Leave",
     "LeaveEntitlement",
+    "MANAGEMENT_ROLES",
     "MonthlyReport",
     "Notification",
     "PaySlip",
     "PaymentOrder",
     "Payroll",
+    "ROLE_ACCOUNTANT",
+    "ROLE_DIRECTOR",
+    "ROLE_EMPLOYEE",
     "StatutoryDeadline",
     "TaxBracket",
     "Tenant",
