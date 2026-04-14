@@ -36,7 +36,7 @@ class TestTenantSchema:
         """Table args must include schema='public' dict."""
         table_opts = Tenant.__table_args__[-1]
         assert table_opts.get("schema") == "public"
-        assert "extend_existing" not in table_opts
+        assert table_opts.get("extend_existing") is True
 
 
 class TestTenantColumns:

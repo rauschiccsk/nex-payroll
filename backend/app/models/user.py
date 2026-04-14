@@ -59,7 +59,7 @@ class User(UUIDMixin, TimestampMixin, Base):
             name="ck_users_role",
         ),
         Index("ix_users_tenant_role", "tenant_id", "role"),
-        {},
+        {"extend_existing": True},
     )
 
     # -- Relationships / foreign keys --
