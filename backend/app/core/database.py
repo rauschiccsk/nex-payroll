@@ -45,7 +45,7 @@ def get_db():
             # Validate schema name against strict pattern to prevent SQL injection
             if not re.match(r"^[a-z_][a-z0-9_]*$", schema):
                 raise ValueError(f"Invalid schema name: {schema!r}")
-            db.execute(text(f"SET search_path TO {schema}, public"))
+            db.execute(text(f"SET search_path TO {schema}, shared, public"))
         yield db
     finally:
         if tenant_schema_var.get() is not None:
