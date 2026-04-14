@@ -3,8 +3,8 @@
 Creates the public.tenants and public.users tables with full column
 definitions, indexes and constraints for multi-tenant support.
 
-Revision ID: 023
-Revises: 022
+Revision ID: 001
+Revises:
 Create Date: 2026-04-14 00:00:00.000000
 
 """
@@ -16,14 +16,17 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "023"
-down_revision: str | Sequence[str] | None = "022"
+revision: str = "001"
+down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Create public.tenants and public.users tables."""
+    """Create shared schema, public.tenants and public.users tables."""
+    # -- shared schema (previously 001_create_schemas) --
+    op.execute("CREATE SCHEMA IF NOT EXISTS shared")
+
     # -- public.tenants --
     op.create_table(
         "tenants",
@@ -138,23 +141,11 @@ def upgrade() -> None:
         unique=False,
         schema="public",
     )
-    op.create_index(
-        "ix_mt_users_email",
-        "users",
-        ["email"],
-        unique=False,
-        schema="public",
-    )
-    op.create_index(
-        "ix_mt_users_username",
-        "users",
-        ["username"],
-        unique=False,
-        schema="public",
-    )
 
 
 def downgrade() -> None:
     """Drop public.users and public.tenants tables."""
+    op.drop_index("ix_mt_users_tenant_id", table_name="users", schema="public")
     op.drop_table("users", schema="public")
     op.drop_table("tenants", schema="public")
+    op.execute("DROP SCHEMA IF EXISTS shared CASCADE")
