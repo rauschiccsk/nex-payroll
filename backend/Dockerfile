@@ -28,15 +28,15 @@ RUN poetry config virtualenvs.create false && \
 # Copy application code
 COPY . .
 
-EXPOSE 9172
+EXPOSE 9170
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:9172/health || exit 1
+    CMD curl -f http://localhost:9170/health || exit 1
 
 # Run with Gunicorn + Uvicorn workers
 CMD ["gunicorn", "app.main:app", \
      "--worker-class", "uvicorn.workers.UvicornWorker", \
-     "--bind", "0.0.0.0:9172", \
+     "--bind", "0.0.0.0:9170", \
      "--workers", "2", \
      "--timeout", "120"]

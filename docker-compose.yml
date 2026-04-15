@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       POSTGRES_DB: ${POSTGRES_DB:-nex_payroll}
     ports:
-      - "${POSTGRES_PORT:-9174}:5432"
+      - "${POSTGRES_PORT:-9172}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init-test-db.sh:/docker-entrypoint-initdb.d/init-test-db.sh:ro
@@ -35,16 +35,16 @@ services:
       PAYROLL_JWT_SECRET: ${PAYROLL_JWT_SECRET:-changeme-generate-a-real-secret-key}
       PAYROLL_ENCRYPTION_KEY: ${PAYROLL_ENCRYPTION_KEY:-changeme-32-chars-minimum-key!!}
       PAYROLL_ADMIN_PASSWORD: ${PAYROLL_ADMIN_PASSWORD:-admin}
-      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:9173"]}
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:9171"]}
     ports:
-      - "${BACKEND_PORT:-9172}:9172"
+      - "${BACKEND_PORT:-9170}:9170"
     depends_on:
       db:
         condition: service_healthy
     networks:
       - nex-payroll-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9172/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9170/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -57,14 +57,14 @@ services:
     container_name: nex-payroll-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-9173}:9173"
+      - "${FRONTEND_PORT:-9171}:9171"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - nex-payroll-net
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:9173/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:9171/health"]
       interval: 30s
       timeout: 5s
       retries: 3

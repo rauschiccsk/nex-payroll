@@ -27,10 +27,10 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built assets from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-EXPOSE 9173
+EXPOSE 9171
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- http://localhost:9173/ || exit 1
+    CMD wget -qO- http://localhost:9171/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
