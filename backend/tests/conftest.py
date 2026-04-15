@@ -24,16 +24,12 @@ from sqlalchemy.orm import Session
 if not os.environ.get("PAYROLL_ENCRYPTION_KEY") and not os.environ.get("FERNET_KEY"):
     os.environ["PAYROLL_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
-# Import Base and trigger all model registrations via app.models.__init__
+# Import app.models to trigger all model registrations via app.models.__init__
 # so that Base.metadata is fully populated for create_all/drop_all.
-import app.models as _models  # noqa: F401
-from app.models.annual_settlement import AnnualSettlement  # noqa: F401
+import app.models  # noqa: F401
 from app.models.base import Base
-from app.models.journal_entry import JournalEntry  # noqa: F401
-from app.models.notification import Notification  # noqa: F401
-from app.models.statutory_deadline import StatutoryDeadline  # noqa: F401
-from app.models.tenant import Tenant  # noqa: F401
-from app.models.user import User  # noqa: F401
+from app.models.tenant import Tenant
+from app.models.user import User
 
 # ---------------------------------------------------------------------------
 # Database URL resolution
@@ -213,3 +209,301 @@ def auth_client(db_session: Session) -> Generator[TestClient, None, None]:
         yield test_client
 
     app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
+# Auth helper: test tenant for JWT-based fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def _auth_tenant(db_session: Session) -> Tenant:
+    """Create a minimal test tenant for auth-based fixtures."""
+    tenant = Tenant(
+        name="Auth Test Tenant",
+        ico="99999999",
+        schema_name="tenant_auth_test",
+        address_street="Test 1",
+        address_city="Bratislava",
+        address_zip="81101",
+        address_country="SK",
+        bank_iban="SK0000000000000000000001",
+        is_active=True,
+    )
+    db_session.add(tenant)
+    db_session.flush()
+    return tenant
+
+
+# ---------------------------------------------------------------------------
+# Journey-specific auth fixtures (real JWT via /api/v1/auth/login)
+# ---------------------------------------------------------------------------
+
+
+def _login_and_get_headers(test_client: TestClient, username: str, password: str) -> dict[str, str]:
+    """POST to login endpoint and return Authorization header dict."""
+    response = test_client.post(
+        "/api/v1/auth/login",
+        data={"username": username, "password": password},
+    )
+    assert response.status_code == 200, f"Login failed for {username}: {response.status_code} {response.text}"
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def superadmin_headers(
+    auth_client: TestClient,
+    db_session: Session,
+    _auth_tenant: Tenant,
+) -> dict[str, str]:
+    """JWT Authorization headers for a superadmin (director) user.
+
+    Creates a superadmin user in the test DB, logs in via the real
+    auth endpoint, and returns ``{"Authorization": "Bearer <token>"}``.
+    Password sourced from PAYROLL_SUPERADMIN_PASSWORD env var (default: changeme).
+    """
+    from app.services.auth_service import hash_password
+
+    password = os.environ.get("PAYROLL_SUPERADMIN_PASSWORD", "changeme")
+    user = User(
+        tenant_id=_auth_tenant.id,
+        username="superadmin",
+        email="superadmin@test.local",
+        password_hash=hash_password(password),
+        role="director",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+
+    return _login_and_get_headers(auth_client, "superadmin", password)
+
+
+@pytest.fixture()
+def director_headers(
+    auth_client: TestClient,
+    db_session: Session,
+    _auth_tenant: Tenant,
+) -> dict[str, str]:
+    """JWT Authorization headers for a tenant director user.
+
+    Creates a director user in the test DB, logs in via the real
+    auth endpoint, and returns ``{"Authorization": "Bearer <token>"}``.
+    Password sourced from PAYROLL_ADMIN_PASSWORD env var (default: changeme).
+    """
+    from app.services.auth_service import hash_password
+
+    password = os.environ.get("PAYROLL_ADMIN_PASSWORD", "changeme")
+    user = User(
+        tenant_id=_auth_tenant.id,
+        username="test_director",
+        email="director@test.local",
+        password_hash=hash_password(password),
+        role="director",
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+
+    return _login_and_get_headers(auth_client, "test_director", password)
+
+
+@pytest.fixture()
+def accountant_headers(
+    auth_client: TestClient,
+    test_accountant_user: dict,
+) -> dict[str, str]:
+    """JWT Authorization headers for an accountant user.
+
+    Requires ``test_accountant_user`` fixture (Task 19.3) which creates
+    the user via the API.  Logs in via the real auth endpoint.
+    """
+    return _login_and_get_headers(auth_client, test_accountant_user["username"], "Test1234!@#$")
+
+
+@pytest.fixture()
+def employee_headers(
+    auth_client: TestClient,
+    test_employee_user: dict,
+) -> dict[str, str]:
+    """JWT Authorization headers for an employee user.
+
+    Requires ``test_employee_user`` fixture (Task 19.3) which creates
+    the user via the API.  Logs in via the real auth endpoint.
+    """
+    return _login_and_get_headers(auth_client, test_employee_user["username"], "Test1234!@#$")
+
+
+# ---------------------------------------------------------------------------
+# Test tenant fixture (real API round-trip)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def test_tenant(
+    auth_client: TestClient,
+    superadmin_headers: dict[str, str],
+) -> Generator[dict, None, None]:
+    """Create a realistic test tenant via the API and clean up after the test.
+
+    Yields the tenant dict (JSON response body from POST /api/v1/tenants).
+    Cleanup DELETEs the tenant even if the test fails (yield-based teardown).
+    """
+    tenant_payload = {
+        "name": "Test Firma s.r.o.",
+        "ico": "12345678",
+        "dic": "2023456789",
+        "address_street": "Hlavná 42",
+        "address_city": "Bratislava",
+        "address_zip": "81101",
+        "address_country": "SK",
+        "bank_iban": "SK3112000000198742637541",
+        "bank_bic": "TATRSKBX",
+    }
+
+    # Create tenant
+    response = auth_client.post(
+        "/api/v1/tenants",
+        json=tenant_payload,
+        headers=superadmin_headers,
+    )
+    assert response.status_code == 201, f"Failed to create test tenant: {response.status_code} {response.text}"
+    tenant = response.json()
+
+    yield tenant
+
+    # Cleanup — deactivate/delete tenant (runs even if test fails)
+    auth_client.delete(
+        f"/api/v1/tenants/{tenant['id']}",
+        headers=superadmin_headers,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test employee fixture (API round-trip — dependency for test_employee_user)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def test_employee(
+    auth_client: TestClient,
+    director_headers: dict[str, str],
+    test_tenant: dict,
+) -> dict:
+    """Create a test employee via API for use in user fixtures.
+
+    Creates a health insurer via API if needed, then creates the employee.
+    Returns the employee dict (JSON response body).
+    """
+    # Ensure at least one health insurer exists via API
+    hi_response = auth_client.get("/api/v1/health-insurers", headers=director_headers)
+    assert hi_response.status_code == 200
+    hi_data = hi_response.json()
+    if hi_data["total"] > 0:
+        hi_id = hi_data["items"][0]["id"]
+    else:
+        hi_create = auth_client.post(
+            "/api/v1/health-insurers",
+            json={
+                "code": "25",
+                "name": "VšZP",
+                "iban": "SK8975000000000000000000",
+            },
+            headers=director_headers,
+        )
+        assert hi_create.status_code == 201, (
+            f"Failed to create health insurer: {hi_create.status_code} {hi_create.text}"
+        )
+        hi_id = hi_create.json()["id"]
+
+    payload = {
+        "tenant_id": test_tenant["id"],
+        "employee_number": "EMP001",
+        "first_name": "Ján",
+        "last_name": "Testovací",
+        "birth_date": "1990-05-15",
+        "birth_number": "9005150001",
+        "gender": "M",
+        "address_street": "Hlavná 1",
+        "address_city": "Bratislava",
+        "address_zip": "81101",
+        "address_country": "SK",
+        "bank_iban": "SK8975000000000012345678",
+        "health_insurer_id": hi_id,
+        "tax_declaration_type": "standard",
+        "hire_date": "2024-01-15",
+    }
+
+    response = auth_client.post(
+        "/api/v1/employees",
+        json=payload,
+        headers=director_headers,
+    )
+    assert response.status_code == 201, f"Failed to create test employee: {response.status_code} {response.text}"
+    return response.json()
+
+
+# ---------------------------------------------------------------------------
+# Test user fixtures (accountant + employee)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def test_accountant_user(
+    auth_client: TestClient,
+    director_headers: dict[str, str],
+    test_tenant: dict,
+) -> dict:
+    """Create a test accountant user via the API.
+
+    POST /api/v1/users with role='accountant'.
+    Returns the user dict (JSON response body).
+    No cleanup needed — tenant deactivation handles it.
+    """
+    payload = {
+        "tenant_id": test_tenant["id"],
+        "username": "accountant_test",
+        "email": "accountant@test.local",
+        "password": "Test1234!@#$",
+        "role": "accountant",
+    }
+
+    response = auth_client.post(
+        "/api/v1/users",
+        json=payload,
+        headers=director_headers,
+    )
+    assert response.status_code == 201, f"Failed to create accountant user: {response.status_code} {response.text}"
+    return response.json()
+
+
+@pytest.fixture()
+def test_employee_user(
+    auth_client: TestClient,
+    director_headers: dict[str, str],
+    test_tenant: dict,
+    test_employee: dict,
+) -> dict:
+    """Create a test employee user via the API.
+
+    POST /api/v1/users with role='employee' linked to test_employee.
+    Returns the user dict (JSON response body).
+    No cleanup needed — tenant deactivation handles it.
+    """
+    payload = {
+        "tenant_id": test_tenant["id"],
+        "username": "employee_test",
+        "email": "employee@test.local",
+        "password": "Test1234!@#$",
+        "role": "employee",
+        "employee_id": test_employee["id"],
+    }
+
+    response = auth_client.post(
+        "/api/v1/users",
+        json=payload,
+        headers=director_headers,
+    )
+    assert response.status_code == 201, f"Failed to create employee user: {response.status_code} {response.text}"
+    return response.json()
